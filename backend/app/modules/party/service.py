@@ -267,8 +267,9 @@ async def duplicate_check(
 
 
 async def create_organization(
-    ctx: Context, principal: Principal, data: OrganizationCreate
+    ctx: Context, principal: Principal, data: OrganizationCreate, *, commit: bool = True
 ) -> OrganizationOut:
+    """`commit=False` lets another module create it inside its own transaction (lead conversion)."""
     owner_id = data.owner_id or principal.user_id
     await _check_owner_choice(ctx, principal, owner_id)
     await _check_industry(ctx, data.industry_id)
@@ -290,7 +291,10 @@ async def create_organization(
     await _publish(
         ctx, "organization.created", "organization", org.id, principal, after=_org_view(org)
     )
-    await ctx.session.commit()
+    if commit:
+        await ctx.session.commit()
+    else:
+        await ctx.session.refresh(org)
     created = await repository.get_organization(ctx.session, org.id)
     assert created is not None  # noqa: S101 - just created
     return (await _orgs_out(ctx, [created]))[0]
@@ -530,7 +534,10 @@ async def _email_duplicates(ctx: Context, email: str, exclude_id: UUID | None) -
     ]
 
 
-async def create_contact(ctx: Context, principal: Principal, data: ContactCreate) -> ContactOut:
+async def create_contact(
+    ctx: Context, principal: Principal, data: ContactCreate, *, commit: bool = True
+) -> ContactOut:
+    """`commit=False` lets another module create it inside its own transaction (lead conversion)."""
     await _check_contact_organization(ctx, data.organization_id)
     if data.email and not data.confirm_duplicate:
         matches = await _email_duplicates(ctx, data.email, None)
@@ -547,6 +554,9 @@ async def create_contact(ctx: Context, principal: Principal, data: ContactCreate
     await _publish(
         ctx, "contact.created", "contact", contact.id, principal, after=_contact_view(contact)
     )
+    if not commit:
+        await ctx.session.refresh(contact)
+        return (await _contacts_out(ctx, [contact]))[0]
     await ctx.session.commit()
     return await _fresh_contact(ctx, contact.id)
 
@@ -747,3 +757,13 @@ async def contact_link(
         full_name=f"{contact.first_name} {contact.last_name}",
         organization_id=contact.organization_id,
     )
+
+
+async def contact_email_matches(ctx: Context, email: str) -> list[Match]:
+    """Contacts with this email (FR-PARTY-02), e.g. to suggest them when converting a lead."""
+    return await _email_duplicates(ctx, email.strip().lower(), None)
+
+
+async def organization_contact_ids(session: AsyncSession, org_id: UUID) -> list[UUID]:
+    """IDs of the organisation's contacts, archived included (merged timelines, FR-ACT-03)."""
+    return await repository.contact_ids_of_organization(session, org_id)

@@ -20,6 +20,9 @@ from app.modules.sales.schemas import (
     AssignRequest,
     Board,
     CloseRequest,
+    ConversionPreview,
+    ConversionResult,
+    ConvertRequest,
     DisqualifyRequest,
     LeadCreate,
     LeadOut,
@@ -215,6 +218,29 @@ async def reopen(
     lead_id: UUID, body: VersionOnly, ctx: Ctx, principal: CurrentPrincipal
 ) -> LeadOut:
     return await service.reopen(ctx, principal, lead_id, body.version)
+
+
+@leads_router.get(
+    "/{lead_id}/conversion-preview",
+    summary="Suggested organization and contact matches to show before converting",
+    **endpoint(AccessLevel.OWNER_PLUS),
+)
+async def conversion_preview(
+    lead_id: UUID, ctx: Ctx, principal: CurrentPrincipal
+) -> ConversionPreview:
+    return await service.conversion_preview(ctx, principal, lead_id)
+
+
+@leads_router.post(
+    "/{lead_id}/convert",
+    status_code=status.HTTP_201_CREATED,
+    summary="Convert in one transaction: organization, contact and opportunity",
+    **endpoint(AccessLevel.OWNER_PLUS),
+)
+async def convert(
+    lead_id: UUID, body: ConvertRequest, ctx: Ctx, principal: CurrentPrincipal
+) -> ConversionResult:
+    return await service.convert(ctx, principal, lead_id, body)
 
 
 OrganizationLeadList = Annotated[

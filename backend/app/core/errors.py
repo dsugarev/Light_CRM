@@ -24,6 +24,7 @@ PROBLEM_TYPE_BASE = "https://crm.internal/errors/"
 class ErrorCode(StrEnum):
     """Error codes in use. Add a code here only together with the spec table."""
 
+    ACTIVITY_NOT_A_TASK = "activity.not_a_task"
     AUTH_ACCOUNT_LOCKED = "auth.account_locked"
     AUTH_API_KEY_INVALID = "auth.api_key_invalid"
     AUTH_CSRF_FAILED = "auth.csrf_failed"
@@ -36,6 +37,7 @@ class ErrorCode(StrEnum):
     CONFLICT_VERSION_MISMATCH = "conflict.version_mismatch"
     LEAD_BANT_INCOMPLETE = "lead.bant_incomplete"
     LEAD_INVALID_TRANSITION = "lead.invalid_transition"
+    LEAD_NOT_CONVERTIBLE = "lead.not_convertible"
     LEAD_READ_ONLY = "lead.read_only"
     PERMISSION_DENIED = "permission.denied"
     PERMISSION_LAST_ADMIN = "permission.last_admin"

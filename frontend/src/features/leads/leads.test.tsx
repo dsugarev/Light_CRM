@@ -2,7 +2,19 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 
-import { ADMIN_ME, LEAD, leadLists, page, REP_ME, signedInAs } from '@/test/fixtures'
+import {
+  ADMIN_ME,
+  LEAD,
+  leadLists,
+  OPPORTUNITY,
+  opportunityLists,
+  ORG,
+  page,
+  REP_ME,
+  signedInAs,
+  STAGES,
+  summary,
+} from '@/test/fixtures'
 import { renderApp } from '@/test/render'
 import { problem, server } from '@/test/server'
 
@@ -208,3 +220,145 @@ describe('FR-ADM-02 lead lists administration', () => {
     expect(await screen.findByText('No budget')).toBeInTheDocument()
   })
 })
+
+describe('FR-LEAD-04 conversion', () => {
+  const qualified = { ...LEAD, status: 'qualified' as const }
+  const preview = {
+    organization: {
+      linked: null,
+      matches: [
+        {
+          id: 'org-acme',
+          name: 'ACME EOOD',
+          registration_number: null,
+          email: null,
+          city: 'София',
+          archived: false,
+          reason: 'name' as const,
+        },
+      ],
+      suggested: { name: 'Акме ЕООД' },
+    },
+    contact: {
+      linked: null,
+      matches: [],
+      suggested: {
+        first_name: 'Мария',
+        last_name: 'Иванова',
+        email: 'maria@example.test',
+        phone: null,
+      },
+    },
+    opportunity: { name: LEAD.title, amount: '48000.00', stage: summary(STAGES[0]) },
+  }
+
+  function onConversion() {
+    opportunityLists()
+    server.use(
+      http.get(`*/api/v1/leads/${LEAD.id}`, () => HttpResponse.json(qualified)),
+      http.get(`*/api/v1/leads/${LEAD.id}/conversion-preview`, () => HttpResponse.json(preview)),
+    )
+  }
+
+  it('offers Convert on a qualified lead', async () => {
+    signedInAs(REP_ME)
+    onLead(qualified)
+    await renderApp(`/leads/${LEAD.id}`)
+    expect(await screen.findByRole('link', { name: 'Convert' })).toHaveAttribute(
+      'href',
+      `/leads/${LEAD.id}/convert`,
+    )
+  })
+
+  it('shows the opportunity a converted lead became', async () => {
+    signedInAs(REP_ME)
+    onLead({
+      ...LEAD,
+      status: 'converted',
+      converted_opportunity: { id: OPPORTUNITY.id, name: OPPORTUNITY.name },
+    })
+    await renderApp(`/leads/${LEAD.id}`)
+    expect(await screen.findByRole('link', { name: OPPORTUNITY.name })).toHaveAttribute(
+      'href',
+      `/opportunities/${OPPORTUNITY.id}`,
+    )
+    expect(screen.queryByRole('link', { name: 'Convert' })).not.toBeInTheDocument()
+  })
+
+  it('suggests the matching organization and converts in one request', async () => {
+    signedInAs(REP_ME)
+    onConversion()
+    let body: Record<string, unknown> = {}
+    server.use(
+      http.post(`*/api/v1/leads/${LEAD.id}/convert`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json(
+          { lead: qualified, organization: ORG, contact: null, opportunity: OPPORTUNITY },
+          { status: 201 },
+        )
+      }),
+    )
+    onOpportunityPage()
+    const { router } = await renderApp(`/leads/${LEAD.id}/convert`)
+    const organization = await screen.findByRole('group', { name: 'Organization' })
+    expect(
+      within(organization).getByRole('radio', { name: /ACME EOOD, София — same name/ }),
+    ).toBeChecked()
+    const contact = screen.getByRole('group', { name: 'Contact' })
+    expect(within(contact).getByRole('radio', { name: 'Create a new contact' })).toBeChecked()
+    expect(screen.getByLabelText('First name')).toHaveValue('Мария')
+    expect(screen.getByLabelText('Opportunity name')).toHaveValue(LEAD.title)
+    await userEvent.type(screen.getByLabelText('Expected close date'), '2027-02-28')
+    await userEvent.click(screen.getByRole('button', { name: 'Convert' }))
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(`/opportunities/${OPPORTUNITY.id}`)
+    })
+    expect(body).toMatchObject({
+      version: 3,
+      organization: { existing_id: 'org-acme' },
+      contact: { new: { first_name: 'Мария', last_name: 'Иванова', email: 'maria@example.test' } },
+      opportunity: { name: LEAD.title, amount: '48000.00', expected_close_date: '2027-02-28' },
+    })
+  })
+
+  it('asks before creating a duplicate organization', async () => {
+    signedInAs(REP_ME)
+    onConversion()
+    const bodies: Record<string, unknown>[] = []
+    server.use(
+      http.post(`*/api/v1/leads/${LEAD.id}/convert`, async ({ request }) => {
+        const body = (await request.json()) as {
+          organization: { new?: { confirm_duplicate: boolean } }
+        }
+        bodies.push(body)
+        return body.organization.new?.confirm_duplicate
+          ? HttpResponse.json(
+              { lead: qualified, organization: ORG, contact: null, opportunity: OPPORTUNITY },
+              { status: 201 },
+            )
+          : problem(409, 'conflict.duplicate', { matches: [preview.organization.matches[0]] })
+      }),
+    )
+    onOpportunityPage()
+    await renderApp(`/leads/${LEAD.id}/convert`)
+    await userEvent.click(await screen.findByRole('radio', { name: 'Create a new organization' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Convert' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Records with the same details already exist')
+    await userEvent.click(within(alert).getByRole('checkbox', { name: 'Create anyway' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Convert' }))
+    await waitFor(() => {
+      expect(bodies).toHaveLength(2)
+    })
+    expect(bodies[1]).toMatchObject({
+      organization: { new: { name: 'Акме ЕООД', confirm_duplicate: true } },
+    })
+  })
+})
+
+function onOpportunityPage() {
+  server.use(
+    http.get(`*/api/v1/opportunities/${OPPORTUNITY.id}`, () => HttpResponse.json(OPPORTUNITY)),
+    http.get(`*/api/v1/opportunities/${OPPORTUNITY.id}/stage-history`, () => HttpResponse.json([])),
+  )
+}

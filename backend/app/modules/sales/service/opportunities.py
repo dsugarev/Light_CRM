@@ -47,6 +47,7 @@ from app.modules.sales.schemas import (
     OpportunityUpdate,
     ReopenRequest,
     StageChange,
+    StageSummary,
 )
 from app.modules.sales.service.common import (
     Context,
@@ -288,6 +289,13 @@ async def _commit(
         )
     await ctx.session.commit()
     return await _fresh(ctx, opp.id)
+
+
+async def default_first_stage(ctx: Context) -> StageSummary:
+    """Where a new opportunity starts unless a stage is chosen (FR-OPP-01)."""
+    stage = first_stage(await default_pipeline(ctx), "open")
+    assert stage is not None  # noqa: S101 - guarded by stage.required
+    return stage_summary(stage)
 
 
 # --- Create and read ----------------------------------------------------------------------

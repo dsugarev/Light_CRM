@@ -20,7 +20,7 @@ from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.events import DomainEvent, EventBus
 from app.core.mailer import Mailer
-from app.core.policy import permissions_for
+from app.core.policy import CONTRIBUTOR_ROLES, permissions_for
 from app.core.principal import Principal, PrincipalType, RoleCode
 from app.modules.identity import repository
 from app.modules.identity.emails import password_link_email
@@ -723,6 +723,17 @@ async def is_assignable_owner(session: AsyncSession, user_id: UUID) -> bool:
     """Records may be owned only by active human users (FR-INT-03 AC4 relies on this too)."""
     user = await repository.get_user(session, user_id)
     return user is not None and user.is_active and user.is_human
+
+
+async def is_contributor(session: AsyncSession, user_id: UUID) -> bool:
+    """Active human who may change records (Admin, Sales Manager, Sales Rep): task assignees."""
+    user = await repository.get_user(session, user_id)
+    return (
+        user is not None
+        and user.is_active
+        and user.is_human
+        and principal_for(user).role in CONTRIBUTOR_ROLES
+    )
 
 
 # --- Operations (CLI and worker) ----------------------------------------------

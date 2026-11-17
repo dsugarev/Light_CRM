@@ -5,7 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, Select, and_, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.listing import search_condition
@@ -14,6 +14,7 @@ from app.modules.sales.models import (
     DisqualificationReason,
     Lead,
     LeadSource,
+    LossReason,
     Opportunity,
     OpportunityStageHistory,
     Pipeline,
@@ -243,3 +244,54 @@ async def open_opportunity_figures(
 async def count_with_loss_reason(session: AsyncSession, reason_id: UUID) -> int:
     statement = select(func.count()).where(Opportunity.loss_reason_id == reason_id)
     return (await session.execute(statement)).scalar_one()
+
+
+async def opportunity_names(session: AsyncSession, ids: set[UUID]) -> dict[UUID, str]:
+    if not ids:
+        return {}
+    rows = await session.execute(
+        select(Opportunity.id, Opportunity.name).where(Opportunity.id.in_(ids))
+    )
+    return {row_id: name for row_id, name in rows.all()}  # noqa: C416 - Row to tuple
+
+
+async def lead_ids_of_organization(session: AsyncSession, organization_id: UUID) -> list[UUID]:
+    statement = select(Lead.id).where(Lead.organization_id == organization_id)
+    return list((await session.execute(statement)).scalars())
+
+
+async def opportunity_ids_of_organization(
+    session: AsyncSession, organization_id: UUID
+) -> list[UUID]:
+    statement = select(Opportunity.id).where(Opportunity.organization_id == organization_id)
+    return list((await session.execute(statement)).scalars())
+
+
+async def touch_opportunity(session: AsyncSession, opportunity_id: UUID, at: datetime) -> None:
+    """Move last_activity_at forward only (an older activity never makes it look staler)."""
+    await session.execute(
+        update(Opportunity)
+        .where(Opportunity.id == opportunity_id)
+        .values(last_activity_at=func.greatest(func.coalesce(Opportunity.last_activity_at, at), at))
+    )
+
+
+async def get_stages(session: AsyncSession, ids: set[UUID]) -> list[PipelineStage]:
+    if not ids:
+        return []
+    return list(
+        (await session.execute(select(PipelineStage).where(PipelineStage.id.in_(ids)))).scalars()
+    )
+
+
+async def get_loss_reasons(session: AsyncSession, ids: set[UUID]) -> list[LossReason]:
+    if not ids:
+        return []
+    return list((await session.execute(select(LossReason).where(LossReason.id.in_(ids)))).scalars())
+
+
+async def lead_titles(session: AsyncSession, ids: set[UUID]) -> dict[UUID, str]:
+    if not ids:
+        return {}
+    rows = await session.execute(select(Lead.id, Lead.title).where(Lead.id.in_(ids)))
+    return {row_id: name for row_id, name in rows.all()}  # noqa: C416 - Row to tuple

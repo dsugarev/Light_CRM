@@ -80,7 +80,8 @@
     "takeOver": "Take over",
     "assign": "Assign",
     "assignTo": "New owner",
-    "confirmArchive": "Archive the lead “{{title}}”?"
+    "confirmArchive": "Archive the lead “{{title}}”?",
+    "convert": "Convert"
   },
   "disqualify": {
     "title": "Disqualify lead",
@@ -93,8 +94,7 @@
   "detail": {
     "details": "Details",
     "createdBy": "Created by {{name}} on {{date}}",
-    "readOnly": "This lead is {{status}} and can no longer be edited.",
-    "conversionLater": "Conversion to an opportunity becomes available when opportunities are introduced."
+    "readOnly": "This lead is {{status}} and can no longer be edited."
   },
   "toasts": {
     "created": "Lead created.",
@@ -109,5 +109,34 @@
     "title": "Leads",
     "new": "New lead",
     "none": "No leads yet."
+  },
+  "convert": {
+    "title": "Convert lead: {{title}}",
+    "formLabel": "Convert lead",
+    "organization": "Organization",
+    "contact": "Contact",
+    "opportunity": "Opportunity",
+    "linked": "Linked: {{name}}",
+    "newOrganization": "Create a new organization",
+    "organizationName": "Organization name",
+    "newContact": "Create a new contact",
+    "noContact": "No contact",
+    "first_name": "First name",
+    "last_name": "Last name",
+    "email": "Email",
+    "opportunityName": "Opportunity name",
+    "amount": "Amount (EUR)",
+    "expectedClose": "Expected close date",
+    "stage": "Stage",
+    "duplicates": "Records with the same details already exist:",
+    "confirmDuplicate": "Create anyway",
+    "submit": "Convert",
+    "done": "Lead converted.",
+    "reason": {
+      "registration_number": "same registration number",
+      "name": "same name",
+      "similar_name": "similar name",
+      "email": "same email"
+    }
   }
 }

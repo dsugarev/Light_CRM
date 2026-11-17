@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { RecordTimeline } from '@/features/activities/RecordTimeline'
 import { AssignControl } from '@/features/auth/AssignControl'
 import { useMe } from '@/features/auth/useMe'
 import { useCanEditOwned } from '@/features/auth/useOwnership'
@@ -106,6 +107,9 @@ export function LeadPage() {
         </Card>
         <BantCard key={`${l.id}-${String(l.version)}`} lead={l} />
       </div>
+      <div className="grid gap-6">
+        <RecordTimeline record={{ kind: 'lead', id: l.id }} canLog={!l.archived_at} />
+      </div>
     </section>
   )
 }
@@ -184,13 +188,26 @@ function LeadActions({ lead }: { lead: Lead }) {
                 })
               : t('detail.readOnly', { status: t(`status.${lead.status}`) })}
             {lead.disqualification?.note ? ` — ${lead.disqualification.note}` : ''}
+            {lead.converted_opportunity ? (
+              <>
+                {' '}
+                <Link
+                  className="font-medium hover:underline"
+                  to={`/opportunities/${lead.converted_opportunity.id}`}
+                >
+                  {lead.converted_opportunity.name}
+                </Link>
+              </>
+            ) : null}
           </AlertDescription>
         </Alert>
       ) : null}
-      {lead.status === 'qualified' ? (
-        <p className="text-sm text-muted-foreground">{t('detail.conversionLater')}</p>
-      ) : null}
       <div className="flex flex-wrap gap-2" role="group" aria-label={t('actions.title')}>
+        {editable && lead.status === 'qualified' ? (
+          <Link to={`/leads/${lead.id}/convert`} className={buttonVariants()}>
+            {t('actions.convert')}
+          </Link>
+        ) : null}
         {editable && lead.status === 'new' ? (
           <Button
             type="button"
