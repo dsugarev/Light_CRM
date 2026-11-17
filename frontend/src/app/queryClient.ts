@@ -17,7 +17,11 @@ export function createQueryClient(onUnauthorized: () => void = () => undefined) 
   }
   const queryClient: QueryClient = new QueryClient({
     queryCache: new QueryCache({ onError: handle }),
-    mutationCache: new MutationCache({ onError: handle }),
+    mutationCache: new MutationCache({
+      onError: handle,
+      // Any change can add an event to record timelines (FR-ACT-03); mark them stale.
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ['timeline'] }),
+    }),
     defaultOptions: {
       queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: false },
     },

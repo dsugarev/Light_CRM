@@ -25,6 +25,8 @@ import { OrganizationPage } from '@/features/organizations/OrganizationPage'
 import { OrganizationsPage } from '@/features/organizations/OrganizationsPage'
 import { ProfilePage } from '@/features/profile/ProfilePage'
 import { SearchPage } from '@/features/search/SearchPage'
+import { MyTasksPage } from '@/features/activities/MyTasksPage'
+import { ConvertPage } from '@/features/leads/ConvertPage'
 import { LeadPage } from '@/features/leads/LeadPage'
 import { LeadEditPage, LeadNewPage, LeadsPage } from '@/features/leads/LeadPages'
 import { BoardPage } from '@/features/opportunities/BoardPage'
@@ -64,6 +66,7 @@ export const routes: RouteObject[] = [
               { path: 'contacts/:contactId', element: <ContactPage /> },
               { path: 'leads', element: <LeadsPage /> },
               { path: 'leads/:leadId', element: <LeadPage /> },
+              { path: 'tasks', element: <MyTasksPage /> },
               { path: 'opportunities', element: <OpportunitiesPage /> },
               { path: 'opportunities/board', element: <BoardPage /> },
               { path: 'opportunities/:opportunityId', element: <OpportunityPage /> },
@@ -82,6 +85,7 @@ export const routes: RouteObject[] = [
                   { path: 'organizations/:orgId/edit', element: <OrganizationEditPage /> },
                   { path: 'contacts/:contactId/edit', element: <ContactEditPage /> },
                   { path: 'leads/:leadId/edit', element: <LeadEditPage /> },
+                  { path: 'leads/:leadId/convert', element: <ConvertPage /> },
                   { path: 'opportunities/:opportunityId/edit', element: <OpportunityEditPage /> },
                 ],
               },

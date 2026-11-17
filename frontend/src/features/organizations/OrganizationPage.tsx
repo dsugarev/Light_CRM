@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCanEditOwned } from '@/features/auth/useOwnership'
+import { RecordTimeline } from '@/features/activities/RecordTimeline'
 import { OrganizationLeads } from '@/features/leads/OrganizationLeads'
 import { OrganizationOpportunities } from '@/features/opportunities/OrganizationOpportunities'
 import { referenceName } from '@/features/reference/useReferenceList'
@@ -73,7 +74,6 @@ export function OrganizationPage() {
   const editable = canEdit(org.owner.id)
   const actionError = [archive.error, restore.error].find((e) => e instanceof ApiError)
   const canAddContact = can('records.create') && !org.archived_at
-  const emptySections = [['timeline', t('organization.detail.noTimeline')]] as const
 
   const details: [string, string | null | undefined][] = [
     [t('organization.fields.registrationNumber'), org.registration_number],
@@ -231,14 +231,7 @@ export function OrganizationPage() {
           </Card>
           <OrganizationLeads organizationId={org.id} canCreate={canAddContact} />
           <OrganizationOpportunities organizationId={org.id} canCreate={canAddContact} />
-          {emptySections.map(([section, empty]) => (
-            <Card key={section}>
-              <CardHeader>
-                <CardTitle>{t(`organization.detail.${section}`)}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">{empty}</CardContent>
-            </Card>
-          ))}
+          <RecordTimeline record={{ kind: 'organization', id: org.id }} canLog={!org.archived_at} />
         </div>
       </div>
     </section>

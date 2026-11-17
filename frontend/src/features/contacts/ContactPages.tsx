@@ -21,6 +21,7 @@ import { formatDate } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useListParams } from '@/lib/useListParams'
 import { useLocale } from '@/lib/useLocale'
+import { RecordTimeline } from '@/features/activities/RecordTimeline'
 
 import { ContactForm } from './ContactForm'
 import { contactDefaults, contactPayload, type ContactValues } from './contactValues'
@@ -369,6 +370,7 @@ export function ContactPage() {
           {c.notes ? <p className="mt-4 whitespace-pre-wrap text-sm">{c.notes}</p> : null}
         </CardContent>
       </Card>
+      <RecordTimeline record={{ kind: 'contact', id: c.id }} canLog={!c.archived_at} />
     </section>
   )
 }

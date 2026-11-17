@@ -33,7 +33,8 @@
     "leads": "Leads",
     "opportunities": "Opportunities",
     "board": "Board",
-    "stages": "Stages"
+    "stages": "Stages",
+    "tasks": "My tasks"
   },
   "roles": {
     "admin": "Admin",

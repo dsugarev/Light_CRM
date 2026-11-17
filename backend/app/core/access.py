@@ -24,6 +24,9 @@ class AccessLevel(StrEnum):
     # Contributors may call it; the service applies finer rules (e.g. assign, FR-LEAD-06).
     CONTRIBUTOR_RULES_IN_SERVICE = "Contributor (rules in service)"
     OWNER_PLUS = "Owner+"
+    # Activities (API spec 11): the record rule involves the task assignee.
+    OWNER_PLUS_OR_TASK_ASSIGNEE = "Owner+ (owner = activity owner; assignee may update a task)"
+    OWNER_PLUS_OR_ASSIGNEE = "Owner+ or assignee"
     MANAGER_PLUS = "Manager+"
     ADMIN = "Admin"
 

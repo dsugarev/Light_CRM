@@ -24,6 +24,7 @@ from app.core.search import SearchHit, SearchProvider
 from app.core.text import search_terms, search_text
 from app.modules.identity import service as identity
 from app.modules.party import service as party
+from app.modules.party.schemas import ContactOut, OrganizationOut
 from app.modules.sales import repository
 from app.modules.sales.lifecycle import (
     BANT_ITEMS,
@@ -36,15 +37,27 @@ from app.modules.sales.models import DisqualificationReason, Lead, LeadSource
 from app.modules.sales.schemas import (
     AssignRequest,
     BantItem,
+    ContactChoice,
+    ConversionContact,
+    ConversionOrganization,
+    ConversionPreview,
+    ConversionResult,
+    ConvertRequest,
     Disqualification,
     DisqualifyRequest,
     LeadCreate,
     LeadOut,
     LeadUpdate,
     LinkSummary,
+    OpportunityCreate,
+    OrganizationChoice,
     Qualification,
     QualificationUpdate,
+    SuggestedContact,
+    SuggestedOpportunity,
+    SuggestedOrganization,
 )
+from app.modules.sales.service import opportunities
 from app.modules.sales.service.common import (
     Context,
     check_owner_choice,
@@ -147,6 +160,10 @@ async def _leads_out(ctx: Context, leads: list[Lead]) -> list[LeadOut]:
         for lead in leads
         if lead.contact_id
     }
+    opportunity_names = await repository.opportunity_names(
+        ctx.session,
+        {lead.converted_opportunity_id for lead in leads if lead.converted_opportunity_id},
+    )
     out: list[LeadOut] = []
     for lead in leads:
         owner = user(names, lead.owner_id)
@@ -189,8 +206,12 @@ async def _leads_out(ctx: Context, leads: list[Lead]) -> list[LeadOut]:
                 ),
                 organization=LinkSummary(id=org.id, name=org.name) if org else None,
                 contact=LinkSummary(id=contact.id, name=contact.full_name) if contact else None,
-                # Opportunities arrive in Phase 4 (conversion).
-                converted_opportunity=None,
+                converted_opportunity=LinkSummary(
+                    id=lead.converted_opportunity_id,
+                    name=opportunity_names.get(lead.converted_opportunity_id, ""),
+                )
+                if lead.converted_opportunity_id
+                else None,
                 converted_at=lead.converted_at,
                 disqualification=disqualification,
                 created_at=lead.created_at,
@@ -496,6 +517,141 @@ async def restore_lead(ctx: Context, principal: Principal, lead_id: UUID) -> Lea
         await _publish(ctx, "lead.restored", lead, principal)
     await ctx.session.commit()
     return await _fresh(ctx, lead.id)
+
+
+# --- Conversion (FR-LEAD-04) ----------------------------------------------------------------
+
+
+def _party_context(ctx: Context) -> party.Context:
+    return party.Context(session=ctx.session, events=ctx.events, settings=ctx.settings, now=ctx.now)
+
+
+def _split_name(name: str | None) -> tuple[str, str]:
+    parts = (name or "").split()
+    if not parts:
+        return "", ""
+    return " ".join(parts[:-1]) or parts[0], parts[-1] if len(parts) > 1 else ""
+
+
+async def conversion_preview(
+    ctx: Context, principal: Principal, lead_id: UUID
+) -> ConversionPreview:
+    """Existing records that match the lead, and suggested values for new ones."""
+    lead = await repository.get_lead(ctx.session, lead_id)
+    if lead is None:
+        raise not_found()
+    check_owner(principal, lead.owner_id)
+    pctx = _party_context(ctx)
+    org = (
+        await party.organization_summary(ctx.session, lead.organization_id)
+        if lead.organization_id
+        else None
+    )
+    contact = (
+        await party.contact_link(ctx.session, lead.contact_id, include_archived=True)
+        if lead.contact_id
+        else None
+    )
+    first, last = _split_name(lead.contact_name)
+    stage = await opportunities.default_first_stage(ctx)
+    return ConversionPreview(
+        organization=OrganizationChoice(
+            linked=LinkSummary(id=org.id, name=org.name) if org else None,
+            matches=(
+                await party.duplicate_check(pctx, name=lead.company_name, registration_number=None)
+            ).matches,
+            suggested=SuggestedOrganization(name=lead.company_name),
+        ),
+        contact=ContactChoice(
+            linked=LinkSummary(id=contact.id, name=contact.full_name) if contact else None,
+            matches=await party.contact_email_matches(pctx, lead.email) if lead.email else [],
+            suggested=SuggestedContact(
+                first_name=first, last_name=last, email=lead.email, phone=lead.phone
+            )
+            if first
+            else None,
+        ),
+        opportunity=SuggestedOpportunity(name=lead.title, amount=lead.estimated_value, stage=stage),
+    )
+
+
+async def _conversion_organization(
+    ctx: Context, principal: Principal, choice: ConversionOrganization
+) -> OrganizationOut:
+    if choice.new is not None:
+        return await party.create_organization(
+            _party_context(ctx), principal, choice.new, commit=False
+        )
+    assert choice.existing_id is not None  # noqa: S101 - exactly one is set (schema)
+    problem = await party.check_organization_link(ctx.session, choice.existing_id)
+    if problem:
+        raise invalid("organization.existing_id", problem)
+    return await party.get_organization(_party_context(ctx), choice.existing_id)
+
+
+async def _conversion_contact(
+    ctx: Context, principal: Principal, choice: ConversionContact | None, organization_id: UUID
+) -> ContactOut | None:
+    if choice is None:
+        return None
+    pctx = _party_context(ctx)
+    if choice.new is not None:
+        data = choice.new.model_copy(update={"organization_id": organization_id})
+        return await party.create_contact(pctx, principal, data, commit=False)
+    assert choice.existing_id is not None  # noqa: S101 - exactly one is set (schema)
+    link = await party.contact_link(ctx.session, choice.existing_id)
+    if link is None:
+        raise invalid("contact.existing_id", "contact.not_found")
+    if link.organization_id not in (None, organization_id):
+        raise invalid("contact.existing_id", "contact.organization_mismatch")
+    return await party.get_contact(pctx, choice.existing_id)
+
+
+async def convert(
+    ctx: Context, principal: Principal, lead_id: UUID, data: ConvertRequest
+) -> ConversionResult:
+    """FR-LEAD-04: organization, contact and opportunity in one transaction (AC2)."""
+    lead = await _load(ctx, lead_id)
+    check_owner(principal, lead.owner_id)
+    await _check_version(ctx, lead, data.version)
+    if lead.archived_at is not None:
+        raise AppError(ErrorCode.RESOURCE_ARCHIVED, HTTPStatus.CONFLICT)
+    if lead.status != "qualified":
+        raise AppError(
+            ErrorCode.LEAD_NOT_CONVERTIBLE, HTTPStatus.CONFLICT, extra={"status": lead.status}
+        )
+    organization = await _conversion_organization(ctx, principal, data.organization)
+    contact = await _conversion_contact(ctx, principal, data.contact, organization.id)
+    opportunity = await opportunities.create_opportunity(
+        ctx,
+        principal,
+        OpportunityCreate(
+            **data.opportunity.model_dump(),
+            organization_id=organization.id,
+            primary_contact_id=contact.id if contact else None,
+        ),
+        source_lead_id=lead.id,
+        commit=False,
+    )
+    before = _view(lead)
+    lead.status = "converted"
+    lead.converted_opportunity_id = opportunity.id
+    lead.converted_at = ctx.now
+    lead.organization_id = organization.id
+    lead.contact_id = contact.id if contact else lead.contact_id
+    lead.updated_by = principal.user_id
+    lead.version += 1
+    after = _view(lead)
+    after["converted_opportunity_id"] = str(opportunity.id)
+    await _publish(ctx, "lead.converted", lead, principal, before=before, after=after)
+    lead_id, opportunity_id = lead.id, opportunity.id  # attributes expire on commit
+    await ctx.session.commit()
+    return ConversionResult(
+        lead=await _fresh(ctx, lead_id),
+        organization=organization,
+        contact=contact,
+        opportunity=await opportunities.get(ctx, opportunity_id),
+    )
 
 
 # --- Contributions to other modules (registered in app.main, ADR 0018) --------------------

@@ -56,9 +56,7 @@
       "contacts": "Contacts",
       "addContact": "Add contact",
       "leads": "Leads",
-      "timeline": "Timeline",
       "noLeads": "No leads yet.",
-      "noTimeline": "No activity yet.",
       "counts": {
         "contacts": "Contacts",
         "openLeads": "Open leads",

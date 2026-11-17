@@ -33,6 +33,12 @@ EXPECTED: dict[str, set[str]] = {
     "Contributor": {"admin", "sales_manager", "sales_rep"},
     "Contributor (rules in service)": {"admin", "sales_manager", "sales_rep"},
     "Owner+": {"admin", "sales_manager", "sales_rep"},  # ownership checked per record
+    "Owner+ (owner = activity owner; assignee may update a task)": {
+        "admin",
+        "sales_manager",
+        "sales_rep",
+    },
+    "Owner+ or assignee": {"admin", "sales_manager", "sales_rep"},
     "Manager+": {"admin", "sales_manager"},
     "Admin": {"admin"},
 }

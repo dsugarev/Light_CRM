@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { RecordTimeline } from '@/features/activities/RecordTimeline'
 import { AssignControl } from '@/features/auth/AssignControl'
 import { useMe } from '@/features/auth/useMe'
 import { useCanEditOwned } from '@/features/auth/useOwnership'
@@ -123,6 +124,7 @@ export function OpportunityPage() {
         </Card>
         <StageHistory opportunityId={o.id} version={o.version} />
       </div>
+      <RecordTimeline record={{ kind: 'opportunity', id: o.id }} canLog={!o.archived_at} />
     </section>
   )
 }

@@ -1,6 +1,7 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
+import bgActivities from './bg/activities.json'
 import bgAdmin from './bg/admin.json'
 import bgAuth from './bg/auth.json'
 import bgCommon from './bg/common.json'
@@ -9,6 +10,7 @@ import bgLeads from './bg/leads.json'
 import bgOpportunities from './bg/opportunities.json'
 import bgParty from './bg/party.json'
 import bgProfile from './bg/profile.json'
+import enActivities from './en/activities.json'
 import enAdmin from './en/admin.json'
 import enAuth from './en/auth.json'
 import enCommon from './en/common.json'
@@ -35,6 +37,7 @@ export const resources = {
     party: enParty,
     leads: enLeads,
     opportunities: enOpportunities,
+    activities: enActivities,
   },
   bg: {
     common: bgCommon,
@@ -45,6 +48,7 @@ export const resources = {
     party: bgParty,
     leads: bgLeads,
     opportunities: bgOpportunities,
+    activities: bgActivities,
   },
 } as const
 

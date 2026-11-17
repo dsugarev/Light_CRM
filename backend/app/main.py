@@ -17,6 +17,8 @@ from app.core.events import EventBus
 from app.core.logging import configure_logging
 from app.core.mailer import Mailer, create_mailer
 from app.core.middleware import RequestContextMiddleware
+from app.modules.activity import router as activity_router
+from app.modules.activity import service as activity_service
 from app.modules.audit import router as audit_router
 from app.modules.audit import service as audit_service
 from app.modules.identity import router as identity_router
@@ -34,6 +36,7 @@ def create_event_bus() -> EventBus:
     """Subscribers to domain events. Phase 6 adds the integration outbox here."""
     bus = EventBus()
     bus.subscribe(audit_service.record)
+    bus.subscribe(activity_service.record_event)  # record timelines (ADR 0020)
     return bus
 
 
@@ -98,6 +101,8 @@ def create_app(
     for router in party_router.routers:
         api_v1.include_router(router)
     for router in sales_router.routers:
+        api_v1.include_router(router)
+    for router in activity_router.routers:
         api_v1.include_router(router)
     api_v1.include_router(search.router)
     api_v1.include_router(audit_router.router)
