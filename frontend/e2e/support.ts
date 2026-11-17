@@ -36,3 +36,30 @@ export async function signIn(
 export async function expectSignedIn(page: Page, heading: RegExp) {
   await expect(page.getByRole('heading', { name: heading })).toBeVisible()
 }
+
+/**
+ * Create a user through the API as an Admin and give them a password, so a
+ * test can sign in with another role. Uses the same one-time link flow as people.
+ */
+export async function createUserWithPassword(
+  page: Page,
+  role: 'sales_rep' | 'sales_manager' | 'viewer',
+  password: string,
+  project: string,
+) {
+  const email = uniqueEmail(`e2e-${role}`, project)
+  const headers = { 'X-Requested-With': 'XMLHttpRequest' }
+  const created = await page.request.post('/api/v1/users', {
+    headers,
+    data: { email, full_name: `E2E ${role}`, role },
+  })
+  expect(created.status()).toBe(201)
+  const { set_password } = (await created.json()) as { set_password: { url: string } }
+  const token = set_password.url.split('#token=')[1] ?? ''
+  const set = await page.request.post('/api/v1/auth/password/set', {
+    headers,
+    data: { token, password },
+  })
+  expect(set.status()).toBe(204)
+  return email
+}
