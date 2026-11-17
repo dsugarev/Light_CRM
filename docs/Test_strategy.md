@@ -475,6 +475,7 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 | 2026-11-17 | Docker Desktop, rebuilt stack | Playwright Chromium, full suite (22 tests) | First run: the import journey failed (UX defect, see below); a second attempt was invalid because rebuilding only the proxy restarted the backend with default sign-in limits; after restarting the whole stack 22/22 in two consecutive runs |
 | 2026-11-17 | Docker Desktop, composed stack with seeded NFR-01 volumes | `scripts/perf_check.py` (15 requests × 40, after warm-up) | All p95 under 500 ms (below) |
 | 2026-11-17 | Same | Bulk timings | Export 20,000 leads: 2.3 s XLSX, 1.1 s CSV; import 5,000 organizations: upload 0.3 s, validation 2.4 s, commit 6.9 s |
+| 2026-11-17 | GitHub Actions, PR #10 run 44164230647 | All four jobs | Green; Playwright on Chromium and Firefox |
 
 NFR-01 measurement (milliseconds):
 

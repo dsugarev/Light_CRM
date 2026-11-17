@@ -11,7 +11,7 @@ What has been built, phase by phase, with the key code. The specifications in `d
 | 4a — Pipelines, opportunities and board | Done, merged (PR #6) | `phase-4a-opportunities` |
 | 4b — Activities, timelines and lead conversion | Done, reviewed in PR #7; reaches `main` with PR #8 | `phase-4b-activities` |
 | 5a — Reports, dashboard and exports | Built; PR #9 (stacked on #8), CI green | `phase-5a-reports` |
-| 5b — Import, seed data and performance | Built; PR open (stacked on #9), awaiting owner review of Phase 5 | `phase-5b-import` |
+| 5b — Import, seed data and performance | Built; PR #10 (stacked on #9), CI green; awaiting owner review of Phase 5 | `phase-5b-import` |
 
 ---
 
@@ -1568,6 +1568,7 @@ All p95 values are far below the 500 ms target. Bulk operations on the same stac
 | `pnpm audit --audit-level high` | passes (one advisory ignored, ADR 0022); `--prod` clean |
 | OpenAPI snapshot and generated types | up to date |
 | Playwright Chromium vs. rebuilt stack | 22/22 in two consecutive runs |
+| GitHub Actions (PR #10, run 44164230647) | all four jobs green, including Playwright on Chromium and Firefox |
 | NFR-01 performance check | all p95 under 500 ms (table above) |
 
 ### Definition of done
@@ -1576,7 +1577,7 @@ All p95 values are far below the 500 ms target. Bulk operations on the same stac
 |---|---|---|
 | 1 | AC tests with requirement IDs | Done for FR-IMP-01 AC1–AC4, NFR-01 |
 | 2 | `docker compose up` works | Done |
-| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 3 | Lint, types, suites green | Done locally and in CI (PR #10) |
 | 4 | Permission checks + matrix | Done for all 113 routes; rollback Admin only |
 | 5 | UI text en + bg | Done (templates too) |
 | 6 | Additive migrations + tests | Done (0007) |
