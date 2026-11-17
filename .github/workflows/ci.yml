@@ -113,6 +113,8 @@ jobs:
         run: pnpm install --frozen-lockfile && pnpm generate:api "$RUNNER_TEMP/openapi.json"
       - name: Fail if the committed types are stale
         run: git diff --exit-code -- frontend/src/api/schema.d.ts
+      - name: Fail if the API documentation snapshot is stale
+        run: diff -u docs/api/openapi.json "$RUNNER_TEMP/openapi.json"
 
   e2e:
     name: End-to-end (Playwright on the composed stack)

@@ -2,6 +2,8 @@
 
 Status: Draft v0.1
 
+The tests actually performed in each phase, with results, are recorded in [`Test_strategy.md`](Test_strategy.md).
+
 ## 1. Principles
 
 - Tests are written **with** the code in the same change, not afterwards. For business rules (state machines, permissions, forecast math), write the test first.
