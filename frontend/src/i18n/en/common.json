@@ -1,0 +1,21 @@
+{
+  "app": {
+    "name": "Light CRM"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "bg": "Български"
+  },
+  "apiStatus": {
+    "label": "Service status",
+    "checking": "Checking…",
+    "ok": "Online",
+    "unavailable": "Unavailable"
+  },
+  "errors": {
+    "unexpected": "Something went wrong. Please try again.",
+    "notFound": "This page does not exist.",
+    "backHome": "Back to the start page"
+  }
+}

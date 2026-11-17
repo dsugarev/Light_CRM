@@ -1,0 +1,39 @@
+import i18n from 'i18next'
+import { initReactI18next } from 'react-i18next'
+
+import bgAuth from './bg/auth.json'
+import bgCommon from './bg/common.json'
+import enAuth from './en/auth.json'
+import enCommon from './en/common.json'
+
+export const SUPPORTED_LOCALES = ['en', 'bg'] as const
+export type Locale = (typeof SUPPORTED_LOCALES)[number]
+
+export const defaultNS = 'common'
+
+// One namespace per feature; every key must exist in both languages
+// (checked by `pnpm check:i18n`).
+export const resources = {
+  en: { common: enCommon, auth: enAuth },
+  bg: { common: bgCommon, auth: bgAuth },
+} as const
+
+export function isLocale(value: unknown): value is Locale {
+  return typeof value === 'string' && (SUPPORTED_LOCALES as readonly string[]).includes(value)
+}
+
+export async function initI18n(locale: Locale): Promise<typeof i18n> {
+  await i18n.use(initReactI18next).init({
+    resources,
+    lng: locale,
+    fallbackLng: 'en',
+    supportedLngs: SUPPORTED_LOCALES,
+    defaultNS,
+    ns: Object.keys(resources.en),
+    interpolation: { escapeValue: false }, // React escapes output
+    returnNull: false,
+  })
+  return i18n
+}
+
+export default i18n
