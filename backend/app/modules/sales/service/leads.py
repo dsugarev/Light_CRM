@@ -6,7 +6,7 @@ concurrency, architecture 4.1); a stale version returns 409 with the current lea
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any
@@ -16,6 +16,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.events import DomainEvent
+from app.core.export import (
+    SOFIA,
+    ExportColumn,
+    ExportFile,
+    ExportOptions,
+    build_export,
+    exported_event,
+    reference_name,
+)
+from app.core.export import Locale as ExportLocale
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
 from app.core.policy import check_owner
 from app.core.principal import Principal
@@ -152,14 +162,10 @@ async def _leads_out(ctx: Context, leads: list[Lead]) -> list[LeadOut]:
         {lead.owner_id for lead in leads} | {lead.created_by for lead in leads if lead.created_by},
     )
     org_ids = {lead.organization_id for lead in leads if lead.organization_id}
-    orgs = {i: await party.organization_summary(ctx.session, i) for i in org_ids}
-    contacts = {
-        lead.contact_id: await party.contact_link(
-            ctx.session, lead.contact_id, include_archived=True
-        )
-        for lead in leads
-        if lead.contact_id
-    }
+    orgs = await party.organization_summaries(ctx.session, org_ids)
+    contacts = await party.contact_links(
+        ctx.session, {lead.contact_id for lead in leads if lead.contact_id}
+    )
     opportunity_names = await repository.opportunity_names(
         ctx.session,
         {lead.converted_opportunity_id for lead in leads if lead.converted_opportunity_id},
@@ -652,6 +658,82 @@ async def convert(
         contact=contact,
         opportunity=await opportunities.get(ctx, opportunity_id),
     )
+
+
+# --- Export (FR-REP-02, API spec 14) --------------------------------------------------------
+
+LEAD_STATUS_NAMES = {
+    "new": ("New", "Нов"),
+    "contacted": ("Contacted", "Осъществен контакт"),
+    "qualified": ("Qualified", "Квалифициран"),
+    "converted": ("Converted", "Превърнат"),
+    "disqualified": ("Disqualified", "Дисквалифициран"),
+}
+LEAD_EXPORT = (
+    ExportColumn("title", "Title", "Заглавие"),
+    ExportColumn("company_name", "Company", "Фирма"),
+    ExportColumn("contact_name", "Contact person", "Лице за контакт"),
+    ExportColumn("email", "Email", "Имейл"),
+    ExportColumn("phone", "Phone", "Телефон"),
+    ExportColumn("source", "Source", "Източник"),
+    ExportColumn("status", "Status", "Състояние"),
+    ExportColumn("score", "BANT score", "BANT оценка"),
+    ExportColumn("fits_target_profile", "Fits target profile", "Отговаря на целевия профил"),
+    ExportColumn("estimated_value", "Estimated value (EUR)", "Очаквана стойност (EUR)"),
+    ExportColumn("organization", "Organization", "Организация"),
+    ExportColumn("owner", "Owner", "Отговорник"),
+    ExportColumn("created_at", "Created", "Създаден"),
+    ExportColumn("converted_at", "Converted", "Превърнат"),
+    ExportColumn("archived_at", "Archived", "Архивиран"),
+    ExportColumn("id", "ID", "ID"),
+)
+
+
+def _lead_row(lead: LeadOut, locale: ExportLocale) -> dict[str, Any]:
+    en, bg = LEAD_STATUS_NAMES[lead.status]
+    return {
+        **lead.model_dump(include={c.key for c in LEAD_EXPORT}),
+        "source": reference_name(lead.source, locale),
+        "status": bg if locale == "bg" else en,
+        "score": lead.qualification.score,
+        "fits_target_profile": lead.qualification.fits_target_profile,
+        "estimated_value": lead.estimated_value,
+        "organization": lead.organization.name if lead.organization else None,
+        "owner": lead.owner.full_name,
+    }
+
+
+async def export_leads(
+    ctx: Context,
+    principal: Principal,
+    query: ListQuery,
+    filters: LeadFilters,
+    options: ExportOptions,
+) -> ExportFile:
+    """FR-REP-02: the filtered lead list as XLSX or CSV."""
+    statement = repository.leads_statement(
+        search=search_terms(query.q) if query.q else None,
+        include_archived=query.include_archived,
+        statuses=filters.statuses,
+        owner_ids=filters.owner_ids,
+        source_ids=filters.source_ids,
+        organization_ids=filters.organization_ids,
+        created_from=filters.created_from,
+        created_to=filters.created_to,
+        fits_target_profile=filters.fits_target_profile,
+    )
+    locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
+    file, rows = await build_export(
+        ctx.session, statement, query, LEAD_SORT, Lead.id, lambda batch: _leads_out(ctx, batch),
+        _lead_row, LEAD_EXPORT, options, locale, name="leads", day=ctx.now.astimezone(SOFIA).date(),
+    )  # fmt: skip
+    await ctx.events.publish(
+        ctx.session,
+        exported_event("lead", principal, ctx.now, rows=rows, options=options,
+                       filters={**asdict(filters), "q": query.q}),
+    )  # fmt: skip
+    await ctx.session.commit()
+    return file
 
 
 # --- Contributions to other modules (registered in app.main, ADR 0018) --------------------

@@ -7,7 +7,7 @@ default unless the user overrode it.
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from http import HTTPStatus
@@ -19,6 +19,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import runtime_settings
 from app.core.errors import AppError, ErrorCode
+from app.core.export import (
+    ExportColumn,
+    ExportFile,
+    ExportOptions,
+    build_export,
+    exported_event,
+    reference_name,
+)
+from app.core.export import Locale as ExportLocale
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
 from app.core.policy import can_edit_owned, check_owner
 from app.core.principal import Principal
@@ -143,28 +152,19 @@ async def _outs(ctx: Context, opps: list[Opportunity]) -> list[OpportunityOut]:
     names = await identity.user_names(
         ctx.session, {o.owner_id for o in opps} | {o.created_by for o in opps if o.created_by}
     )
-    orgs = {
-        i: await party.organization_summary(ctx.session, i)
-        for i in {o.organization_id for o in opps}
-    }
-    contacts = {
-        o.primary_contact_id: await party.contact_link(
-            ctx.session, o.primary_contact_id, include_archived=True
-        )
-        for o in opps
-        if o.primary_contact_id
-    }
-    leads = {
-        o.source_lead_id: await repository.get_lead(ctx.session, o.source_lead_id)
-        for o in opps
-        if o.source_lead_id
-    }
+    orgs = await party.organization_summaries(ctx.session, {o.organization_id for o in opps})
+    contacts = await party.contact_links(
+        ctx.session, {o.primary_contact_id for o in opps if o.primary_contact_id}
+    )
+    leads = await repository.lead_titles(
+        ctx.session, {o.source_lead_id for o in opps if o.source_lead_id}
+    )
     stale_before, on = await _stale_cutoff(ctx), today(ctx)
     out: list[OpportunityOut] = []
     for o in opps:
-        org = orgs[o.organization_id]
+        org = orgs.get(o.organization_id)
         contact = contacts.get(o.primary_contact_id) if o.primary_contact_id else None
-        lead = leads.get(o.source_lead_id) if o.source_lead_id else None
+        lead_title = leads.get(o.source_lead_id) if o.source_lead_id else None
         owner = user(names, o.owner_id)
         assert owner is not None  # noqa: S101 - owner_id is NOT NULL
         out.append(
@@ -187,7 +187,9 @@ async def _outs(ctx: Context, opps: list[Opportunity]) -> list[OpportunityOut]:
                 actual_close_date=o.actual_close_date,
                 next_step=o.next_step,
                 description=o.description,
-                source_lead=LinkSummary(id=lead.id, name=lead.title) if lead else None,
+                source_lead=LinkSummary(id=o.source_lead_id, name=lead_title)
+                if o.source_lead_id and lead_title is not None
+                else None,
                 loss_reason=reference(o.loss_reason),
                 competitor=o.competitor,
                 is_stale=_is_stale(o, stale_before, on),
@@ -558,6 +560,68 @@ async def stage_history(ctx: Context, opp_id: UUID) -> list[StageChange]:
         )
         for r in rows
     ]
+
+
+# --- Export (FR-REP-02, API spec 14) --------------------------------------------------------
+
+OPPORTUNITY_EXPORT = (
+    ExportColumn("name", "Opportunity", "Възможност"),
+    ExportColumn("organization", "Organization", "Организация"),
+    ExportColumn("primary_contact", "Primary contact", "Основен контакт"),
+    ExportColumn("stage", "Stage", "Етап"),
+    ExportColumn("amount", "Amount (EUR)", "Сума (EUR)"),
+    ExportColumn("probability", "Probability (%)", "Вероятност (%)"),
+    ExportColumn("weighted_amount", "Weighted amount (EUR)", "Претеглена сума (EUR)"),
+    ExportColumn("expected_close_date", "Expected close date", "Очаквана дата на приключване"),
+    ExportColumn("actual_close_date", "Actual close date", "Действителна дата на приключване"),
+    ExportColumn("owner", "Owner", "Отговорник"),
+    ExportColumn("next_step", "Next step", "Следваща стъпка"),
+    ExportColumn("loss_reason", "Loss reason", "Причина за загуба"),
+    ExportColumn("competitor", "Competitor", "Конкурент"),
+    ExportColumn("is_stale", "Needs attention", "Изисква внимание"),
+    ExportColumn("source_lead", "Source lead", "Потенциален клиент (източник)"),
+    ExportColumn("created_at", "Created", "Създадена"),
+    ExportColumn("archived_at", "Archived", "Архивирана"),
+    ExportColumn("id", "ID", "ID"),
+)
+
+
+def _opportunity_row(opp: OpportunityOut, locale: ExportLocale) -> dict[str, Any]:
+    return {
+        **opp.model_dump(include={c.key for c in OPPORTUNITY_EXPORT}),
+        "amount": opp.amount,
+        "weighted_amount": opp.weighted_amount,
+        "organization": opp.organization.name,
+        "primary_contact": opp.primary_contact.name if opp.primary_contact else None,
+        "stage": reference_name(opp.stage, locale),
+        "owner": opp.owner.full_name,
+        "loss_reason": reference_name(opp.loss_reason, locale),
+        "source_lead": opp.source_lead.name if opp.source_lead else None,
+    }
+
+
+async def export_opportunities(
+    ctx: Context,
+    principal: Principal,
+    query: ListQuery,
+    filters: OpportunityFilters,
+    options: ExportOptions,
+) -> ExportFile:
+    """FR-REP-02: the filtered opportunity list as XLSX or CSV."""
+    statement = await _statement(ctx, query, filters)
+    locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
+    file, rows = await build_export(
+        ctx.session, statement, query, OPPORTUNITY_SORT, Opportunity.id,
+        lambda batch: _outs(ctx, batch), _opportunity_row, OPPORTUNITY_EXPORT, options, locale,
+        name="opportunities", day=today(ctx),
+    )  # fmt: skip
+    await ctx.events.publish(
+        ctx.session,
+        exported_event("opportunity", principal, ctx.now, rows=rows, options=options,
+                       filters={**asdict(filters), "q": query.q}),
+    )  # fmt: skip
+    await ctx.session.commit()
+    return file
 
 
 # --- Board (FR-OPP-03) --------------------------------------------------------------------

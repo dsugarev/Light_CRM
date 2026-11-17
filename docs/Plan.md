@@ -8,8 +8,10 @@ What has been built, phase by phase, with the key code. The specifications in `d
 | 1 — Identity, access and audit | Done, merged (PR #2), CI green | `phase-1-identity` |
 | 2 — Organizations and contacts | Done, merged (PR #4) | `phase-2-party` |
 | 3 — Leads | Done, merged (PR #5) | `phase-3-leads` |
-| 4a — Pipelines, opportunities and board | Built; PR #6 open, CI green; owner review with 4b | `phase-4a-opportunities` |
-| 4b — Activities, timelines and lead conversion | Built; PR #7 (stacked on 4a), CI green; awaiting owner review | `phase-4b-activities` |
+| 4a — Pipelines, opportunities and board | Done, merged (PR #6) | `phase-4a-opportunities` |
+| 4b — Activities, timelines and lead conversion | Done, reviewed in PR #7; reaches `main` with PR #8 | `phase-4b-activities` |
+| 5a — Reports, dashboard and exports | Built; PR open (stacked on #8), owner review after 5b | `phase-5a-reports` |
+| 5b — Import, seed data and performance | Not started | — |
 
 ---
 
@@ -1309,5 +1311,140 @@ mutationCache: new MutationCache({
 
 ### Open items
 
-1. Owner review of Phase 4 (PR #6 for 4a and the 4b PR, stacked on it).
+1. ~~Owner review of Phase 4~~: approved. PR #7 was merged into the 4a branch after #6 had reached `main`, so PR #8 carries the same commits to `main`.
+
+---
+
+## Phase 5a — Reports, dashboard and exports
+
+Requirements: FR-REP-01, FR-REP-02, FR-REP-03 and the audit-log export (FR-ADM-03). Phase 5 is delivered in two pull requests (owner approval, 2026-11-17): **5a** reports, dashboard and exports; **5b** import, seed data and the performance check, then owner review. Owner decisions used here: default period = the current calendar year; conversion rate = converted ÷ created in the period; win rate = won ÷ (won + lost) closed in the period.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 5a.1 | Export machinery in core: columns, XLSX/CSV, cap, formula-injection guard, audit event | Done (`app/core/export.py`) |
+| 5a.2 | Exports of organizations, contacts, leads, opportunities, activities and the audit log | Done |
+| 5a.3 | Batched embedded summaries (organizations, contacts, lead titles) for large exports | Done |
+| 5a.4 | Report queries in sales; reporting module with scope, dashboard, report exports | Done (ADR 0021) |
+| 5a.5 | Backend tests, including the forecast against an independent calculation (FR-REP-01 AC1) | Done (825 total) |
+| 5a.6 | Dashboard (Recharts), win/loss page, Export buttons on lists | Done, en + bg |
+| 5a.7 | E2E: dashboard, CSV download, win/loss | Done (en, bg) |
+| 5a.8 | Documentation (spec v0.7, ADR 0021, snapshot, this log, test record), gate, PR | Done |
+
+### Endpoints built (12)
+
+`GET /reports/dashboard`, `/reports/pipeline-by-stage`, `/reports/forecast`, `/reports/lead-conversion`, `/reports/win-loss`, `/reports/{report}/export`; `GET /organizations/export`, `/contacts/export`, `/leads/export`, `/opportunities/export`, `/activities/export` (added to spec section 11, where it was missing from the table), `/audit-log/export`. 103 routes in the authorization matrix.
+
+### Backend
+
+#### Export machinery (`app/core/export.py`)
+
+```python
+def neutralize(value: str) -> str:
+    """Prefix text a spreadsheet would run as a formula with an apostrophe."""
+    return f"'{value}" if value.startswith(_FORMULA_PREFIXES) else value   # = + - @ \t \r
+
+async def build_export(session, statement, query, sort_columns, id_column, outs, row,
+                       available, options, locale, *, name, day) -> tuple[ExportFile, int]:
+    columns = select_columns(available, options.columns)          # 400 export.unknown_column
+    total = (await session.execute(select(func.count()).select_from(
+        statement.order_by(None).subquery()))).scalar_one()
+    check_row_count(total)                                          # 422 export.too_many_rows
+    records = list((await session.execute(statement.order_by(*order, id_column))).unique().scalars())
+    for start in range(0, len(records), _CHUNK):                    # the module's own outputs
+        rows.extend(row(item, locale) for item in await outs(records[start : start + _CHUNK]))
+    content = render(columns, rows, options.format, locale, sheet=name)
+```
+
+Each module declares its columns with both headers and a row builder, e.g. leads:
+
+```python
+LEAD_EXPORT = (ExportColumn("title", "Title", "Заглавие"), ExportColumn("status", "Status", "Състояние"), ...)
+
+def _lead_row(lead: LeadOut, locale: ExportLocale) -> dict[str, Any]:
+    en, bg = LEAD_STATUS_NAMES[lead.status]
+    return {**lead.model_dump(include={c.key for c in LEAD_EXPORT}),
+            "source": reference_name(lead.source, locale), "status": bg if locale == "bg" else en, ...}
+```
+
+The export publishes `exported_event("lead", principal, now, rows=..., options=..., filters=...)` (audit) and commits. Export routes are declared before `/{id}` routes and accept the list's filters plus `format`, `columns`, `locale` (`EXPORT_PARAMS`).
+
+#### Reports (`sales/service/reports.py`, `reporting/service.py`)
+
+```python
+async def forecast(session, owner_ids, today, months) -> ForecastReport:
+    """FR-REP-01 AC1: per month from the current one, Σ amount × probability / 100 over open,
+    non-archived opportunities expected to close in that month."""
+    first = today.replace(day=1)
+    found = {month: (count, total, weighted) for month, count, total, weighted in
+             await repository.forecast_rows(session, owner_ids, first, _add_months(first, months))}
+    ...
+
+# repository: to_char, not date_trunc (date_trunc yields a timestamp in the session time zone)
+month = func.to_char(Opportunity.expected_close_date, "YYYY-MM").label("month")
+```
+
+Lead conversion and win/loss use `count(*) FILTER (WHERE …)` per status or stage type, grouped by source/owner or loss reason/owner/month. The reporting module resolves the scope (`owner_id` `me`/ID, `from`/`to` defaulting to the Sofia calendar year), composes the dashboard (including the caller's open and overdue tasks from `activity`) and exports reports with a total row.
+
+#### Batched summaries
+
+`party.organization_summaries(session, ids)`, `party.contact_links(session, ids)` and `sales.repository.lead_titles(session, ids)` replace per-record lookups in lead, opportunity and activity outputs.
+
+### Frontend
+
+- `features/reports`: `Dashboard` on the home page (KPIs for open pipeline, conversion rate, win rate and my tasks; Recharts bar charts for pipeline by stage and the 6-month weighted forecast, each with a screen-reader table of the same figures; owner and year filters kept in the URL), `WinLossPage` (`/reports/win-loss`, group by loss reason, owner or month, total row, export), `ExportMenu` (Export XLSX / Export CSV) and `download()`:
+
+```ts
+export async function download(path: string, query: string): Promise<void> {
+  const response = await globalThis.fetch(`${globalThis.location.origin}${path}?${query}`, {
+    credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+  if (!response.ok) throw new ApiError(response.status, await response.json().catch(() => ({})))
+  ...  // Blob → object URL → <a download> with the server's file name
+}
+```
+
+- Export buttons on the organization, contact, lead, opportunity and audit-log lists send the list's current filters and sort (paging dropped); errors such as `export.too_many_rows` become translated toasts.
+- "Reports" in the navigation; `recharts` 3.10.1 pinned (a release older than two weeks; 3.11.0 was published the same day).
+- 719 translation keys (en = bg); 96 Vitest tests (5 new).
+
+### Verification (2026-11-17)
+
+| Gate | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| pytest (scratch PostgreSQL 18.7) | 825 passed, 97% coverage |
+| pip-audit | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n (719 keys) | clean |
+| Vitest | 96 passed |
+| pnpm audit (production) | no known vulnerabilities |
+| OpenAPI snapshot and generated types | up to date |
+| Playwright Chromium vs. rebuilt stack | 20/20 in two consecutive runs |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | Done for FR-REP-01 (AC1 independently computed), FR-REP-02, FR-REP-03 |
+| 2 | `docker compose up` works | Done |
+| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 4 | Permission checks + matrix | Done for all 103 routes; exports and reports for every role, audit export Admin only |
+| 5 | UI text en + bg | Done (headers of exported files too) |
+| 6 | Additive migrations + tests | No migration in 5a |
+| 7 | Audit | Every export audited (`*.exported`) |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.7 |
+
+### Decisions and deviations
+
+- **Reports are computed by the module that owns the data** (sales, activity); reporting composes them (ADR 0021).
+- `/activities/export` was named in spec section 14 but missing from the section 11 table; the table row was added.
+- The dashboard is not exportable (it is a composition); `/reports/{report}/export` accepts the four reports.
+- New field codes `export.unknown_column` (400) and `validation.period` (400).
+- `types-openpyxl` added as a dev dependency so mypy strict covers the export code.
+
+### Open items
+
+1. Phase 5b: import, seed data and the performance check; then owner review of 5a + 5b.
+2. Remove the ignored advisory GHSA-fc5q-39xc-vjpf from `frontend/pnpm-workspace.yaml` once picomatch ships a fix (ADR 0022). The first CI run of PR #9 (44158425076) failed on it in the frontend dependency audit; everything else was green.
 

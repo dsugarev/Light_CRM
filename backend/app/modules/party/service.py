@@ -6,7 +6,7 @@ commits here. Permission rules: Contributors create; Owner+ edit and archive
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any
@@ -17,6 +17,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.events import DomainEvent, EventBus
+from app.core.export import (
+    SOFIA,
+    ExportColumn,
+    ExportFile,
+    ExportOptions,
+    build_export,
+    exported_event,
+    reference_name,
+)
+from app.core.export import Locale as ExportLocale
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
 from app.core.policy import MANAGER_ROLES, check_owner
 from app.core.principal import Principal
@@ -604,6 +614,126 @@ async def list_contacts(
     )
 
 
+# --- Exports (FR-REP-02, API spec 14) ---------------------------------------------------------
+
+ORGANIZATION_EXPORT = (
+    ExportColumn("name", "Name", "Име"),
+    ExportColumn("registration_number", "Registration number (EIK)", "ЕИК"),
+    ExportColumn("vat_number", "VAT number", "ДДС номер"),
+    ExportColumn("industry", "Industry", "Отрасъл"),
+    ExportColumn("size_band", "Size", "Размер"),
+    ExportColumn("website", "Website", "Уебсайт"),
+    ExportColumn("address_line", "Address", "Адрес"),
+    ExportColumn("postal_code", "Postal code", "Пощенски код"),
+    ExportColumn("city", "City", "Град"),
+    ExportColumn("country", "Country", "Държава"),
+    ExportColumn("owner", "Owner", "Отговорник"),
+    ExportColumn("created_at", "Created", "Създадена"),
+    ExportColumn("archived_at", "Archived", "Архивирана"),
+    ExportColumn("id", "ID", "ID"),
+)
+CONTACT_EXPORT = (
+    ExportColumn("first_name", "First name", "Име"),
+    ExportColumn("last_name", "Last name", "Фамилия"),
+    ExportColumn("job_title", "Job title", "Длъжност"),
+    ExportColumn("email", "Email", "Имейл"),
+    ExportColumn("phone", "Phone", "Телефон"),
+    ExportColumn("organization", "Organization", "Организация"),
+    ExportColumn("owner", "Owner", "Отговорник"),
+    ExportColumn("created_at", "Created", "Създаден"),
+    ExportColumn("archived_at", "Archived", "Архивиран"),
+    ExportColumn("id", "ID", "ID"),
+)
+
+
+def _organization_row(org: OrganizationOut, locale: ExportLocale) -> dict[str, Any]:
+    return {
+        **org.model_dump(include={c.key for c in ORGANIZATION_EXPORT}),
+        "industry": reference_name(org.industry, locale),
+        "owner": org.owner.full_name,
+    }
+
+
+def _contact_row(contact: ContactOut, locale: ExportLocale) -> dict[str, Any]:
+    return {
+        **contact.model_dump(include={c.key for c in CONTACT_EXPORT}),
+        "organization": contact.organization.name if contact.organization else None,
+        "owner": contact.owner.full_name,
+    }
+
+
+async def _finish_export(
+    ctx: Context,
+    principal: Principal,
+    entity_type: str,
+    rows: int,
+    options: ExportOptions,
+    filters: Mapping[str, Any],
+) -> None:
+    await ctx.events.publish(
+        ctx.session,
+        exported_event(
+            entity_type, principal, ctx.now, rows=rows, options=options, filters=filters
+        ),
+    )
+    await ctx.session.commit()
+
+
+async def export_organizations(
+    ctx: Context,
+    principal: Principal,
+    query: ListQuery,
+    filters: OrganizationFilters,
+    options: ExportOptions,
+) -> ExportFile:
+    """FR-REP-02: the filtered organization list as XLSX or CSV."""
+    statement = repository.organizations_statement(
+        search=search_terms(query.q) if query.q else None,
+        include_archived=query.include_archived,
+        owner_ids=filters.owner_ids,
+        industry_ids=filters.industry_ids,
+        cities=filters.cities,
+        countries=filters.countries,
+        size_bands=filters.size_bands,
+    )
+    locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
+    file, rows = await build_export(
+        ctx.session, statement, query, ORGANIZATION_SORT, Organization.id,
+        lambda batch: _orgs_out(ctx, batch), _organization_row, ORGANIZATION_EXPORT, options,
+        locale, name="organizations", day=ctx.now.astimezone(SOFIA).date(),
+    )  # fmt: skip
+    await _finish_export(
+        ctx, principal, "organization", rows, options, {**asdict(filters), "q": query.q}
+    )
+    return file
+
+
+async def export_contacts(
+    ctx: Context,
+    principal: Principal,
+    query: ListQuery,
+    filters: ContactFilters,
+    options: ExportOptions,
+) -> ExportFile:
+    """FR-REP-02: the filtered contact list as XLSX or CSV."""
+    statement = repository.contacts_statement(
+        search=search_terms(query.q) if query.q else None,
+        include_archived=query.include_archived,
+        organization_ids=filters.organization_ids,
+        owner_ids=filters.owner_ids,
+    )
+    locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
+    file, rows = await build_export(
+        ctx.session, statement, query, CONTACT_SORT, Contact.id,
+        lambda batch: _contacts_out(ctx, batch), _contact_row, CONTACT_EXPORT, options,
+        locale, name="contacts", day=ctx.now.astimezone(SOFIA).date(),
+    )  # fmt: skip
+    await _finish_export(
+        ctx, principal, "contact", rows, options, {**asdict(filters), "q": query.q}
+    )
+    return file
+
+
 async def organization_contacts(
     ctx: Context, org_id: UUID, query: ListQuery
 ) -> Page[ContactOut] | SyncPage[ContactOut]:
@@ -727,6 +857,16 @@ async def organization_summary(session: AsyncSession, org_id: UUID) -> Organizat
     return OrganizationSummary(id=org.id, name=org.name) if org else None
 
 
+async def organization_summaries(
+    session: AsyncSession, org_ids: set[UUID]
+) -> dict[UUID, OrganizationSummary]:
+    """Names of many organisations in one query (embedded summaries, exports)."""
+    return {
+        org.id: OrganizationSummary(id=org.id, name=org.name)
+        for org in await repository.get_organizations(session, org_ids)
+    }
+
+
 async def check_organization_link(session: AsyncSession, org_id: UUID) -> str | None:
     """Field code when an organisation cannot be linked to a new record, else None."""
     org = await repository.get_organization(session, org_id)
@@ -767,3 +907,13 @@ async def contact_email_matches(ctx: Context, email: str) -> list[Match]:
 async def organization_contact_ids(session: AsyncSession, org_id: UUID) -> list[UUID]:
     """IDs of the organisation's contacts, archived included (merged timelines, FR-ACT-03)."""
     return await repository.contact_ids_of_organization(session, org_id)
+
+
+async def contact_links(session: AsyncSession, contact_ids: set[UUID]) -> dict[UUID, ContactLink]:
+    """Many contacts in one query, archived included (for showing existing links)."""
+    return {
+        c.id: ContactLink(
+            id=c.id, full_name=f"{c.first_name} {c.last_name}", organization_id=c.organization_id
+        )
+        for c in await repository.get_contacts(session, contact_ids)
+    }

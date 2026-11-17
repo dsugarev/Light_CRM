@@ -19,6 +19,7 @@ import { formatDate, formatMoney } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useListParams } from '@/lib/useListParams'
 import { useLocale } from '@/lib/useLocale'
+import { ExportMenu } from '@/features/reports/ExportMenu'
 
 import { LeadForm } from './LeadForm'
 import { LeadStatusBadge } from './LeadStatusBadge'
@@ -99,11 +100,14 @@ export function LeadsPage() {
       <PageHeader
         title={t('list.title')}
         actions={
-          can('records.create') ? (
-            <Link to="/leads/new" className={buttonVariants()}>
-              {t('list.new')}
-            </Link>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportMenu path="/api/v1/leads/export" query={list.apiQuery} />
+            {can('records.create') ? (
+              <Link to="/leads/new" className={buttonVariants()}>
+                {t('list.new')}
+              </Link>
+            ) : null}
+          </div>
         }
       />
       <div className="mb-4 grid items-center gap-3 md:grid-cols-[2fr_1fr_1fr_1fr_auto_auto]">

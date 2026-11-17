@@ -25,7 +25,7 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | End-to-end | `frontend/e2e/` | Playwright (Chromium, Firefox) | Composed Docker stack over HTTPS; Admins created with `create-admin --password-stdin` | Every commit (CI `e2e` job) and locally on demand |
 | Dependency audit | CI | pip-audit (hashed lock export), `pnpm audit --audit-level high` | Lockfiles | Every commit |
 
-## 2. Requirement coverage (Phases 0–4)
+## 2. Requirement coverage (Phases 0–5a)
 
 | Requirement | Covered by (examples; see appendix for all) | Levels |
 |---|---|---|
@@ -63,6 +63,9 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | FR-LEAD-04 conversion (AC1 links, AC2 all or nothing, AC3 lead history on the opportunity) | `test_FR_LEAD_04_AC1_convert_creates_and_links_everything`, `..._convert_with_existing_records`, `..._without_a_contact`, `test_FR_LEAD_04_AC2_nothing_is_created_when_a_step_fails`, `..._validation_and_state_rules`, `..._conversion_preview_suggests_matches`, `test_FR_LEAD_04_AC3_lead_activities_appear_on_the_opportunity_timeline`; Vitest conversion tests; E2E full journey | API, component, E2E |
 | FR-ACT-01 log activities | `test_FR_ACT_01_log_a_call_against_an_opportunity`, `..._links_are_required_and_validated`, `..._update_with_version_and_ownership`, archive, filters, sync; Vitest "FR-ACT-01 logs a call"; E2E journey | API, component, E2E |
 | FR-ACT-02 tasks and My tasks | `test_FR_ACT_02_task_needs_due_date_and_an_assignee`, `..._assignee_or_owner_completes_and_reopens`, `..._my_tasks_open_and_overdue_first`, `..._task_edit_rules`; Vitest task and My tasks tests; E2E journey | API, component, E2E |
+| FR-REP-01 dashboard (AC1 forecast) | `test_FR_REP_01_AC1_forecast_matches_an_independent_calculation`, `test_FR_REP_01_pipeline_by_stage`, `..._lead_conversion_rate_and_groups`, `..._dashboard_in_one_call`, `test_report_parameters_are_validated`; Vitest dashboard (en, bg); E2E reports journey | API, component, E2E |
+| FR-REP-02 exports | `tests/api/test_exports.py` (XLSX with filters and audit, CSV in Bulgarian with chosen columns, user's language, opportunities and activities, contacts and audit log, row cap, formula prefixes), `test_FR_REP_02_report_export_with_total_row`, `..._forecast_conversion_and_win_loss_exports`; Vitest export download and too-large message; E2E CSV download | API, component, E2E |
+| FR-REP-03 win/loss | `test_FR_REP_03_win_loss_by_reason_owner_and_month`; Vitest win/loss page; E2E | API, component, E2E |
 | FR-ACT-03 timelines | `test_FR_ACT_03_opportunity_timeline_merges_activities_and_events`, `..._organization_timeline_includes_its_records`; Vitest timeline rendering and freshness; E2E journey (converted and stage-change entries) | API, component, E2E |
 | FR-ADM-02 stages and loss reasons | `test_FR_ADM_02_admin_adds_renames_reorders_and_deletes_a_stage`, `test_FR_ADM_02_loss_reasons_are_seeded_and_protected_when_used` | API, component |
 | Optimistic concurrency (architecture 4.1) | `test_stale_version_returns_409_with_the_current_lead`, `test_patch_needs_a_version`, `test_unchanged_patch_keeps_the_version`; Vitest "shows the latest version after a conflict" | API, component |
@@ -72,7 +75,7 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | NFR-08 health, JSON logs, request IDs | `tests/api/test_health.py`; `tests/unit/test_logging.py`; `tests/unit/test_errors.py`; Vitest API status; E2E readiness through proxy | Unit, API, component, E2E |
 | NFR-12 additive migrations | `tests/migrations/test_migrations.py` | Migration |
 
-Not yet covered because not yet built: REP, IMP, AI, INT (except policy scopes and the sync machinery), FR-ADM-04 GDPR, FR-AUTH-07 MFA (Phase 8).
+Not yet covered because not yet built: IMP, AI, INT (except policy scopes and the sync machinery), FR-ADM-04 GDPR, FR-AUTH-07 MFA (Phase 8).
 
 ## 3. Phase 0 — Foundation
 
@@ -388,12 +391,57 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 - GDPR anonymisation must also cover `timeline_event` (Phase 8, noted in ADR 0020).
 - Firefox runs in CI only.
 
+## 9. Phase 5a — Reports, dashboard and exports
+
+### Strategy
+
+- **Forecast against an independent calculation** (FR-REP-01 AC1): nine opportunities across months, owners, probability overrides, an archived one, a won one, one without an amount and two outside the six-month window; the test computes the expected monthly sums itself from its own table and compares every month, plus the owner filter.
+- **Every report figure through HTTP on PostgreSQL**: pipeline per stage with a won deal excluded; lead conversion with leads driven through every status (including a real conversion), grouped by owner and source, and an empty period (`null` rate); win/loss by loss reason, owner-free month grouping and a period window, with a deal from the previous year excluded; the dashboard for `me`, an owner ID and a viewer (whose own task counts are zero); parameter validation.
+- **Exports**: open each produced XLSX with openpyxl and each CSV with the csv module; check headers in both languages, typed numbers, the list filters (`q`, columns), the user's default language, formula neutralization (a hostile organization name), the BOM, the audit entry's details, the row cap (patched to 1, not audited), the audit-log export and report exports with total rows.
+- **Authorization matrix** grows by 12 routes (exports and reports for every role, the audit-log export for Admins only).
+- **Frontend**: dashboard KPIs, accessible chart tables and the owner filter in the URL (en, bg); win/loss table with groups, total and regrouping; export download with the list's filters and without paging; the too-large message.
+- **E2E** in both languages with a fresh Sales Rep: the dashboard for "Mine", a real CSV download (file name, BOM, translated header, the rep's rows) and the win/loss total.
+
+### Test cases added (summary)
+
+| Area | Cases | Files |
+|---|---|---|
+| Exports (lists, audit log, cap, formula prefixes) | 7 | `backend/tests/api/test_exports.py` |
+| Reports, dashboard, report exports, validation | 8 | `backend/tests/api/test_reports.py` |
+| Authorization matrix: 12 new routes | +12 | `backend/tests/api/test_authorization_matrix.py` |
+| Route catalog: new routes | +25 | `backend/tests/api/test_route_catalog.py` |
+| Dashboard (en, bg), win/loss page, export download and error | 5 | `frontend/src/features/reports/reports.test.tsx` |
+| Reports journey (en, bg) | 1 × 2 languages × 2 browsers | `frontend/e2e/reports.spec.ts` |
+
+### Runs performed
+
+| Date | Where | What | Result |
+|---|---|---|---|
+| 2026-11-17 | Developer Mac, scratch PostgreSQL 18.7 | ruff, mypy, import-linter, pytest, pip-audit | 825 passed, 97% coverage; clean |
+| 2026-11-17 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (719 keys), pnpm audit, OpenAPI snapshot and generated types | 96 passed; clean |
+| 2026-11-17 | Docker Desktop, rebuilt stack | Playwright Chromium, full suite (20 tests, two workers) | First run: the new journey's last assertion failed (test defect, see below); after the fix 20/20 in two consecutive runs |
+| 2026-11-17 | GitHub Actions, PR #9 run 44158425076 | All four jobs | Backend and contract green; frontend failed in `pnpm audit --audit-level high` on a newly published dev-only advisory (GHSA-fc5q-39xc-vjpf, no fix); E2E skipped. Owner decision: ignore this advisory only (ADR 0022) |
+
+### Defects found by testing and fixed
+
+| Found by | Defect | Fix |
+|---|---|---|
+| API test (independent forecast) | Months were grouped with `date_trunc` on a date column, which returns a timestamp in the session time zone: every month's figures shifted to the previous month | Group by `to_char(date, 'YYYY-MM')` (ADR 0021) |
+| API test (test defect) | Expected 2099.99 where the sum 2099.9989 correctly rounds to 2100.00 | Expectation corrected and explained in the test |
+| API test (test defect) | Conversions in a loop created organizations with the same name (duplicate refusal) | The test confirms the duplicate |
+| E2E (test defect) | Compared a table row's raw text, which has no spaces between cells | Asserts the row's accessible name |
+
+### Gaps and deferred
+
+- Import (FR-IMP-01), seed data and the NFR-01 performance check: Phase 5b.
+- Very large exports (near 50,000 rows) are covered by the cap test and batching, not timed; the 5b seed provides the volumes for a timing run.
+
 ## Appendix — test case inventory
 
 <!-- inventory:start -->
 _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 
-### Backend (pytest: unit, API, authorization matrix, migrations) — 773 test cases
+### Backend (pytest: unit, API, authorization matrix, migrations) — 825 test cases
 
 **`backend/tests/api/test_activities.py`** (13)
 
@@ -445,11 +493,11 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Login is rate limited per ip | — | 1 |
 | Rate limit response has retry after | — | 1 |
 
-**`backend/tests/api/test_authorization_matrix.py`** (92)
+**`backend/tests/api/test_authorization_matrix.py`** (104)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| Route role matrix | FR-AUTH-05 | 91 |
+| Route role matrix | FR-AUTH-05 | 103 |
 | Matrix covers every api route | — | 1 |
 
 **`backend/tests/api/test_contacts_reference_search.py`** (12)
@@ -480,6 +528,18 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Validation and state rules | FR-LEAD-04 | 1 |
 | Conversion preview suggests matches | FR-LEAD-04 | 1 |
 | Lead activities appear on the opportunity timeline | FR-LEAD-04 AC3 | 1 |
+
+**`backend/tests/api/test_exports.py`** (7)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Organizations xlsx with filters and audit | FR-REP-02 | 1 |
+| Leads csv in bulgarian with chosen columns | FR-REP-02 | 1 |
+| Export defaults to the users language | FR-REP-02 | 1 |
+| Opportunities and activities | FR-REP-02 | 1 |
+| Contacts and audit log | FR-REP-02 | 1 |
+| Row cap | FR-REP-02 | 1 |
+| Neutralize formula prefixes | — | 1 |
 
 **`backend/tests/api/test_health.py`** (7)
 
@@ -600,14 +660,27 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Filters sorting and paging | FR-PARTY-04 | 1 |
 | Unknown sort or filter is 400 | — | 1 |
 
-**`backend/tests/api/test_route_catalog.py`** (344)
+**`backend/tests/api/test_reports.py`** (8)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Forecast matches an independent calculation | FR-REP-01 AC1 | 1 |
+| Pipeline by stage | FR-REP-01 | 1 |
+| Lead conversion rate and groups | FR-REP-01 | 1 |
+| Win loss by reason owner and month | FR-REP-03 | 1 |
+| Dashboard in one call | FR-REP-01 | 1 |
+| Report parameters are validated | — | 1 |
+| Report export with total row | FR-REP-02 | 1 |
+| Forecast conversion and win loss exports | FR-REP-02 | 1 |
+
+**`backend/tests/api/test_route_catalog.py`** (369)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Catalog is parsed | — | 1 |
-| Every route is in the catalog | — | 95 |
-| Every api route declares the catalog access level | — | 93 |
-| Every catalog entry is built or pending | — | 153 |
+| Every route is in the catalog | — | 107 |
+| Every api route declares the catalog access level | — | 105 |
+| Every catalog entry is built or pending | — | 154 |
 | Pending list only names catalog entries | — | 1 |
 | No route is hidden from the openapi document | — | 1 |
 
@@ -760,7 +833,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Failing job does not stop other jobs | — | 1 |
 | Worker runs jobs until stopped | — | 1 |
 
-### Frontend (Vitest + Testing Library + MSW) — 86 test cases
+### Frontend (Vitest + Testing Library + MSW) — 91 test cases
 
 **`frontend/src/app/app.test.tsx`** (15)
 
@@ -798,16 +871,6 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-I18N-01 locale detection › ignores unsupported stored values | FR-I18N-01 | 1 |
 | FR-I18N-01 locale detection › remembers the chosen language | FR-I18N-01 | 1 |
 
-**`frontend/src/features/activities/activities.test.tsx`** (5)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-ACT-03 timeline › merges activities with system events, including the source lead | FR-ACT-03 | 1 |
-| FR-ACT-03 timeline › FR-ACT-01 logs a call against the record | FR-ACT-03, FR-ACT-01 | 1 |
-| FR-ACT-03 timeline › FR-ACT-02 a task needs a due date | FR-ACT-03, FR-ACT-02 | 1 |
-| FR-ACT-03 timeline freshness › reloads the timeline after a change to the record | FR-ACT-03 | 1 |
-| FR-ACT-02 my tasks › shows overdue tasks and marks them done | FR-ACT-02 | 1 |
-
 **`frontend/src/features/admin/admin.test.tsx`** (9)
 
 | Test | Requirement | Cases |
@@ -822,17 +885,34 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
 | FR-AUTH-04 settings › FR-OPP-06 saves the stale-opportunity threshold | FR-AUTH-04, FR-OPP-06 | 1 |
 
-**`frontend/src/features/contacts/contacts.test.tsx`** (7)
+**`frontend/src/features/activities/activities.test.tsx`** (5)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
-| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
-| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
+| FR-ACT-03 timeline › merges activities with system events, including the source lead | FR-ACT-03 | 1 |
+| FR-ACT-03 timeline › FR-ACT-01 logs a call against the record | FR-ACT-03, FR-ACT-01 | 1 |
+| FR-ACT-03 timeline › FR-ACT-02 a task needs a due date | FR-ACT-03, FR-ACT-02 | 1 |
+| FR-ACT-03 timeline freshness › reloads the timeline after a change to the record | FR-ACT-03 | 1 |
+| FR-ACT-02 my tasks › shows overdue tasks and marks them done | FR-ACT-02 | 1 |
+
+**`frontend/src/features/leads/leads.test.tsx`** (14)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-LEAD-05 lead list › shows status, score and value, with filters in the URL | FR-LEAD-05 | 1 |
+| FR-LEAD-01 capture › saves with only a title and company name | FR-LEAD-01 | 1 |
+| FR-LEAD-01 capture › validates the amount on the client | FR-LEAD-01 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-03 shows BANT, recomputes the score live and saves with the version | FR-LEAD-02, FR-LEAD-03 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-03 AC1 disables Qualify while a BANT item is unknown | FR-LEAD-02, FR-LEAD-03 AC1 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-02 AC1 disqualifying needs a reason | FR-LEAD-02, FR-LEAD-02 AC1 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-02 AC2 shows Reopen to managers only | FR-LEAD-02, FR-LEAD-02 AC2 | 1 |
+| FR-LEAD-02, 03 lead detail › shows the latest version after a conflict | FR-LEAD-02 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-06 lets a rep take over another rep's lead | FR-LEAD-02, FR-LEAD-06 | 1 |
+| FR-ADM-02 lead lists administration › switches between the three lists | FR-ADM-02 | 1 |
+| FR-LEAD-04 conversion › offers Convert on a qualified lead | FR-LEAD-04 | 1 |
+| FR-LEAD-04 conversion › shows the opportunity a converted lead became | FR-LEAD-04 | 1 |
+| FR-LEAD-04 conversion › suggests the matching organization and converts in one request | FR-LEAD-04 | 1 |
+| FR-LEAD-04 conversion › asks before creating a duplicate organization | FR-LEAD-04 | 1 |
 
 **`frontend/src/features/opportunities/opportunities.test.tsx`** (12)
 
@@ -865,6 +945,14 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
 | FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
 
+**`frontend/src/features/profile/profile.test.tsx`** (3)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
+| profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
+| profile › shows the server error for a wrong current password | — | 1 |
+
 **`frontend/src/features/auth/setPassword.test.tsx`** (6)
 
 | Test | Requirement | Cases |
@@ -876,34 +964,29 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | safeNext | — | 1 |
 | set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
 
-**`frontend/src/features/profile/profile.test.tsx`** (3)
+**`frontend/src/features/reports/reports.test.tsx`** (5)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
-| profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
-| profile › shows the server error for a wrong current password | — | 1 |
+| FR-REP-01 dashboard › shows pipeline, forecast, rates and my tasks; the owner filter is in the URL | FR-REP-01 | 1 |
+| FR-REP-01 dashboard › FR-I18N-01 in Bulgarian | FR-REP-01, FR-I18N-01 | 1 |
+| FR-REP-03 win/loss report › groups by loss reason with a total row and regroups by month | FR-REP-03 | 1 |
+| FR-REP-02 export › downloads the list with its filters and without paging | FR-REP-02 | 1 |
+| FR-REP-02 export › explains when the export is too large | FR-REP-02 | 1 |
 
-**`frontend/src/features/leads/leads.test.tsx`** (14)
+**`frontend/src/features/contacts/contacts.test.tsx`** (7)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-LEAD-05 lead list › shows status, score and value, with filters in the URL | FR-LEAD-05 | 1 |
-| FR-LEAD-01 capture › saves with only a title and company name | FR-LEAD-01 | 1 |
-| FR-LEAD-01 capture › validates the amount on the client | FR-LEAD-01 | 1 |
-| FR-LEAD-02, 03 lead detail › FR-LEAD-03 shows BANT, recomputes the score live and saves with the version | FR-LEAD-02, FR-LEAD-03 | 1 |
-| FR-LEAD-02, 03 lead detail › FR-LEAD-03 AC1 disables Qualify while a BANT item is unknown | FR-LEAD-02, FR-LEAD-03 AC1 | 1 |
-| FR-LEAD-02, 03 lead detail › FR-LEAD-02 AC1 disqualifying needs a reason | FR-LEAD-02, FR-LEAD-02 AC1 | 1 |
-| FR-LEAD-02, 03 lead detail › FR-LEAD-02 AC2 shows Reopen to managers only | FR-LEAD-02, FR-LEAD-02 AC2 | 1 |
-| FR-LEAD-02, 03 lead detail › shows the latest version after a conflict | FR-LEAD-02 | 1 |
-| FR-LEAD-02, 03 lead detail › FR-LEAD-06 lets a rep take over another rep's lead | FR-LEAD-02, FR-LEAD-06 | 1 |
-| FR-ADM-02 lead lists administration › switches between the three lists | FR-ADM-02 | 1 |
-| FR-LEAD-04 conversion › offers Convert on a qualified lead | FR-LEAD-04 | 1 |
-| FR-LEAD-04 conversion › shows the opportunity a converted lead became | FR-LEAD-04 | 1 |
-| FR-LEAD-04 conversion › suggests the matching organization and converts in one request | FR-LEAD-04 | 1 |
-| FR-LEAD-04 conversion › asks before creating a duplicate organization | FR-LEAD-04 | 1 |
+| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
+| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
+| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
 
-### End-to-end (Playwright, composed stack) — 36 test cases
+### End-to-end (Playwright, composed stack) — 40 test cases
 
 **`frontend/e2e/identity.spec.ts`** (8)
 
@@ -955,6 +1038,15 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Organizations and contacts in en › FR-PARTY-01..04 create, detect duplicate, add contact, search across scripts, archive (firefox) | FR-PARTY-01 | 1 |
 | Organizations and contacts in bg › FR-PARTY-01..04 create, detect duplicate, add contact, search across scripts, archive (firefox) | FR-PARTY-01 | 1 |
 | Ownership › FR-AUTH-05 AC1 a sales rep cannot edit an organization owned by someone else (firefox) | FR-AUTH-05 AC1 | 1 |
+
+**`frontend/e2e/reports.spec.ts`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Reports in en › FR-REP-01..03 dashboard for my opportunities, list export, win/loss (chromium) | FR-REP-01 | 1 |
+| Reports in bg › FR-REP-01..03 dashboard for my opportunities, list export, win/loss (chromium) | FR-REP-01 | 1 |
+| Reports in en › FR-REP-01..03 dashboard for my opportunities, list export, win/loss (firefox) | FR-REP-01 | 1 |
+| Reports in bg › FR-REP-01..03 dashboard for my opportunities, list export, win/loss (firefox) | FR-REP-01 | 1 |
 
 **`frontend/e2e/smoke.spec.ts`** (10)
 

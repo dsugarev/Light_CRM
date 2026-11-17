@@ -34,7 +34,8 @@
     "opportunities": "Opportunities",
     "board": "Board",
     "stages": "Stages",
-    "tasks": "My tasks"
+    "tasks": "My tasks",
+    "reports": "Reports"
   },
   "roles": {
     "admin": "Admin",
@@ -64,7 +65,6 @@
     "summary": "Page {{page}} of {{pages}} · {{total}} in total"
   },
   "home": {
-    "title": "Welcome, {{name}}",
-    "intro": "Use the pipeline board to see where every opportunity stands. Leads, organizations and contacts are in the menu above."
+    "title": "Welcome, {{name}}"
   }
 }

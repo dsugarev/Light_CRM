@@ -53,6 +53,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/activities/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export the filtered list as XLSX or CSV */
+        get: operations["export_activities_api_v1_activities_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/activities/{activity_id}": {
         parameters: {
             query?: never;
@@ -115,6 +132,23 @@ export interface paths {
         };
         /** Browse audit entries, newest first */
         get: operations["list_entries_api_v1_audit_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit-log/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export the filtered log as XLSX or CSV */
+        get: operations["export_entries_api_v1_audit_log_export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -260,6 +294,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contacts/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export the filtered list as XLSX or CSV */
+        get: operations["export_contacts_api_v1_contacts_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contacts/{contact_id}": {
         parameters: {
             query?: never;
@@ -325,6 +376,23 @@ export interface paths {
         put?: never;
         /** Capture a lead; status starts as new; owner defaults to the caller */
         post: operations["create_lead_api_v1_leads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leads/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export the filtered list as XLSX or CSV */
+        get: operations["export_leads_api_v1_leads_export_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -607,6 +675,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/opportunities/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export the filtered list as XLSX or CSV */
+        get: operations["export_opportunities_api_v1_opportunities_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/opportunities/{opp_id}": {
         parameters: {
             query?: never;
@@ -772,6 +857,23 @@ export interface paths {
         };
         /** Possible duplicates by name and/or registration number */
         get: operations["duplicate_check_api_v1_organizations_duplicate_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export the filtered list as XLSX or CSV */
+        get: operations["export_organizations_api_v1_organizations_export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1021,6 +1123,108 @@ export interface paths {
         head?: never;
         /** Rename, activate, deactivate */
         patch: operations["update_item_api_v1_reference__list___item_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/reports/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pipeline by stage, 6-month forecast, conversion rate, win rate, my open tasks */
+        get: operations["dashboard_api_v1_reports_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Weighted forecast by expected close month */
+        get: operations["forecast_api_v1_reports_forecast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/lead-conversion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Leads created, qualified, converted, disqualified and conversion rate */
+        get: operations["lead_conversion_api_v1_reports_lead_conversion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/pipeline-by-stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Count, total and weighted amount per open stage */
+        get: operations["pipeline_by_stage_api_v1_reports_pipeline_by_stage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/win-loss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Won and lost counts and amounts, win rate */
+        get: operations["win_loss_api_v1_reports_win_loss_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{report}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** XLSX or CSV export of a report */
+        get: operations["export_report_api_v1_reports__report__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/roles": {
@@ -1637,6 +1841,45 @@ export interface components {
             existing_id?: string | null;
             new?: components["schemas"]["ContactCreate"] | null;
         };
+        /** ConversionFigures */
+        ConversionFigures: {
+            /**
+             * Conversion Rate
+             * @description converted / created; null without leads
+             */
+            conversion_rate: number | null;
+            /** Converted */
+            converted: number;
+            /** Created */
+            created: number;
+            /** Disqualified */
+            disqualified: number;
+            /**
+             * Qualified
+             * @description Leads that reached qualified (including converted)
+             */
+            qualified: number;
+        };
+        /** ConversionGroup */
+        ConversionGroup: {
+            /**
+             * Conversion Rate
+             * @description converted / created; null without leads
+             */
+            conversion_rate: number | null;
+            /** Converted */
+            converted: number;
+            /** Created */
+            created: number;
+            /** Disqualified */
+            disqualified: number;
+            group: components["schemas"]["GroupKey"];
+            /**
+             * Qualified
+             * @description Leads that reached qualified (including converted)
+             */
+            qualified: number;
+        };
         /** ConversionOpportunity */
         ConversionOpportunity: {
             /** Amount */
@@ -1680,6 +1923,28 @@ export interface components {
             /** Version */
             version: number;
         };
+        /**
+         * Dashboard
+         * @description FR-REP-01: everything the dashboard shows, for one owner scope and period.
+         */
+        Dashboard: {
+            forecast: components["schemas"]["ForecastReport"];
+            /**
+             * From Date
+             * Format: date
+             */
+            from_date: string;
+            lead_conversion: components["schemas"]["ConversionFigures"];
+            /** @description The caller's own tasks, whatever the owner filter */
+            my_tasks: components["schemas"]["TaskFigures"];
+            pipeline: components["schemas"]["PipelineReport"];
+            /**
+             * To Date
+             * Format: date
+             */
+            to_date: string;
+            win_loss: components["schemas"]["WinLossFigures"];
+        };
         /** Disqualification */
         Disqualification: {
             /** Disqualified At */
@@ -1705,6 +1970,11 @@ export interface components {
             /** Matches */
             matches: components["schemas"]["Match"][];
         };
+        /**
+         * ExportFormat
+         * @enum {string}
+         */
+        ExportFormat: "xlsx" | "csv";
         /** FeatureFlags */
         FeatureFlags: {
             /** Ai Enabled */
@@ -1719,6 +1989,48 @@ export interface components {
             /** Field */
             field: string;
         };
+        /** ForecastMonth */
+        ForecastMonth: {
+            /** Count */
+            count: number;
+            /**
+             * Month
+             * @description YYYY-MM
+             */
+            month: string;
+            /** Total Amount */
+            total_amount: string;
+            /** Weighted Amount */
+            weighted_amount: string;
+        };
+        /** ForecastReport */
+        ForecastReport: {
+            /**
+             * Currency
+             * @default EUR
+             * @constant
+             */
+            currency: "EUR";
+            /** Months */
+            months: components["schemas"]["ForecastMonth"][];
+            /** Weighted Amount */
+            weighted_amount: string;
+        };
+        /**
+         * GroupKey
+         * @description What a report row is grouped by: a source, owner, loss reason or month.
+         */
+        GroupKey: {
+            /**
+             * Key
+             * @description ID, YYYY-MM, or `none`
+             */
+            key: string;
+            /** Name Bg */
+            name_bg: string | null;
+            /** Name En */
+            name_en: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1731,6 +2043,24 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "unavailable";
+        };
+        /** LeadConversionReport */
+        LeadConversionReport: {
+            /**
+             * From Date
+             * Format: date
+             */
+            from_date: string;
+            /** Group By */
+            group_by: ("source" | "owner") | null;
+            /** Groups */
+            groups: components["schemas"]["ConversionGroup"][];
+            /**
+             * To Date
+             * Format: date
+             */
+            to_date: string;
+            totals: components["schemas"]["ConversionFigures"];
         };
         /** LeadCreate */
         LeadCreate: {
@@ -2388,6 +2718,23 @@ export interface components {
             /** Stages */
             stages: components["schemas"]["StageOut"][];
         };
+        /** PipelineReport */
+        PipelineReport: {
+            /** Count */
+            count: number;
+            /**
+             * Currency
+             * @default EUR
+             * @constant
+             */
+            currency: "EUR";
+            /** Stages */
+            stages: components["schemas"]["StageFigures"][];
+            /** Total Amount */
+            total_amount: string;
+            /** Weighted Amount */
+            weighted_amount: string;
+        };
         /** Qualification */
         Qualification: {
             authority: components["schemas"]["BantItem"];
@@ -2587,6 +2934,16 @@ export interface components {
              */
             stage_type: "open" | "won" | "lost";
         };
+        /** StageFigures */
+        StageFigures: {
+            /** Count */
+            count: number;
+            stage: components["schemas"]["StageSummary"];
+            /** Total Amount */
+            total_amount: string;
+            /** Weighted Amount */
+            weighted_amount: string;
+        };
         /** StageOut */
         StageOut: {
             /** Default Probability */
@@ -2710,6 +3067,13 @@ export interface components {
             supported_locales: string[];
             /** Version */
             version: string;
+        };
+        /** TaskFigures */
+        TaskFigures: {
+            /** Open */
+            open: number;
+            /** Overdue */
+            overdue: number;
         };
         /** TimelineEventOut */
         TimelineEventOut: {
@@ -2886,6 +3250,63 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** WinLossFigures */
+        WinLossFigures: {
+            /** Lost Amount */
+            lost_amount: string;
+            /** Lost Count */
+            lost_count: number;
+            /**
+             * Win Rate
+             * @description won / (won + lost); null without closed deals
+             */
+            win_rate: number | null;
+            /** Won Amount */
+            won_amount: string;
+            /** Won Count */
+            won_count: number;
+        };
+        /** WinLossGroup */
+        WinLossGroup: {
+            group: components["schemas"]["GroupKey"];
+            /** Lost Amount */
+            lost_amount: string;
+            /** Lost Count */
+            lost_count: number;
+            /**
+             * Win Rate
+             * @description won / (won + lost); null without closed deals
+             */
+            win_rate: number | null;
+            /** Won Amount */
+            won_amount: string;
+            /** Won Count */
+            won_count: number;
+        };
+        /** WinLossReport */
+        WinLossReport: {
+            /**
+             * Currency
+             * @default EUR
+             * @constant
+             */
+            currency: "EUR";
+            /**
+             * From Date
+             * Format: date
+             */
+            from_date: string;
+            /** Group By */
+            group_by: ("loss_reason" | "owner" | "month") | null;
+            /** Groups */
+            groups: components["schemas"]["WinLossGroup"][];
+            /**
+             * To Date
+             * Format: date
+             */
+            to_date: string;
+            totals: components["schemas"]["WinLossFigures"];
+        };
         /**
          * ReferenceSummary
          * @description Reference value with both names; the UI picks the user's language.
@@ -3045,6 +3466,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_activities_api_v1_activities_export_get: {
+        parameters: {
+            query?: {
+                type?: ("note" | "call" | "meeting" | "email" | "task")[] | null;
+                lead_id?: string[] | null;
+                opportunity_id?: string[] | null;
+                organization_id?: string[] | null;
+                contact_id?: string[] | null;
+                owner_id?: string[] | null;
+                assignee_id?: string[] | null;
+                is_done?: boolean | null;
+                due_at_from?: string | null;
+                due_at_to?: string | null;
+                occurred_at_from?: string | null;
+                occurred_at_to?: string | null;
+                page?: number;
+                page_size?: number | null;
+                /** @description Sortable: occurred_at, due_at, created_at, updated_at; prefix - for descending */
+                sort?: string | null;
+                q?: string | null;
+                include_archived?: boolean;
+                updated_since?: string | null;
+                cursor?: string | null;
+                format?: components["schemas"]["ExportFormat"];
+                columns?: string | null;
+                locale?: ("en" | "bg") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file (Content-Disposition: attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/csv; charset=utf-8": unknown;
                 };
             };
             /** @description Validation Error */
@@ -3248,6 +3723,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_entries_api_v1_audit_log_export_get: {
+        parameters: {
+            query?: {
+                actor_id?: string | null;
+                entity_type?: string | null;
+                entity_id?: string | null;
+                action?: string[] | null;
+                occurred_at_from?: string | null;
+                occurred_at_to?: string | null;
+                format?: components["schemas"]["ExportFormat"];
+                columns?: string | null;
+                locale?: ("en" | "bg") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file (Content-Disposition: attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/csv; charset=utf-8": unknown;
                 };
             };
             /** @description Validation Error */
@@ -3542,6 +4057,50 @@ export interface operations {
             };
         };
     };
+    export_contacts_api_v1_contacts_export_get: {
+        parameters: {
+            query?: {
+                organization_id?: string[] | null;
+                owner_id?: string[] | null;
+                page?: number;
+                page_size?: number | null;
+                /** @description Sortable: last_name, created_at; prefix - for descending */
+                sort?: string | null;
+                q?: string | null;
+                include_archived?: boolean;
+                updated_since?: string | null;
+                cursor?: string | null;
+                format?: components["schemas"]["ExportFormat"];
+                columns?: string | null;
+                locale?: ("en" | "bg") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file (Content-Disposition: attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/csv; charset=utf-8": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_contact_api_v1_contacts__contact_id__get: {
         parameters: {
             query?: never;
@@ -3766,6 +4325,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_leads_api_v1_leads_export_get: {
+        parameters: {
+            query?: {
+                status?: ("new" | "contacted" | "qualified" | "converted" | "disqualified")[] | null;
+                owner_id?: string[] | null;
+                source_id?: string[] | null;
+                created_at_from?: string | null;
+                created_at_to?: string | null;
+                fits_target_profile?: boolean | null;
+                page?: number;
+                page_size?: number | null;
+                /** @description Sortable: created_at, estimated_value, qualification_score, company_name; prefix - for descending */
+                sort?: string | null;
+                q?: string | null;
+                include_archived?: boolean;
+                updated_since?: string | null;
+                cursor?: string | null;
+                format?: components["schemas"]["ExportFormat"];
+                columns?: string | null;
+                locale?: ("en" | "bg") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file (Content-Disposition: attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/csv; charset=utf-8": unknown;
                 };
             };
             /** @description Validation Error */
@@ -4435,6 +5042,57 @@ export interface operations {
             };
         };
     };
+    export_opportunities_api_v1_opportunities_export_get: {
+        parameters: {
+            query?: {
+                stage_id?: string[] | null;
+                stage_type?: ("open" | "won" | "lost")[] | null;
+                owner_id?: string[] | null;
+                organization_id?: string[] | null;
+                expected_close_date_from?: string | null;
+                expected_close_date_to?: string | null;
+                amount_from?: number | string | null;
+                amount_to?: number | string | null;
+                is_stale?: boolean | null;
+                page?: number;
+                page_size?: number | null;
+                /** @description Sortable: amount, expected_close_date, updated_at, name; prefix - for descending */
+                sort?: string | null;
+                q?: string | null;
+                include_archived?: boolean;
+                updated_since?: string | null;
+                cursor?: string | null;
+                format?: components["schemas"]["ExportFormat"];
+                columns?: string | null;
+                locale?: ("en" | "bg") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file (Content-Disposition: attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/csv; charset=utf-8": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_opportunity_api_v1_opportunities__opp_id__get: {
         parameters: {
             query?: never;
@@ -4861,6 +5519,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DuplicateCheck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_organizations_api_v1_organizations_export_get: {
+        parameters: {
+            query?: {
+                owner_id?: string[] | null;
+                industry_id?: string[] | null;
+                city?: string[] | null;
+                country?: string[] | null;
+                size_band?: ("1-9" | "10-49" | "50-249" | "250+")[] | null;
+                page?: number;
+                page_size?: number | null;
+                /** @description Sortable: name, created_at, updated_at; prefix - for descending */
+                sort?: string | null;
+                q?: string | null;
+                include_archived?: boolean;
+                updated_since?: string | null;
+                cursor?: string | null;
+                format?: components["schemas"]["ExportFormat"];
+                columns?: string | null;
+                locale?: ("en" | "bg") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file (Content-Disposition: attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/csv; charset=utf-8": unknown;
                 };
             };
             /** @description Validation Error */
@@ -5497,6 +6202,221 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReferenceItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dashboard_api_v1_reports_dashboard_get: {
+        parameters: {
+            query?: {
+                /** @description `me` or a user ID */
+                owner_id?: string | null;
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dashboard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forecast_api_v1_reports_forecast_get: {
+        parameters: {
+            query?: {
+                months?: number;
+                /** @description `me` or a user ID */
+                owner_id?: string | null;
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForecastReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lead_conversion_api_v1_reports_lead_conversion_get: {
+        parameters: {
+            query?: {
+                group_by?: ("source" | "owner") | null;
+                /** @description `me` or a user ID */
+                owner_id?: string | null;
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadConversionReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pipeline_by_stage_api_v1_reports_pipeline_by_stage_get: {
+        parameters: {
+            query?: {
+                /** @description `me` or a user ID */
+                owner_id?: string | null;
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    win_loss_api_v1_reports_win_loss_get: {
+        parameters: {
+            query?: {
+                group_by?: ("loss_reason" | "owner" | "month") | null;
+                /** @description `me` or a user ID */
+                owner_id?: string | null;
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WinLossReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_report_api_v1_reports__report__export_get: {
+        parameters: {
+            query?: {
+                months?: number;
+                group_by?: string | null;
+                /** @description `me` or a user ID */
+                owner_id?: string | null;
+                from?: string | null;
+                to?: string | null;
+                format?: components["schemas"]["ExportFormat"];
+                columns?: string | null;
+                locale?: ("en" | "bg") | null;
+            };
+            header?: never;
+            path: {
+                report: "pipeline-by-stage" | "forecast" | "lead-conversion" | "win-loss";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file (Content-Disposition: attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/csv; charset=utf-8": unknown;
                 };
             };
             /** @description Validation Error */

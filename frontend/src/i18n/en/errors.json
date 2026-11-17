@@ -57,7 +57,8 @@
     "country": "Two letters, e.g. BG.",
     "use_action_endpoint": "Use the action buttons for this change.",
     "money": "Enter an amount, e.g. 48000 or 48000.50.",
-    "probability": "Enter a whole number from 0 to 100."
+    "probability": "Enter a whole number from 0 to 100.",
+    "period": "The start must not be after the end."
   },
   "password": {
     "too_short": "At least 12 characters.",
@@ -118,5 +119,9 @@
   },
   "assignee": {
     "invalid": "Choose an active user who can work on records."
+  },
+  "export": {
+    "too_many_rows": "The export has more than 50,000 rows. Narrow the filters.",
+    "unknown_column": "Unknown column."
   }
 }

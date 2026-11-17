@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import Request
@@ -723,6 +723,12 @@ async def is_assignable_owner(session: AsyncSession, user_id: UUID) -> bool:
     """Records may be owned only by active human users (FR-INT-03 AC4 relies on this too)."""
     user = await repository.get_user(session, user_id)
     return user is not None and user.is_active and user.is_human
+
+
+async def user_locale(session: AsyncSession, user_id: UUID) -> Literal["en", "bg"]:
+    """The user's interface language (exports default to it, API spec 14)."""
+    user = await repository.get_user(session, user_id)
+    return "bg" if user is not None and user.locale == "bg" else "en"
 
 
 async def is_contributor(session: AsyncSession, user_id: UUID) -> bool:

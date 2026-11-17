@@ -25,6 +25,7 @@ from app.modules.identity import router as identity_router
 from app.modules.identity import service as identity_service
 from app.modules.party import router as party_router
 from app.modules.party import service as party_service
+from app.modules.reporting import router as reporting_router
 from app.modules.sales import router as sales_router
 from app.modules.sales import service as sales_service
 
@@ -105,6 +106,7 @@ def create_app(
     for router in activity_router.routers:
         api_v1.include_router(router)
     api_v1.include_router(search.router)
+    api_v1.include_router(reporting_router.router)
     api_v1.include_router(audit_router.router)
     app.include_router(api_v1)
 
