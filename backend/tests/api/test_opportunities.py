@@ -673,3 +673,23 @@ async def test_FR_ADM_02_loss_reasons_are_seeded_and_protected_when_used(
     assert (
         await admin.delete(f"/api/v1/reference/loss-reasons/{items[-1]['id']}")
     ).status_code == 204
+
+
+async def test_FR_INT_05_opportunities_support_sync_mode(test_app: TestApp) -> None:
+    rep, _ = await test_app.signed_in()
+    org = await create_org(rep)
+    ids = [(await create_opp(rep, org, name=f"Sync {i}"))["id"] for i in range(3)]
+    await rep.delete(f"/api/v1/opportunities/{ids[0]}")
+    seen: list[str] = []
+    cursor = None
+    while True:
+        params: dict[str, Any] = {"updated_since": "2000-01-01T00:00:00Z", "page_size": 2}
+        if cursor:
+            params["cursor"] = cursor
+        body = (await rep.get("/api/v1/opportunities", params=params)).json()
+        assert set(body) == {"items", "next_cursor"}
+        seen += [o["id"] for o in body["items"]]
+        cursor = body["next_cursor"]
+        if cursor is None:
+            break
+    assert sorted(seen) == sorted(ids)  # archived row included
