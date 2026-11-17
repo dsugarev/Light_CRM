@@ -1,7 +1,7 @@
 """Pydantic request and response schemas."""
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -158,3 +158,162 @@ class DisqualifyRequest(_Request):
 class AssignRequest(_Request):
     owner_id: UUID
     version: int = Field(ge=1)
+
+
+# --- Pipelines and stages (API spec section 6.3) -----------------------------------------
+
+StageType = Literal["open", "won", "lost"]
+Probability = Annotated[int, Field(ge=0, le=100)]
+
+
+class StageOut(BaseModel):
+    id: UUID
+    name_en: str
+    name_bg: str
+    position: int
+    default_probability: int
+    stage_type: StageType
+    is_active: bool
+
+
+class PipelineOut(BaseModel):
+    id: UUID
+    name: str
+    is_default: bool
+    stages: list[StageOut]
+
+
+class StageCreate(_Request):
+    name_en: Annotated[str, Field(min_length=1, max_length=100)]
+    name_bg: Annotated[str, Field(min_length=1, max_length=100)]
+    default_probability: Probability
+    stage_type: StageType
+
+
+class StageUpdate(_Request):
+    name_en: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    name_bg: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    default_probability: Probability | None = None
+    is_active: bool | None = None
+
+
+# --- Opportunities (API spec section 10) --------------------------------------------------
+
+
+class StageSummary(BaseModel):
+    id: UUID
+    name_en: str
+    name_bg: str
+    stage_type: StageType
+    position: int
+    default_probability: int
+
+
+class OpportunityFields(_Request):
+    primary_contact_id: UUID | None = None
+    amount: Money | None = None
+    expected_close_date: date | None = None
+    next_step: Annotated[str, Field(max_length=2000)] | None = None
+    description: Annotated[str, Field(max_length=5000)] | None = None
+    competitor: Annotated[str, Field(max_length=200)] | None = None
+    probability: Probability | None = None
+
+
+class OpportunityCreate(OpportunityFields):
+    name: Annotated[str, Field(min_length=1, max_length=200)]
+    organization_id: UUID
+    stage_id: UUID | None = None
+    owner_id: UUID | None = None
+
+
+class OpportunityUpdate(OpportunityFields):
+    name: Annotated[str, Field(min_length=1, max_length=200)] | None = None
+    version: int = Field(ge=1, description="The version you loaded; a stale one returns 409")
+    # Present only to answer with validation.use_action_endpoint (API spec 1.4).
+    stage_id: Any = Field(default=None, description="Not changeable here; use /move or /close")
+    owner_id: Any = Field(default=None, description="Not changeable here; use POST /assign")
+    organization_id: Any = Field(
+        default=None, description="An opportunity stays with its organization"
+    )
+
+
+class OpportunityOut(BaseModel):
+    id: UUID
+    name: str
+    organization: LinkSummary
+    primary_contact: LinkSummary | None
+    owner: UserSummary
+    pipeline_id: UUID
+    stage: StageSummary
+    amount: Money | None
+    currency: str
+    probability: int
+    probability_overridden: bool
+    weighted_amount: Money | None
+    expected_close_date: date | None
+    actual_close_date: date | None
+    next_step: str | None
+    description: str | None
+    source_lead: LinkSummary | None
+    loss_reason: ReferenceSummary | None
+    competitor: str | None
+    is_stale: bool
+    last_activity_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    created_by: UserSummary | None
+    archived_at: datetime | None
+    version: int
+
+
+class MoveRequest(_Request):
+    stage_id: UUID
+    version: int = Field(ge=1)
+
+
+class CloseRequest(_Request):
+    outcome: Literal["won", "lost"]
+    loss_reason_id: UUID | None = None
+    competitor: Annotated[str, Field(max_length=200)] | None = None
+    actual_close_date: date | None = None
+    version: int = Field(ge=1)
+
+
+class ReopenRequest(_Request):
+    stage_id: UUID
+    version: int = Field(ge=1)
+
+
+class StageChange(BaseModel):
+    id: UUID
+    from_stage: StageSummary | None
+    to_stage: StageSummary
+    changed_by: UserSummary | None
+    changed_at: datetime
+
+
+class BoardCard(BaseModel):
+    id: UUID
+    name: str
+    organization: LinkSummary
+    amount: Money | None
+    expected_close_date: date | None
+    owner: UserSummary
+    is_stale: bool
+    can_edit: bool
+    version: int
+
+
+class BoardColumn(BaseModel):
+    stage: StageSummary
+    count: int
+    total_amount: Money
+    weighted_amount: Money
+    cards: list[BoardCard]
+
+
+class Board(BaseModel):
+    pipeline_id: UUID
+    currency: Literal["EUR"] = "EUR"
+    columns: list[BoardColumn]
+    truncated: bool

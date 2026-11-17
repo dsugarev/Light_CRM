@@ -39,6 +39,10 @@ class AppSetting(TimestampMixin, Base):
     session_absolute_timeout_minutes: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="10080"
     )
+    # FR-OPP-06: open opportunities without activity for this many days are stale.
+    stale_opportunity_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="14"
+    )
     updated_by: Mapped[UUID | None] = mapped_column(ForeignKey("app_user.id"), nullable=True)
 
 
@@ -47,6 +51,7 @@ class RuntimeSettings(BaseModel):
 
     session_idle_timeout_minutes: int = Field(ge=15, le=1440)
     session_absolute_timeout_minutes: int = Field(ge=60, le=43200)
+    stale_opportunity_days: int = Field(ge=1, le=365)
 
 
 class RuntimeSettingsUpdate(BaseModel):
@@ -54,6 +59,7 @@ class RuntimeSettingsUpdate(BaseModel):
 
     session_idle_timeout_minutes: int | None = Field(default=None, ge=15, le=1440)
     session_absolute_timeout_minutes: int | None = Field(default=None, ge=60, le=43200)
+    stale_opportunity_days: int | None = Field(default=None, ge=1, le=365)
 
 
 class _Cache:

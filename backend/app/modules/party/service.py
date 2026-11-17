@@ -52,6 +52,8 @@ CONTACT_SORT = {"last_name": Contact.last_name, "created_at": Contact.created_at
 # Higher modules (sales) contribute figures to the organisation 360 view through
 # providers registered at start-up (ADR 0018); party never imports them.
 OrganizationStats = Callable[[AsyncSession, UUID], Awaitable[Mapping[str, Any]]]
+# Returns an error code when another module forbids archiving the organisation.
+OrganizationArchiveGuard = Callable[[AsyncSession, UUID], Awaitable[ErrorCode | None]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +63,7 @@ class Context:
     settings: Settings
     now: datetime
     organization_stats: Sequence[OrganizationStats] = ()
+    organization_archive_guards: Sequence[OrganizationArchiveGuard] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -410,9 +413,13 @@ async def _fresh_org(ctx: Context, org_id: UUID) -> OrganizationOut:
 
 
 async def archive_organization(ctx: Context, principal: Principal, org_id: UUID) -> None:
-    """Soft delete. Phase 4 adds: blocked while the organisation has open opportunities."""
+    """Soft delete; refused while a guard objects (open opportunities, API spec 7)."""
     org = await _load_org_for_change(ctx, principal, org_id)
     if org.archived_at is None:
+        for guard in ctx.organization_archive_guards:
+            code = await guard(ctx.session, org.id)
+            if code:
+                raise AppError(code, HTTPStatus.CONFLICT)
         org.archived_at = ctx.now
         org.updated_by = principal.user_id
         await _publish(ctx, "organization.archived", "organization", org.id, principal)

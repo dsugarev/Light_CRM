@@ -81,7 +81,8 @@ def create_app(
     app.state.search_providers = {
         p.type: p for p in (*party_service.SEARCH_PROVIDERS, *sales_service.SEARCH_PROVIDERS)
     }
-    app.state.organization_stats = (sales_service.organization_lead_stats,)
+    app.state.organization_stats = sales_service.ORGANIZATION_STATS
+    app.state.organization_archive_guards = sales_service.ORGANIZATION_ARCHIVE_GUARDS
 
     register_error_handlers(app)
     app.add_middleware(RequestContextMiddleware)

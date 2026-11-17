@@ -38,6 +38,7 @@ async def context(request: Request, session: DbSession) -> service.Context:
         settings=request.app.state.settings,
         now=clock.now(),
         organization_stats=request.app.state.organization_stats,
+        organization_archive_guards=request.app.state.organization_archive_guards,
     )
 
 

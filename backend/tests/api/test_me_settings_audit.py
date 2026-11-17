@@ -93,6 +93,7 @@ async def test_FR_AUTH_04_settings_defaults_and_update(test_app: TestApp) -> Non
     assert defaults == {
         "session_idle_timeout_minutes": 480,
         "session_absolute_timeout_minutes": 10080,
+        "stale_opportunity_days": 14,
     }
 
     response = await admin.patch(
@@ -105,6 +106,7 @@ async def test_FR_AUTH_04_settings_defaults_and_update(test_app: TestApp) -> Non
     assert entry.after == {
         "session_idle_timeout_minutes": 480,
         "session_absolute_timeout_minutes": 1440,
+        "stale_opportunity_days": 14,
     }
 
 
@@ -118,6 +120,8 @@ async def test_FR_AUTH_04_settings_defaults_and_update(test_app: TestApp) -> Non
             "session_idle_timeout_minutes",
         ),
         ({"stale_days": 3}, "stale_days"),
+        ({"stale_opportunity_days": 0}, "stale_opportunity_days"),
+        ({"stale_opportunity_days": 366}, "stale_opportunity_days"),
     ],
 )
 async def test_settings_validation(test_app: TestApp, body: dict[str, int], field: str) -> None:
