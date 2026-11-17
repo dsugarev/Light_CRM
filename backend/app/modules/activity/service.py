@@ -6,7 +6,7 @@ that `record_event` stores from the domain event bus (ADR 0020).
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any
@@ -17,6 +17,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.events import DomainEvent, EventBus
+from app.core.export import (
+    SOFIA,
+    ExportColumn,
+    ExportFile,
+    ExportOptions,
+    build_export,
+    exported_event,
+)
+from app.core.export import Locale as ExportLocale
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
 from app.core.policy import MANAGER_ROLES, can_edit_owned
 from app.core.principal import Principal
@@ -166,14 +175,12 @@ async def _outs(ctx: Context, activities: list[Activity]) -> list[ActivityOut]:
     opportunities = await sales.links.opportunity_names(
         session, {a.opportunity_id for a in activities if a.opportunity_id}
     )
-    organizations = {
-        i: await party.organization_summary(session, i)
-        for i in {a.organization_id for a in activities if a.organization_id}
-    }
-    contacts = {
-        i: await party.contact_link(session, i, include_archived=True)
-        for i in {a.contact_id for a in activities if a.contact_id}
-    }
+    organizations = await party.organization_summaries(
+        session, {a.organization_id for a in activities if a.organization_id}
+    )
+    contacts = await party.contact_links(
+        session, {a.contact_id for a in activities if a.contact_id}
+    )
     out: list[ActivityOut] = []
     for a in activities:
         owner = _user(names, a.owner_id)
@@ -488,6 +495,92 @@ async def archive_activity(ctx: Context, principal: Principal, activity_id: UUID
         activity.version += 1
         await _publish(ctx, "activity.archived", activity, principal)
     await ctx.session.commit()
+
+
+async def my_task_counts(session: AsyncSession, user_id: UUID, now: datetime) -> tuple[int, int]:
+    """Open and overdue tasks of a user (dashboard, FR-REP-01)."""
+    return await repository.open_task_counts(session, user_id, now)
+
+
+# --- Export (FR-REP-02, API spec 14) --------------------------------------------------------
+
+ACTIVITY_TYPE_NAMES = {
+    "note": ("Note", "Бележка"),
+    "call": ("Call", "Обаждане"),
+    "meeting": ("Meeting", "Среща"),
+    "email": ("Email", "Имейл"),
+    "task": ("Task", "Задача"),
+}
+ACTIVITY_EXPORT = (
+    ExportColumn("type", "Type", "Вид"),
+    ExportColumn("subject", "Subject", "Тема"),
+    ExportColumn("occurred_at", "Date and time", "Дата и час"),
+    ExportColumn("due_at", "Due", "Срок"),
+    ExportColumn("is_done", "Done", "Изпълнена"),
+    ExportColumn("owner", "Owner", "Отговорник"),
+    ExportColumn("assignee", "Assigned to", "Възложена на"),
+    ExportColumn("lead", "Lead", "Потенциален клиент"),
+    ExportColumn("opportunity", "Opportunity", "Възможност"),
+    ExportColumn("organization", "Organization", "Организация"),
+    ExportColumn("contact", "Contact", "Контакт"),
+    ExportColumn("body", "Details", "Подробности"),
+    ExportColumn("id", "ID", "ID"),
+)
+
+
+def _activity_row(activity: ActivityOut, locale: ExportLocale) -> dict[str, Any]:
+    en, bg = ACTIVITY_TYPE_NAMES[activity.type]
+    links = activity.links
+    return {
+        **activity.model_dump(include={c.key for c in ACTIVITY_EXPORT}),
+        "type": bg if locale == "bg" else en,
+        "is_done": activity.is_done if activity.type == "task" else None,
+        "owner": activity.owner.full_name,
+        "assignee": activity.assignee.full_name if activity.assignee else None,
+        "lead": links.lead.name if links.lead else None,
+        "opportunity": links.opportunity.name if links.opportunity else None,
+        "organization": links.organization.name if links.organization else None,
+        "contact": links.contact.name if links.contact else None,
+    }
+
+
+async def export_activities(
+    ctx: Context,
+    principal: Principal,
+    query: ListQuery,
+    filters: ActivityFilters,
+    options: ExportOptions,
+) -> ExportFile:
+    """FR-REP-02: the filtered activity list as XLSX or CSV."""
+    statement = repository.activities_statement(
+        include_archived=query.include_archived,
+        search=search_terms(query.q) if query.q else None,
+        types=filters.types,
+        lead_ids=filters.lead_ids,
+        opportunity_ids=filters.opportunity_ids,
+        organization_ids=filters.organization_ids,
+        contact_ids=filters.contact_ids,
+        owner_ids=filters.owner_ids,
+        assignee_ids=filters.assignee_ids,
+        is_done=filters.is_done,
+        due_from=filters.due_from,
+        due_to=filters.due_to,
+        occurred_from=filters.occurred_from,
+        occurred_to=filters.occurred_to,
+    )
+    locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
+    file, rows = await build_export(
+        ctx.session, statement, query, ACTIVITY_SORT, Activity.id,
+        lambda batch: _outs(ctx, batch), _activity_row, ACTIVITY_EXPORT, options, locale,
+        name="activities", day=ctx.now.astimezone(SOFIA).date(),
+    )  # fmt: skip
+    await ctx.events.publish(
+        ctx.session,
+        exported_event("activity", principal, ctx.now, rows=rows, options=options,
+                       filters={**asdict(filters), "q": query.q}),
+    )  # fmt: skip
+    await ctx.session.commit()
+    return file
 
 
 # --- Timelines (FR-ACT-03) --------------------------------------------------------------------

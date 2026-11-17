@@ -11,6 +11,7 @@ from app.core.auth import CurrentPrincipal, endpoint
 from app.core.clock import Clock
 from app.core.db import DbSession
 from app.core.errors import AppError, ErrorCode, FieldError
+from app.core.export import EXPORT_PARAMS, EXPORT_RESPONSES, ExportOptions, export_options
 from app.core.listing import ListQuery, Page, SyncPage, list_query
 from app.core.principal import Principal
 from app.modules.party import service
@@ -132,6 +133,48 @@ async def duplicate_check(
     return await service.duplicate_check(ctx, name=name, registration_number=reg)
 
 
+OrganizationExportList = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            "organizations-export",
+            sortable=tuple(service.ORGANIZATION_SORT),
+            default_sort="name",
+            filters=("owner_id", "industry_id", "city", "country", "size_band", *EXPORT_PARAMS),
+        )
+    ),
+]
+
+
+@organizations_router.get(
+    "/export",
+    summary="Export the filtered list as XLSX or CSV",
+    response_class=Response,
+    responses=EXPORT_RESPONSES,
+    **endpoint(AccessLevel.SIGNED_IN),
+)
+async def export_organizations(
+    ctx: Ctx,
+    principal: CurrentPrincipal,
+    query: OrganizationExportList,
+    options: Annotated[ExportOptions, Depends(export_options)],
+    owner_id: Repeated = None,
+    industry_id: Annotated[list[UUID] | None, Query()] = None,
+    city: Repeated = None,
+    country: Repeated = None,
+    size_band: Annotated[list[SizeBand] | None, Query()] = None,
+) -> Response:
+    filters = service.OrganizationFilters(
+        owner_ids=_owner_ids(owner_id, principal),
+        industry_ids=tuple(industry_id or ()),
+        cities=tuple(city or ()),
+        countries=tuple(country or ()),
+        size_bands=tuple(size_band or ()),
+    )
+    file = await service.export_organizations(ctx, principal, query, filters, options)
+    return file.response()
+
+
 @organizations_router.get(
     "/{org_id}",
     summary="Detail with counts of contacts, open leads, open opportunities and pipeline value",
@@ -239,6 +282,41 @@ async def create_contact(
     created = await service.create_contact(ctx, principal, body)
     response.headers["Location"] = f"/api/v1/contacts/{created.id}"
     return created
+
+
+ContactExportList = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            "contacts-export",
+            sortable=tuple(service.CONTACT_SORT),
+            default_sort="last_name",
+            filters=("organization_id", "owner_id", *EXPORT_PARAMS),
+        )
+    ),
+]
+
+
+@contacts_router.get(
+    "/export",
+    summary="Export the filtered list as XLSX or CSV",
+    response_class=Response,
+    responses=EXPORT_RESPONSES,
+    **endpoint(AccessLevel.SIGNED_IN),
+)
+async def export_contacts(
+    ctx: Ctx,
+    principal: CurrentPrincipal,
+    query: ContactExportList,
+    options: Annotated[ExportOptions, Depends(export_options)],
+    organization_id: Annotated[list[UUID] | None, Query()] = None,
+    owner_id: Repeated = None,
+) -> Response:
+    filters = service.ContactFilters(
+        organization_ids=tuple(organization_id or ()), owner_ids=_owner_ids(owner_id, principal)
+    )
+    file = await service.export_contacts(ctx, principal, query, filters, options)
+    return file.response()
 
 
 @contacts_router.get(

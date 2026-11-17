@@ -650,6 +650,7 @@ Rules (as built, Phase 4a):
 | DELETE | `/api/v1/activities/{activity_id}` | Archive | Owner+ | FR-ACT-01 |
 | POST | `/api/v1/activities/{activity_id}/complete` | Mark a task done | Owner+ or assignee | FR-ACT-02 |
 | POST | `/api/v1/activities/{activity_id}/reopen` | Mark a task not done | Owner+ or assignee | FR-ACT-02 |
+| GET | `/api/v1/activities/export` | Export the filtered list (section 14) | Signed-in | FR-REP-02 |
 
 Timeline items (returned by every `/timeline` endpoint) share one shape so the UI renders them uniformly:
 

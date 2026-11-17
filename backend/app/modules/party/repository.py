@@ -149,6 +149,20 @@ async def contacts_with_email(
     return list((await session.execute(statement.limit(10))).unique().scalars())
 
 
+async def get_organizations(session: AsyncSession, ids: set[UUID]) -> list[Organization]:
+    if not ids:
+        return []
+    statement = select(Organization).where(Organization.id.in_(ids))
+    return list((await session.execute(statement)).unique().scalars())
+
+
+async def get_contacts(session: AsyncSession, ids: set[UUID]) -> list[Contact]:
+    if not ids:
+        return []
+    statement = select(Contact).where(Contact.id.in_(ids))
+    return list((await session.execute(statement)).unique().scalars())
+
+
 async def contact_ids_of_organization(session: AsyncSession, org_id: UUID) -> list[UUID]:
     statement = select(Contact.id).where(Contact.organization_id == org_id)
     return list((await session.execute(statement)).scalars())

@@ -11,6 +11,7 @@ from app.core.auth import CurrentPrincipal, endpoint
 from app.core.clock import Clock
 from app.core.db import DbSession
 from app.core.errors import AppError, ErrorCode, FieldError
+from app.core.export import EXPORT_PARAMS, EXPORT_RESPONSES, ExportOptions, export_options
 from app.core.listing import PAGE_SIZE_DEFAULT, PAGE_SIZE_MAX, ListQuery, Page, SyncPage, list_query
 from app.core.principal import Principal
 from app.modules.activity import service
@@ -129,6 +130,66 @@ async def create_activity(
     created = await service.create_activity(ctx, principal, body)
     response.headers["Location"] = f"/api/v1/activities/{created.id}"
     return created
+
+
+ActivityExportList = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            "activities-export",
+            sortable=tuple(service.ACTIVITY_SORT),
+            default_sort="-occurred_at",
+            filters=(
+                "type", "lead_id", "opportunity_id", "organization_id", "contact_id", "owner_id",
+                "assignee_id", "is_done", "due_at_from", "due_at_to", "occurred_at_from",
+                "occurred_at_to", *EXPORT_PARAMS,
+            ),
+        )
+    ),
+]  # fmt: skip
+
+
+@activities_router.get(
+    "/export",
+    summary="Export the filtered list as XLSX or CSV",
+    response_class=Response,
+    responses=EXPORT_RESPONSES,
+    **endpoint(AccessLevel.SIGNED_IN),
+)
+async def export_activities(
+    ctx: Ctx,
+    principal: CurrentPrincipal,
+    query: ActivityExportList,
+    options: Annotated[ExportOptions, Depends(export_options)],
+    activity_type: Annotated[list[ActivityType] | None, Query(alias="type")] = None,
+    lead_id: Repeated = None,
+    opportunity_id: Repeated = None,
+    organization_id: Repeated = None,
+    contact_id: Repeated = None,
+    owner_id: People = None,
+    assignee_id: People = None,
+    is_done: bool | None = None,
+    due_at_from: datetime | None = None,
+    due_at_to: datetime | None = None,
+    occurred_at_from: datetime | None = None,
+    occurred_at_to: datetime | None = None,
+) -> Response:
+    filters = service.ActivityFilters(
+        types=tuple(activity_type or ()),
+        lead_ids=tuple(lead_id or ()),
+        opportunity_ids=tuple(opportunity_id or ()),
+        organization_ids=tuple(organization_id or ()),
+        contact_ids=tuple(contact_id or ()),
+        owner_ids=_ids("owner_id", owner_id, principal),
+        assignee_ids=_ids("assignee_id", assignee_id, principal),
+        is_done=is_done,
+        due_from=due_at_from,
+        due_to=due_at_to,
+        occurred_from=occurred_at_from,
+        occurred_to=occurred_at_to,
+    )
+    file = await service.export_activities(ctx, principal, query, filters, options)
+    return file.response()
 
 
 @activities_router.get(

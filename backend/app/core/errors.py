@@ -35,6 +35,7 @@ class ErrorCode(StrEnum):
     AUTH_TOKEN_INVALID = "auth.token_invalid"
     CONFLICT_DUPLICATE = "conflict.duplicate"
     CONFLICT_VERSION_MISMATCH = "conflict.version_mismatch"
+    EXPORT_TOO_MANY_ROWS = "export.too_many_rows"
     LEAD_BANT_INCOMPLETE = "lead.bant_incomplete"
     LEAD_INVALID_TRANSITION = "lead.invalid_transition"
     LEAD_NOT_CONVERTIBLE = "lead.not_convertible"

@@ -13,11 +13,23 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.core.events import DomainEvent
+from app.core.events import DomainEvent, EventBus
+from app.core.export import (
+    SOFIA,
+    ExportColumn,
+    ExportFile,
+    ExportOptions,
+    check_row_count,
+    exported_event,
+    render,
+    select_columns,
+)
 from app.core.logging import client_ip_var, request_id_var
+from app.core.principal import Principal
 from app.modules.audit import repository
 from app.modules.audit.models import AuditLog
 from app.modules.audit.schemas import AuditActor, AuditEntry, AuditEntrySummary, AuditPage
+from app.modules.identity import service as identity
 
 # Defence in depth: these keys are dropped wherever they appear in a payload.
 _SECRET_KEYS = frozenset(
@@ -124,3 +136,49 @@ async def get_entry(session: AsyncSession, entry_id: UUID) -> AuditEntry:
         details=entry.details,
         request_id=entry.request_id,
     )
+
+
+AUDIT_EXPORT = (
+    ExportColumn("occurred_at", "Time", "Време"),
+    ExportColumn("actor", "Actor", "Извършил"),
+    ExportColumn("actor_type", "Actor type", "Вид извършил"),
+    ExportColumn("action", "Action", "Действие"),
+    ExportColumn("entity_type", "Record type", "Вид запис"),
+    ExportColumn("entity_id", "Record ID", "ID на запис"),
+    ExportColumn("ip", "IP address", "IP адрес"),
+    ExportColumn("id", "ID", "ID"),
+)
+
+
+async def export_entries(
+    session: AsyncSession,
+    events: EventBus,
+    principal: Principal,
+    now: datetime,
+    filters: Mapping[str, Any],
+    options: ExportOptions,
+) -> ExportFile:
+    """FR-ADM-03 / FR-REP-02: the filtered audit log as XLSX or CSV (Admin)."""
+    statement = repository.search_statement(**filters)
+    columns = select_columns(AUDIT_EXPORT, options.columns)
+    check_row_count(await repository.count(session, statement))
+    locale = options.locale or await identity.user_locale(session, principal.user_id)
+    rows = []
+    for entry in await repository.all_rows(session, statement):
+        summary = _summary(entry)
+        rows.append(
+            {
+                **summary.model_dump(include={c.key for c in AUDIT_EXPORT}),
+                "actor": summary.actor.name,
+                "actor_type": summary.actor.type,
+            }
+        )
+    content = render(columns, rows, options.format, locale, sheet="audit-log")
+    await events.publish(
+        session,
+        exported_event(
+            "audit_log", principal, now, rows=len(rows), options=options, filters=filters
+        ),
+    )
+    await session.commit()
+    return ExportFile(content, options.format, "audit-log", now.astimezone(SOFIA).date())
