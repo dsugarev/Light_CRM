@@ -6,7 +6,15 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, PlainSerializer
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, PlainSerializer, model_validator
+
+from app.modules.party.schemas import (
+    ContactCreate,
+    ContactOut,
+    Match,
+    OrganizationCreate,
+    OrganizationOut,
+)
 
 LeadStatus = Literal["new", "contacted", "qualified", "converted", "disqualified"]
 BantStatus = Literal["unknown", "no", "partial", "yes"]
@@ -317,3 +325,84 @@ class Board(BaseModel):
     currency: Literal["EUR"] = "EUR"
     columns: list[BoardColumn]
     truncated: bool
+
+
+# --- Lead conversion (FR-LEAD-04, API spec section 9) ---------------------------------------
+
+
+class _ExistingOrNew[T: BaseModel](_Request):
+    existing_id: UUID | None = None
+    new: T | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> _ExistingOrNew[T]:
+        if (self.existing_id is None) == (self.new is None):
+            raise ValueError("exactly one of existing_id and new")
+        return self
+
+
+class ConversionOrganization(_ExistingOrNew[OrganizationCreate]):
+    pass
+
+
+class ConversionContact(_ExistingOrNew[ContactCreate]):
+    """A new contact always belongs to the conversion's organization."""
+
+
+class ConversionOpportunity(_Request):
+    name: Annotated[str, Field(min_length=1, max_length=200)]
+    amount: Money | None = None
+    expected_close_date: date | None = None
+    stage_id: UUID | None = None
+    owner_id: UUID | None = None
+
+
+class ConvertRequest(_Request):
+    version: int = Field(ge=1)
+    organization: ConversionOrganization
+    contact: ConversionContact | None = None
+    opportunity: ConversionOpportunity
+
+
+class ConversionResult(BaseModel):
+    lead: LeadOut
+    organization: OrganizationOut
+    contact: ContactOut | None
+    opportunity: OpportunityOut
+
+
+class SuggestedOrganization(BaseModel):
+    name: str
+
+
+class SuggestedContact(BaseModel):
+    first_name: str
+    last_name: str
+    email: str | None
+    phone: str | None
+
+
+class OrganizationChoice(BaseModel):
+    linked: LinkSummary | None
+    matches: list[Match]
+    suggested: SuggestedOrganization
+
+
+class ContactChoice(BaseModel):
+    linked: LinkSummary | None
+    matches: list[Match]
+    suggested: SuggestedContact | None
+
+
+class SuggestedOpportunity(BaseModel):
+    name: str
+    amount: Money | None
+    stage: StageSummary
+
+
+class ConversionPreview(BaseModel):
+    """What the conversion screen offers before the user decides (FR-LEAD-04)."""
+
+    organization: OrganizationChoice
+    contact: ContactChoice
+    opportunity: SuggestedOpportunity
