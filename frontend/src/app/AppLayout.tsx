@@ -23,6 +23,7 @@ export function AppLayout() {
     users: can('users.manage'),
     audit: can('audit.read'),
     settings: can('settings.manage'),
+    imports: can('data.import'),
   }
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -76,6 +77,11 @@ export function AppLayout() {
               {show.users ? (
                 <NavLink to="/admin/users" className={linkClass}>
                   {t('nav.users')}
+                </NavLink>
+              ) : null}
+              {show.imports ? (
+                <NavLink to="/admin/imports" className={linkClass}>
+                  {t('nav.imports')}
                 </NavLink>
               ) : null}
               {show.audit ? (

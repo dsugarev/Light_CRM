@@ -364,6 +364,144 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List batches with status and counts */
+        get: operations["list_batches_api_v1_imports_get"];
+        put?: never;
+        /** Upload a file; returns the batch with detected columns and a suggested mapping */
+        post: operations["upload_api_v1_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/templates/{entity_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download the XLSX template with headers and an instructions sheet */
+        get: operations["download_template_api_v1_imports_templates__entity_type__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Batch detail */
+        get: operations["get_batch_api_v1_imports__batch_id__get"];
+        put?: never;
+        post?: never;
+        /** Discard a batch that was not committed, including its uploaded data */
+        delete: operations["discard_api_v1_imports__batch_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{batch_id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Write records; strict fails with 409 import.has_errors if any row is invalid */
+        post: operations["commit_api_v1_imports__batch_id__commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{batch_id}/mapping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set column-to-field mapping and duplicate handling (skip or update) */
+        put: operations["set_mapping_api_v1_imports__batch_id__mapping_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{batch_id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive records created by the batch and revert its updates */
+        post: operations["rollback_api_v1_imports__batch_id__rollback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{batch_id}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Paginated preview; filter outcome; each row lists field errors */
+        get: operations["list_rows_api_v1_imports__batch_id__rows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{batch_id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate all rows; counts of valid, invalid and duplicate rows */
+        post: operations["validate_api_v1_imports__batch_id__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leads": {
         parameters: {
             query?: never;
@@ -1668,6 +1806,23 @@ export interface components {
             /** Status */
             status?: ("unknown" | "no" | "partial" | "yes") | null;
         };
+        /** BatchCounts */
+        BatchCounts: {
+            /** Created */
+            created: number;
+            /** Duplicate */
+            duplicate: number;
+            /** Invalid */
+            invalid: number;
+            /** Rows */
+            rows: number;
+            /** Skipped */
+            skipped: number;
+            /** Updated */
+            updated: number;
+            /** Valid */
+            valid: number;
+        };
         /** Board */
         Board: {
             /** Columns */
@@ -1720,6 +1875,19 @@ export interface components {
             /** Weighted Amount */
             weighted_amount: string;
         };
+        /** Body_upload_api_v1_imports_post */
+        Body_upload_api_v1_imports_post: {
+            /**
+             * Entity Type
+             * @enum {string}
+             */
+            entity_type: "organizations" | "contacts" | "leads" | "opportunities";
+            /**
+             * File
+             * @description XLSX or CSV, at most 10 MB
+             */
+            file: string;
+        };
         /** CloseRequest */
         CloseRequest: {
             /** Actual Close Date */
@@ -1735,6 +1903,15 @@ export interface components {
             outcome: "won" | "lost";
             /** Version */
             version: number;
+        };
+        /** CommitRequest */
+        CommitRequest: {
+            /**
+             * Mode
+             * @default strict
+             * @enum {string}
+             */
+            mode: "strict" | "skip_invalid";
         };
         /** ContactChoice */
         ContactChoice: {
@@ -1989,6 +2166,17 @@ export interface components {
             /** Field */
             field: string;
         };
+        /** FieldInfo */
+        FieldInfo: {
+            /** Key */
+            key: string;
+            /** Name Bg */
+            name_bg: string;
+            /** Name En */
+            name_en: string;
+            /** Required */
+            required: boolean;
+        };
         /** ForecastMonth */
         ForecastMonth: {
             /** Count */
@@ -2043,6 +2231,75 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "unavailable";
+        };
+        /** ImportBatchOut */
+        ImportBatchOut: {
+            /** Columns */
+            columns: string[];
+            /** Committed At */
+            committed_at: string | null;
+            counts: components["schemas"]["BatchCounts"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            created_by: components["schemas"]["UserSummary"] | null;
+            /** Duplicate Mode */
+            duplicate_mode: ("skip" | "update") | null;
+            /**
+             * Entity Type
+             * @enum {string}
+             */
+            entity_type: "organizations" | "contacts" | "leads" | "opportunities";
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fields */
+            fields: components["schemas"]["FieldInfo"][];
+            /** File Name */
+            file_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Mapping
+             * @description Column → field; on upload, the suggested mapping
+             */
+            mapping: {
+                [key: string]: string | null;
+            };
+            /** Rolled Back At */
+            rolled_back_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "uploaded" | "mapped" | "validated" | "committed" | "rolled_back";
+        };
+        /** ImportRowOut */
+        ImportRowOut: {
+            /** Action */
+            action: ("created" | "updated" | "skipped") | null;
+            /** Errors */
+            errors: components["schemas"]["RowError"][];
+            match: components["schemas"]["LinkSummary"] | null;
+            /** Outcome */
+            outcome: ("valid" | "invalid" | "duplicate") | null;
+            /** Record Id */
+            record_id: string | null;
+            /** Rollback Result */
+            rollback_result: string | null;
+            /** Row Number */
+            row_number: number;
+            /** Values */
+            values: {
+                [key: string]: string | null;
+            };
         };
         /** LeadConversionReport */
         LeadConversionReport: {
@@ -2200,6 +2457,22 @@ export interface components {
         /** LoginResponse */
         LoginResponse: {
             user: components["schemas"]["SessionUser"];
+        };
+        /** MappingRequest */
+        MappingRequest: {
+            /**
+             * Duplicates
+             * @default skip
+             * @enum {string}
+             */
+            duplicates: "skip" | "update";
+            /**
+             * Mapping
+             * @description Column → field key, or null to ignore
+             */
+            mapping: {
+                [key: string]: string | null;
+            };
         };
         /**
          * Match
@@ -2616,6 +2889,28 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[ImportBatchOut] */
+        Page_ImportBatchOut_: {
+            /** Items */
+            items: components["schemas"]["ImportBatchOut"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[ImportRowOut] */
+        Page_ImportRowOut_: {
+            /** Items */
+            items: components["schemas"]["ImportRowOut"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
         /** Page[LeadOut] */
         Page_LeadOut_: {
             /** Items */
@@ -2818,6 +3113,26 @@ export interface components {
             name: string;
             /** Permissions */
             permissions: string[];
+        };
+        /** RollbackReport */
+        RollbackReport: {
+            /** Archived */
+            archived: number;
+            batch: components["schemas"]["ImportBatchOut"];
+            /**
+             * Kept
+             * @description Rows whose record was not rolled back, with the reason in rollback_result
+             */
+            kept: components["schemas"]["ImportRowOut"][];
+            /** Reverted */
+            reverted: number;
+        };
+        /** RowError */
+        RowError: {
+            /** Code */
+            code: string;
+            /** Field */
+            field: string;
         };
         /** RuntimeSettings */
         RuntimeSettings: {
@@ -4248,6 +4563,337 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_TimelineItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_batches_api_v1_imports_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number | null;
+                /** @description Sortable: created_at; prefix - for descending */
+                sort?: string | null;
+                q?: string | null;
+                include_archived?: boolean;
+                updated_since?: string | null;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ImportBatchOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_api_v1_imports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_api_v1_imports_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_template_api_v1_imports_templates__entity_type__get: {
+        parameters: {
+            query?: {
+                locale?: ("en" | "bg") | null;
+            };
+            header?: never;
+            path: {
+                entity_type: "organizations" | "contacts" | "leads" | "opportunities";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_batch_api_v1_imports__batch_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_api_v1_imports__batch_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    commit_api_v1_imports__batch_id__commit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_mapping_api_v1_imports__batch_id__mapping_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MappingRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rollback_api_v1_imports__batch_id__rollback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RollbackReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rows_api_v1_imports__batch_id__rows_get: {
+        parameters: {
+            query?: {
+                outcome?: ("valid" | "invalid" | "duplicate")[] | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ImportRowOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_api_v1_imports__batch_id__validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchOut"];
                 };
             };
             /** @description Validation Error */

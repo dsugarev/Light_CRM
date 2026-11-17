@@ -20,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db import Base, BusinessTableMixin, IdMixin, TimestampMixin
+from app.core.db import Base, BusinessTableMixin, IdMixin, ImportedMixin, TimestampMixin
 from app.core.reference import ReferenceItemMixin
 
 LEAD_STATUSES = ("new", "contacted", "qualified", "converted", "disqualified")
@@ -40,7 +40,7 @@ class DisqualificationReason(IdMixin, TimestampMixin, ReferenceItemMixin, Base):
     __tablename__ = "disqualification_reason"
 
 
-class Lead(BusinessTableMixin, Base):
+class Lead(BusinessTableMixin, ImportedMixin, Base):
     """TMF699 salesLead: an unqualified prospect (FR-LEAD-01..06)."""
 
     __tablename__ = "lead"
@@ -162,7 +162,7 @@ class PipelineStage(IdMixin, TimestampMixin, Base):
     pipeline: Mapped[Pipeline] = relationship(back_populates="stages")
 
 
-class Opportunity(BusinessTableMixin, Base):
+class Opportunity(BusinessTableMixin, ImportedMixin, Base):
     """TMF699 salesOpportunity: a qualified potential deal (FR-OPP-01..06)."""
 
     __tablename__ = "opportunity"

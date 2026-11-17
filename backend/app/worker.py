@@ -19,6 +19,7 @@ from app.core.clock import SystemClock
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine, create_session_factory
 from app.core.logging import configure_logging
+from app.modules.dataimport import service as dataimport_service
 from app.modules.identity import service as identity_service
 
 Job = Callable[[AsyncEngine], Awaitable[None]]
@@ -42,10 +43,12 @@ def every(interval: timedelta, job: Job) -> Job:
 
 
 async def purge_expired(engine: AsyncEngine) -> None:
-    """Housekeeping: expired sessions, stale password tokens, old rate-limit windows."""
+    """Housekeeping: expired sessions, stale password tokens, old rate-limit windows and
+    uploaded import files older than 7 days (API spec 15)."""
     now = SystemClock().now()
     async with create_session_factory(engine)() as session:
         removed = await identity_service.purge_expired(session, now)
+        removed.update(await dataimport_service.purge_expired(session, now))
     removed["rate_limit_windows"] = await ratelimit.purge_expired(engine, now)
     logger.info("housekeeping_done", extra=removed)
 

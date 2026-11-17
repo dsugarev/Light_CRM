@@ -413,3 +413,11 @@ async def get_reference_items[R](session: AsyncSession, model: type[R], ids: set
         return []
     statement = select(model).where(model.id.in_(ids))  # type: ignore[attr-defined]
     return list((await session.execute(statement)).scalars())
+
+
+async def updated_at_of(session: AsyncSession, kind: str, ids: set[UUID]) -> dict[UUID, datetime]:
+    if not ids:
+        return {}
+    model: type[Lead] | type[Opportunity] = Lead if kind == "lead" else Opportunity
+    rows = await session.execute(select(model.id, model.updated_at).where(model.id.in_(ids)))
+    return {row_id: stamp for row_id, stamp in rows.all()}  # noqa: C416 - Row to tuple

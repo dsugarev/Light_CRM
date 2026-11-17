@@ -318,6 +318,21 @@ async def _commit_change(
 
 async def create_lead(ctx: Context, principal: Principal, data: LeadCreate) -> LeadOut:
     """FR-LEAD-01: company name alone is enough; status starts as `new`."""
+    lead_id = await _new_lead(ctx, principal, data)
+    await ctx.session.commit()
+    return await _fresh(ctx, lead_id)
+
+
+async def import_create_lead(
+    ctx: Context, principal: Principal, data: LeadCreate, batch_id: UUID
+) -> UUID:
+    """FR-IMP-01: create inside the import's transaction, tagged with the batch."""
+    return await _new_lead(ctx, principal, data, import_batch_id=batch_id)
+
+
+async def _new_lead(
+    ctx: Context, principal: Principal, data: LeadCreate, *, import_batch_id: UUID | None = None
+) -> UUID:
     owner_id = data.owner_id or principal.user_id
     await check_owner_choice(ctx, principal, owner_id)
     await _check_source(ctx, data.source_id)
@@ -326,6 +341,7 @@ async def create_lead(ctx: Context, principal: Principal, data: LeadCreate) -> L
         **data.model_dump(exclude={"owner_id", "qualification"}),
         owner_id=owner_id,
         status="new",
+        import_batch_id=import_batch_id,
         created_by=principal.user_id,
         updated_by=principal.user_id,
     )
@@ -337,8 +353,7 @@ async def create_lead(ctx: Context, principal: Principal, data: LeadCreate) -> L
     ctx.session.add(lead)
     await ctx.session.flush()
     await _publish(ctx, "lead.created", lead, principal, after=_view(lead))
-    await ctx.session.commit()
-    return await _fresh(ctx, lead.id)
+    return lead.id
 
 
 async def get_lead(ctx: Context, lead_id: UUID) -> LeadOut:

@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -917,3 +917,192 @@ async def contact_links(session: AsyncSession, contact_ids: set[UUID]) -> dict[U
         )
         for c in await repository.get_contacts(session, contact_ids)
     }
+
+
+# --- Import support (FR-IMP-01; used by the dataimport module) --------------------------------
+
+ImportKind = Literal["organization", "contact"]
+# Fields an import may update on an existing record (duplicates in "update" mode). The name,
+# registration number and owner identify the record and are left alone.
+IMPORT_UPDATABLE: dict[ImportKind, frozenset[str]] = {
+    "organization": frozenset(
+        {"vat_number", "industry_id", "size_band", "website", "address_line", "postal_code",
+         "city", "country", "notes"}
+    ),
+    "contact": frozenset(
+        {"job_title", "phone", "preferred_locale", "organization_id", "notes"}
+    ),
+}  # fmt: skip
+
+
+async def import_create_organization(
+    ctx: Context, principal: Principal, data: OrganizationCreate, batch_id: UUID
+) -> UUID:
+    """Create inside the import's transaction; duplicates were decided during validation."""
+    owner_id = data.owner_id or principal.user_id
+    await _check_owner_choice(ctx, principal, owner_id)
+    await _check_industry(ctx, data.industry_id)
+    org = Organization(
+        **data.model_dump(exclude={"confirm_duplicate", "owner_id"}),
+        owner_id=owner_id,
+        name_normalized=normalize_company_name(data.name),
+        import_batch_id=batch_id,
+        created_by=principal.user_id,
+        updated_by=principal.user_id,
+    )
+    org.search_text = _org_search_text(org)
+    ctx.session.add(org)
+    await ctx.session.flush()
+    await _publish(
+        ctx, "organization.created", "organization", org.id, principal, after=_org_view(org)
+    )
+    return org.id
+
+
+async def import_create_contact(
+    ctx: Context, principal: Principal, data: ContactCreate, batch_id: UUID
+) -> UUID:
+    await _check_contact_organization(ctx, data.organization_id)
+    contact = Contact(
+        **data.model_dump(exclude={"confirm_duplicate"}),
+        import_batch_id=batch_id,
+        created_by=principal.user_id,
+        updated_by=principal.user_id,
+    )
+    contact.search_text = _contact_search_text(contact)
+    ctx.session.add(contact)
+    await ctx.session.flush()
+    await _publish(
+        ctx, "contact.created", "contact", contact.id, principal, after=_contact_view(contact)
+    )
+    return contact.id
+
+
+async def find_organization(session: AsyncSession, text: str) -> tuple[UUID | None, str | None]:
+    """An existing organisation by registration number (digits) or by name in either script.
+    Returns (id, None) or (None, field code)."""
+    digits = "".join(text.split())
+    if digits.isdigit() and len(digits) in (9, 13):
+        found = await repository.organization_duplicates(
+            session, name_normalized=None, registration_number=digits, exclude_id=None,
+            similar=False,
+        )  # fmt: skip
+    else:
+        found = await repository.organization_duplicates(
+            session, name_normalized=normalize_company_name(text), registration_number=None,
+            exclude_id=None, similar=False,
+        )  # fmt: skip
+    active = [org for org, _ in found if org.archived_at is None]
+    if not active:
+        return None, "organization.not_found"
+    if len(active) > 1:
+        return None, "organization.ambiguous"
+    return active[0].id, None
+
+
+async def duplicate_organization(
+    session: AsyncSession, name: str, registration_number: str | None
+) -> tuple[UUID, str] | None:
+    """The existing organisation an imported one duplicates (FR-PARTY-01 rules), if any."""
+    found = await repository.organization_duplicates(
+        session, name_normalized=normalize_company_name(name),
+        registration_number=registration_number, exclude_id=None, similar=False,
+    )  # fmt: skip
+    return (found[0][0].id, found[0][0].name) if found else None
+
+
+async def duplicate_contact(session: AsyncSession, email: str) -> tuple[UUID, str] | None:
+    """The existing contact with this email (FR-PARTY-02 duplicate rule), if any."""
+    found = await repository.contacts_with_email(session, email.lower(), exclude_id=None)
+    return (found[0].id, f"{found[0].first_name} {found[0].last_name}") if found else None
+
+
+def _json_value(value: Any) -> Any:
+    return str(value) if isinstance(value, UUID) else value
+
+
+def _db_value(key: str, value: Any) -> Any:
+    return UUID(value) if key.endswith("_id") and isinstance(value, str) else value
+
+
+async def _import_record(ctx: Context, kind: ImportKind, record_id: UUID) -> Organization | Contact:
+    record: Organization | Contact | None = (
+        await repository.get_organization(ctx.session, record_id, for_update=True)
+        if kind == "organization"
+        else await repository.get_contact(ctx.session, record_id, for_update=True)
+    )
+    if record is None:
+        raise _not_found()
+    return record
+
+
+async def _publish_import_change(
+    ctx: Context, principal: Principal, kind: ImportKind, record: Organization | Contact,
+    before: Mapping[str, Any],
+) -> None:  # fmt: skip
+    if isinstance(record, Organization):
+        record.search_text = _org_search_text(record)
+        after = _org_view(record)
+    else:
+        record.search_text = _contact_search_text(record)
+        after = _contact_view(record)
+    if after != before:
+        record.updated_by = principal.user_id
+        await _publish(
+            ctx, f"{kind}.updated", kind, record.id, principal, before=before, after=after
+        )
+
+
+def _view_of(record: Organization | Contact) -> dict[str, Any]:
+    return _org_view(record) if isinstance(record, Organization) else _contact_view(record)
+
+
+async def import_update(
+    ctx: Context,
+    principal: Principal,
+    kind: ImportKind,
+    record_id: UUID,
+    changes: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Apply the import's non-empty values to an existing record; returns the previous
+    values of the fields it changed (stored for rollback)."""
+    record = await _import_record(ctx, kind, record_id)
+    if kind == "organization" and changes.get("industry_id") is not None:
+        await _check_industry(ctx, changes["industry_id"])
+    view = _view_of(record)
+    previous: dict[str, Any] = {}
+    for key, value in changes.items():
+        if key in IMPORT_UPDATABLE[kind] and value is not None and getattr(record, key) != value:
+            previous[key] = _json_value(getattr(record, key))
+            setattr(record, key, value)
+    await _publish_import_change(ctx, principal, kind, record, view)
+    await ctx.session.flush()
+    return previous
+
+
+async def import_restore(
+    ctx: Context,
+    principal: Principal,
+    kind: ImportKind,
+    record_id: UUID,
+    previous: Mapping[str, Any],
+) -> None:
+    """Rollback of an import update: put back the stored previous values."""
+    record = await _import_record(ctx, kind, record_id)
+    view = _view_of(record)
+    for key, value in previous.items():
+        setattr(record, key, _db_value(key, value))
+    await _publish_import_change(ctx, principal, kind, record, view)
+    await ctx.session.flush()
+
+
+async def record_stamps(
+    session: AsyncSession, kind: ImportKind, ids: set[UUID]
+) -> dict[UUID, datetime]:
+    """updated_at of many records (import rollback detects later changes with it)."""
+    records: list[Organization] | list[Contact] = (
+        await repository.get_organizations(session, ids)
+        if kind == "organization"
+        else await repository.get_contacts(session, ids)
+    )
+    return {r.id: r.updated_at for r in records}

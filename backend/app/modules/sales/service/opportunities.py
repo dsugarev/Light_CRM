@@ -310,6 +310,7 @@ async def create_opportunity(
     *,
     source_lead_id: UUID | None = None,
     commit: bool = True,
+    import_batch_id: UUID | None = None,
 ) -> Opportunity:
     """FR-OPP-01: stage defaults to the first open stage, probability to its default."""
     owner_id = data.owner_id or principal.user_id
@@ -335,6 +336,7 @@ async def create_opportunity(
         probability=data.probability if data.probability is not None else stage.default_probability,
         probability_overridden=data.probability is not None,
         source_lead_id=source_lead_id,
+        import_batch_id=import_batch_id,
         created_by=principal.user_id,
         updated_by=principal.user_id,
     )
