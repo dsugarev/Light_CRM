@@ -4,7 +4,7 @@ What has been built, phase by phase, with the key code. The specifications in `d
 
 | Phase | Status | Branch |
 |---|---|---|
-| 0 — Foundation | Built, awaiting owner review | `phase-0-foundation` |
+| 0 — Foundation | Built, CI green, awaiting owner review | `phase-0-foundation` (PR #1) |
 | 1 — Identity, access and audit | Not started | — |
 
 ---
@@ -24,7 +24,7 @@ Goal (implementation plan): an empty but production-shaped skeleton. Exit: the s
 | 0.5 | Frontend: Vite, React, TS strict, router, layout, TanStack Query, Tailwind + shadcn/ui, i18next en/bg, sign-in placeholder, generated typed client | Done |
 | 0.6 | ESLint/Prettier, Vitest + MSW, i18n parity script, contract-drift check, Playwright smoke | Done |
 | 0.7 | Dockerfiles, Compose (prod-like + dev), Caddyfile, `.env.example`, backups, start/stop scripts | Done; verified under Docker Desktop (see Verification) |
-| 0.8 | GitHub Actions CI with all gates | Written; pushed to `dsugarev/Light_CRM`; first run on the Phase 0 pull request |
+| 0.8 | GitHub Actions CI with all gates | Done; green on PR #1 |
 | 0.9 | Seed ADRs | Done: `docs/adr/0001`–`0012` |
 | 0.10 | Quality gate, docs, this log | Done; see "Verification" |
 
@@ -373,7 +373,7 @@ Docker was not installed, so the stack was checked locally with equivalent piece
 | Playwright vs. composed stack | Chromium 5 passed; Firefox same local launch issue as above |
 | Backup | `backup.sh --now` wrote a custom-format dump; scheduler waits for 02:00 Europe/Sofia |
 | Dev override | backend on `http://localhost:8000`, ready `ok`, OpenAPI published (200) |
-| GitHub Actions | pending: runs on the Phase 0 pull request |
+| GitHub Actions (PR #1, run 44084724475) | all four jobs green: backend 39 s, frontend 28 s, contract 29 s, e2e 2 min 3 s; Playwright 10/10 including Firefox |
 
 ### Phase 0 definition of done
 
@@ -381,7 +381,7 @@ Docker was not installed, so the stack was checked locally with equivalent piece
 |---|---|---|
 | 1 | Acceptance criteria as tests named with requirement IDs | Done for the Phase 0 scope (NFR-04, NFR-08, NFR-12, FR-I18N-01, FR-INT-10) |
 | 2 | `docker compose up` from a clean checkout works | Done (`scripts/start-mac.sh`) |
-| 3 | Lint, types, all suites green | Done locally; CI result on the pull request |
+| 3 | Lint, types, all suites green | Done locally and in CI |
 | 4 | New endpoints have permission checks and are in the authorization test | Health endpoints are Public and checked by the route-catalog test; the role matrix starts in Phase 1 |
 | 5 | UI text in English and Bulgarian | Done; Bulgarian wording should be reviewed by a native speaker |
 | 6 | Additive migrations passing migration tests | Done |
@@ -401,7 +401,7 @@ Docker was not installed, so the stack was checked locally with equivalent piece
 
 ### Open items
 
-1. Open the pull request `phase-0-foundation` → `main` on `dsugarev/Light_CRM` and check the first CI run (including the Firefox tests).
+1. Owner review and merge of PR #1 (https://github.com/dsugarev/Light_CRM/pull/1).
 2. Bulgarian UI texts accepted for now by the owner (2026-11-17); revisit if needed.
 
 Repository history: the GitHub repository starts from a clean root (the specifications commit). The Prelegal history is kept only locally, on branches `prelegal-archive` and `phase-0-foundation-prelegal-based`.
