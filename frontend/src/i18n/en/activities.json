@@ -1,0 +1,71 @@
+{
+  "type": {
+    "note": "Note",
+    "call": "Call",
+    "meeting": "Meeting",
+    "email": "Email",
+    "task": "Task"
+  },
+  "entity": {
+    "lead": "Lead",
+    "opportunity": "Opportunity",
+    "organization": "Organization",
+    "contact": "Contact"
+  },
+  "form": {
+    "title": "Log activity",
+    "type": "Type",
+    "subject": "Subject",
+    "body": "Details",
+    "when": "Date and time",
+    "whenHint": "Leave empty for now.",
+    "due": "Due",
+    "assignee": "Assigned to",
+    "log": "Log activity",
+    "createTask": "Create task"
+  },
+  "timeline": {
+    "title": "Timeline",
+    "log": "Log activity",
+    "empty": "No activity yet.",
+    "meta": "{{when}} · {{who}}",
+    "open": "Open"
+  },
+  "task": {
+    "overdue": "Overdue",
+    "meta": "Due {{due}} · {{assignee}}",
+    "done": "Done: {{subject}}"
+  },
+  "event": {
+    "created": "Created",
+    "updated": "Details changed",
+    "owner_changed": "Owner changed from {{from}} to {{to}}",
+    "status_changed": "Status changed from {{from}} to {{to}}",
+    "stage_changed": "Stage changed from {{from}} to {{to}}",
+    "converted": "Converted to an opportunity",
+    "closed_won": "Closed as won",
+    "closed_lost": "Closed as lost: {{reason}}",
+    "reopened": "Reopened in {{to}}",
+    "archived": "Archived",
+    "restored": "Restored"
+  },
+  "tasks": {
+    "title": "My tasks",
+    "includeDone": "Show completed tasks",
+    "none": "No open tasks.",
+    "columns": {
+      "done": "Done",
+      "subject": "Task",
+      "due": "Due",
+      "record": "For",
+      "owner": "Created by"
+    }
+  },
+  "toasts": {
+    "logged": "Activity logged.",
+    "taskCreated": "Task created.",
+    "completed": "Task done.",
+    "reopened": "Task reopened.",
+    "conflict": "Someone else changed this activity. The latest version is shown; please repeat your change."
+  }
+}

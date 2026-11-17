@@ -557,6 +557,7 @@ async def _timeline(
             activity = activities[item_id]
             items.append(
                 TimelineItem(
+                    id=item_id,
                     kind="activity",
                     occurred_at=activity.occurred_at,
                     actor=activity.owner,
@@ -567,6 +568,7 @@ async def _timeline(
             event = events[item_id]
             items.append(
                 TimelineItem(
+                    id=item_id,
                     kind="event",
                     occurred_at=event.occurred_at,
                     actor=_user(actors, event.actor_id),

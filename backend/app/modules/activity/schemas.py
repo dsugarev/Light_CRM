@@ -85,6 +85,7 @@ class TimelineEventOut(BaseModel):
 
 
 class TimelineItem(BaseModel):
+    id: UUID = Field(description="The activity's or the event's ID")
     kind: Literal["activity", "event"]
     occurred_at: datetime
     actor: UserSummary | None

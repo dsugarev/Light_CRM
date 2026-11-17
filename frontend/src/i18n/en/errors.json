@@ -88,7 +88,10 @@
     "bant_incomplete": "To qualify, every BANT item must be known.",
     "bant_unknown": "Still unknown.",
     "invalid_transition": "This status change is not possible now.",
-    "read_only": "This lead can no longer be edited."
+    "read_only": "This lead can no longer be edited.",
+    "not_convertible": "Only a qualified lead can be converted.",
+    "not_found": "The lead does not exist.",
+    "archived": "The lead is archived."
   },
   "contact": {
     "not_found": "The contact does not exist.",
@@ -97,12 +100,23 @@
   "opportunity": {
     "closed": "This opportunity is closed. A manager can reopen it.",
     "loss_reason_required": "Choose a loss reason.",
-    "not_closed": "This opportunity is not closed."
+    "not_closed": "This opportunity is not closed.",
+    "not_found": "The opportunity does not exist.",
+    "archived": "The opportunity is archived."
   },
   "stage": {
     "in_use": "This stage is in use. Deactivate it instead.",
     "required": "At least one active stage of each type (open, won, lost) must remain.",
     "not_open": "Choose an active open stage.",
     "order_incomplete": "The order must include every stage once."
+  },
+  "activity": {
+    "link_required": "Link the activity to at least one record.",
+    "due_required": "A task needs a due date.",
+    "task_only": "Only tasks have a due date and an assignee.",
+    "not_a_task": "Only tasks can be marked done."
+  },
+  "assignee": {
+    "invalid": "Choose an active user who can work on records."
   }
 }
