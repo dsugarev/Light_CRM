@@ -1599,3 +1599,150 @@ All p95 values are far below the 500 ms target. Bulk operations on the same stac
 1. Owner review of Phase 5 (PR #9 for 5a and the 5b PR stacked on it; PR #8 brings 4b to `main` first).
 2. Remove the ignored advisory (ADR 0022) when picomatch ships a fix.
 
+
+## Phase 6a — Integration clients, API keys, scopes, external references, idempotency
+
+Requirements: FR-INT-01, 02, 03, 04, 05 (sync mode with a key), 06, 08 (usage counters), 09 (per-client rate limit), 12 (admin screens for clients and keys); NFR-13, NFR-14. Webhooks (FR-INT-07, 10, 11), the integration guide and the rest of FR-INT-08/12 are Phase 6b. Owner decisions used here (2026-11-17): build on the API spec 19.9 read-only profiles; clients inactive until the owner confirms each flow, write scopes only after that (requirements open questions 7 and 8 still open); per-client limit 300/min by default; key expiry 12 months by default, 24 at most; hourly usage counters in PostgreSQL.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 6a.1 | Schema: `external_system` (seeded), `integration_client`, `api_key`, `external_reference`, `idempotency_record`, `integration_usage` | Done: migration `0008` |
+| 6a.2 | Principal and policy: integration principal, scope templates and alternatives, `has_scope`/`require_scope`/`record_owner`, Public refused to keys | Done (ADR 0024) |
+| 6a.3 | Bearer authentication: key format, hash, expiry, two active keys, revocation, IP allowlist, mixed credentials, per-client rate limit | Done |
+| 6a.4 | Client and key administration API, service users, audit; `create-integration-client` CLI | Done |
+| 6a.5 | External references: resolve, per record, put/delete with own-system rule; list filters on four lists and exports | Done |
+| 6a.6 | Idempotency and usage counting middleware; worker housekeeping | Done |
+| 6a.7 | Scope rules in modules: owner required, no owner change, own activities only, search narrowed | Done |
+| 6a.8 | Backend tests: integration suite, matrix with integration callers, policy | Done |
+| 6a.9 | Admin screens (clients, settings, keys) and references on four record pages, en + bg | Done |
+| 6a.10 | Vitest and Playwright (en, bg) | Done |
+| 6a.11 | Documentation (spec v0.9, ADR 0024, snapshot, this log, test record, README, CLAUDE.md), gate, PR | Done |
+
+### Endpoints built (13)
+
+`GET|POST /integration-clients`, `GET|PATCH /integration-clients/{client_id}`, `POST /integration-clients/{client_id}/activate|deactivate`, `GET|POST /integration-clients/{client_id}/api-keys`, `DELETE /integration-clients/{client_id}/api-keys/{key_id}`, `GET /external-references`, `GET /{resource}/{id}/external-references`, `PUT|DELETE /{resource}/{id}/external-references/{system}`. Existing list and export endpoints for organizations, contacts, leads and opportunities gained `external_system`, `external_id` and `has_external_reference`. Route catalog: only the webhook endpoints (Phase 6b), the assistant (Phase 7) and MFA/GDPR (Phase 8) remain pending.
+
+### Backend
+
+#### Bearer keys become principals (`integration/service.py`)
+
+```python
+KEY_PATTERN = re.compile(r"^crm_([a-z]+)_([0-9a-f]{16})_([A-Za-z0-9_-]{43})$")
+
+async def authenticate_bearer(request: Request, session: AsyncSession) -> Principal:
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    match = KEY_PATTERN.match(token.strip()) if scheme.lower() == "bearer" else None
+    ...
+    if (key is None or key.revoked_at is not None or key.expires_at <= now
+            or not hmac.compare_digest(key.secret_hash, hash_secret(match[3]))):
+        raise _invalid_key()                                   # 401 auth.api_key_invalid
+    if client is None or not client.is_active:
+        raise AppError(ErrorCode.AUTH_CLIENT_INACTIVE, HTTPStatus.UNAUTHORIZED)
+    if not _ip_allowed(client.ip_allowlist, client_ip_var.get()):
+        raise AppError(ErrorCode.AUTH_IP_NOT_ALLOWED, HTTPStatus.FORBIDDEN)
+    return Principal(type=PrincipalType.INTEGRATION, user_id=client.service_user_id,
+                     role=RoleCode.INTEGRATION, scopes=frozenset(client.scopes),
+                     client_id=client.id, system=client.system.code,
+                     default_owner_id=client.default_owner_id,
+                     rate_limit_per_minute=client.rate_limit_per_minute, ...)
+```
+
+`core.auth.combined_authenticator(cookie, bearer)` picks the method; a request with both returns `400 auth.mixed_credentials`. The service user (`user_type = 'service'`, role `integration`, email `<system>-<hex>@integration.invalid`) is the actor in audit entries and timelines.
+
+#### Scopes in the one policy (`core/policy.py`, `core/auth.py`)
+
+```python
+def _check_integration(principal, level, scope):
+    if level is AccessLevel.SIGNED_IN_OR_ANY_CLIENT:      # GET /me
+        return
+    if scope is None:                         # not in API spec 19.3 -> closed, Public included
+        raise AppError(ErrorCode.PERMISSION_NOT_FOR_INTEGRATIONS, HTTPStatus.FORBIDDEN)
+    # "a|b": any of the scopes (the service narrows it down, e.g. external references).
+    if not principal.scopes & set(scope.split("|")):
+        raise AppError(ErrorCode.PERMISSION_SCOPE_MISSING, HTTPStatus.FORBIDDEN,
+                       extra={"required_scope": scope})
+
+# core/auth.py: a scope may name a path parameter, e.g. "{resource}:read" (API spec 19.4)
+resolved = scope.format(**request.path_params) if scope and "{" in scope else scope
+check_access(principal, level, resolved)
+```
+
+`record_owner(principal, requested)` returns the requested owner, the client's default owner, or raises `422 owner.required`; it is used in the four create services. Organization owner changes stay Manager+ (closed to integrations); `activities:write` edits only activities the client created; search returns only the types the client may read.
+
+#### External references and list filters (`core/external.py`, `integration/repository.py`)
+
+```python
+# party / sales list services
+statement = apply_external(statement, ctx.external_filter, "organization", Organization.id, filters.external)
+
+# integration module, registered as app.state.external_filter (ADR 0018)
+def reference_condition(entity_type, id_column, system_code, external_id, has_reference):
+    linked = (select(ExternalReference.entity_id)
+              .join(ExternalSystem, ExternalSystem.id == ExternalReference.external_system_id)
+              .where(ExternalReference.entity_type == entity_type, ExternalSystem.code == system_code))
+    if external_id is not None:
+        linked = linked.where(ExternalReference.external_id == external_id)
+    condition = id_column.in_(linked)
+    return ~condition if has_reference is False else condition
+```
+
+`PUT` checks the record exists and the system is active, refuses an integration writing another system's reference (`403 external_reference.system_mismatch`) and an external ID already used by another record (`409 external_reference.conflict`), and publishes `external_reference.updated` (audit).
+
+#### Idempotency and usage (`integration/middleware.py`)
+
+A pure ASGI middleware in front of the request context middleware. For an integration `POST` with `Idempotency-Key` it claims a row (`client_id`, key) with the request hash; a stored response is replayed with `Idempotent-Replayed: true`, a different hash is `422 idempotency.key_reused`, an unfinished claim `409 idempotency.in_progress`, and a `5xx` deletes the claim so the retry runs. After every integration response it upserts the client's hourly `integration_usage` row (an error for status 400 and above). The worker purges idempotency records after 24 h and usage after 30 days.
+
+#### CLI
+
+`python -m app.cli create-integration-client [--system erp|billing|conclusion|all]` creates the 19.9 profiles inactive and without keys, skipping systems that already have a client.
+
+### Frontend
+
+- `features/integrations/`: `IntegrationsPage` (clients with system, status, active keys, last-24-hour requests and errors, last use; form for a new client, always inactive), `ClientPage` (settings: name, default owner, rate limit, contact, CIDR allowlist one per line, scopes; activate/deactivate; keys with prefix, expiry, last use and state, revoke with confirmation; a new key shown once in an alert with a copy field), `ScopePicker`, `ExternalReferences`.
+- `ExternalReferences` sits on the organization, contact, lead and opportunity pages before the timeline: the record's IDs per system, linked when a URL is stored; Admins add (system, ID, https link) and remove. Hidden for others when there is nothing to show.
+- Navigation "Integrations" for Admins; routes `/admin/integrations` and `/admin/integrations/:clientId` in the users-manage group. New `integrations` namespace and error translations (en, bg).
+
+### Verification (2026-11-17)
+
+| Check | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| Migration 0008 up → down → up; `alembic check` | OK, no drift |
+| pytest (scratch PostgreSQL 18.7) | 1089 passed, 96% coverage (integration module 90–93%) |
+| pip-audit | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n (891 keys) | clean |
+| Vitest | 114 passed |
+| `pnpm audit --audit-level high` | passes (one advisory ignored, ADR 0022; one new moderate dev-only minimatch advisory below the threshold); `--prod` clean |
+| OpenAPI snapshot and generated types | up to date |
+| Playwright Chromium vs. rebuilt stack | 28/28 (Firefox could not launch locally; runs in CI) |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | Done for FR-INT-01 AC1–AC2, 02 AC1–AC3, 03 AC1–AC4, 04, 05, 06, 08, 09 |
+| 2 | `docker compose up` works | Done (rebuilt with migration 0008) |
+| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 4 | Permission checks + matrix | Done for all 126 routes, for people and for integration clients with all and with no scopes |
+| 5 | UI text en + bg | Done |
+| 6 | Additive migrations + tests | Done (0008, round trip and `alembic check`) |
+| 7 | Audit | `integration_client.*`, `api_key.*`, `external_reference.updated`; integration changes audited with the service user as actor |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.9 |
+| Exit | Phase 6 exit (a real receiver gets signed webhooks) | Phase 6b |
+
+### Decisions and deviations
+
+- `POST /integration-clients` defaults to `is_active: false` (the original draft had no default); the UI and CLI always create inactive clients, matching the owner's "inactive until confirmed" decision.
+- The per-client limit default is 300/min (spec v0.8 said 1,200); owner decision.
+- API key secrets are hashed with SHA-256, not Argon2: they are 256-bit random values, so a slow hash adds cost without security (ADR 0024).
+- Search for an integration is narrowed to readable types rather than refused, so `organizations:read` alone keeps `/search` useful.
+- Public endpoints (sign-in, password) refuse API keys (`permission.not_for_integrations`); the matrix found them reachable before this rule.
+
+### Open items
+
+1. Phase 6b: outbox, webhook delivery, subscriptions, delivery log, alerts, integration guide, Postman collection, receiver example, exit test.
+2. Requirements open questions 7 and 8 (data flows and write scopes for ERP, Billing, Conclusion) remain with the owner; clients stay inactive until answered.
+3. PR #11 (Phase 5 to `main`) is still open; this PR stacks on it.
