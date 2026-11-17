@@ -167,6 +167,33 @@ describe('FR-ACT-03 timeline', () => {
   })
 })
 
+describe('FR-ACT-03 timeline freshness', () => {
+  it('reloads the timeline after a change to the record', async () => {
+    signedInAs(REP_ME)
+    onOpportunityWithTimeline([])
+    let loads = 0
+    server.use(
+      http.get(`*/api/v1/opportunities/${OPPORTUNITY.id}/timeline`, () => {
+        loads += 1
+        return HttpResponse.json({ items: [], total: 0, page: 1, page_size: 20 })
+      }),
+      http.post(`*/api/v1/opportunities/${OPPORTUNITY.id}/move`, () =>
+        HttpResponse.json({ ...OPPORTUNITY, stage: summary(STAGES[2]), version: 3 }),
+      ),
+    )
+    await renderApp(`/opportunities/${OPPORTUNITY.id}`)
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Stage' }),
+      STAGES[2].id,
+    )
+    const before = loads
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+    await waitFor(() => {
+      expect(loads).toBeGreaterThan(before)
+    })
+  })
+})
+
 describe('FR-ACT-02 my tasks', () => {
   it('shows overdue tasks and marks them done', async () => {
     signedInAs(REP_ME)
