@@ -24,3 +24,4 @@ One file per decision: `NNNN-title.md` with context, decision and consequences. 
 - [0020 Timeline events recorded from domain events](0020-timeline-events-from-domain-events.md)
 - [0021 Reports owned by the data's module; one export machinery](0021-reports-and-exports.md)
 - [0022 Ignoring one development-only advisory in the CI audit](0022-ignored-dev-only-advisory.md)
+- [0023 Import through the owning modules' services, with rows kept for preview and rollback](0023-import-through-owning-services.md)

@@ -25,7 +25,7 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | End-to-end | `frontend/e2e/` | Playwright (Chromium, Firefox) | Composed Docker stack over HTTPS; Admins created with `create-admin --password-stdin` | Every commit (CI `e2e` job) and locally on demand |
 | Dependency audit | CI | pip-audit (hashed lock export), `pnpm audit --audit-level high` | Lockfiles | Every commit |
 
-## 2. Requirement coverage (Phases 0–5a)
+## 2. Requirement coverage (Phases 0–5)
 
 | Requirement | Covered by (examples; see appendix for all) | Levels |
 |---|---|---|
@@ -66,6 +66,8 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | FR-REP-01 dashboard (AC1 forecast) | `test_FR_REP_01_AC1_forecast_matches_an_independent_calculation`, `test_FR_REP_01_pipeline_by_stage`, `..._lead_conversion_rate_and_groups`, `..._dashboard_in_one_call`, `test_report_parameters_are_validated`; Vitest dashboard (en, bg); E2E reports journey | API, component, E2E |
 | FR-REP-02 exports | `tests/api/test_exports.py` (XLSX with filters and audit, CSV in Bulgarian with chosen columns, user's language, opportunities and activities, contacts and audit log, row cap, formula prefixes), `test_FR_REP_02_report_export_with_total_row`, `..._forecast_conversion_and_win_loss_exports`; Vitest export download and too-large message; E2E CSV download | API, component, E2E |
 | FR-REP-03 win/loss | `test_FR_REP_03_win_loss_by_reason_owner_and_month`; Vitest win/loss page; E2E | API, component, E2E |
+| FR-IMP-01 import (AC1 preview, AC2 all or nothing, AC3 duplicates, AC4 tag and rollback) | `tests/api/test_imports.py` (templates, CSV encoding/delimiter, mapping rules, file checks, `AC1_AC3` preview with reasons, `AC2` strict refusal and late failure, `AC2_AC3_AC4` commit with updates and rollback, `AC4` changed records kept, contacts, leads, opportunities, discard and expiry); `tests/unit/test_import_parsing.py`; Vitest import wizard; E2E import journey | Unit, API, component, E2E |
+| NFR-01 performance at volume | `backend/scripts/perf_check.py` against the seeded stack (section 10); `test_NFR_01_seed_creates_fictional_volumes`, `test_NFR_01_seed_demo_is_refused_in_production` | Manual run, API, unit |
 | FR-ACT-03 timelines | `test_FR_ACT_03_opportunity_timeline_merges_activities_and_events`, `..._organization_timeline_includes_its_records`; Vitest timeline rendering and freshness; E2E journey (converted and stage-change entries) | API, component, E2E |
 | FR-ADM-02 stages and loss reasons | `test_FR_ADM_02_admin_adds_renames_reorders_and_deletes_a_stage`, `test_FR_ADM_02_loss_reasons_are_seeded_and_protected_when_used` | API, component |
 | Optimistic concurrency (architecture 4.1) | `test_stale_version_returns_409_with_the_current_lead`, `test_patch_needs_a_version`, `test_unchanged_patch_keeps_the_version`; Vitest "shows the latest version after a conflict" | API, component |
@@ -420,6 +422,7 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 | 2026-11-17 | Developer Mac, scratch PostgreSQL 18.7 | ruff, mypy, import-linter, pytest, pip-audit | 825 passed, 97% coverage; clean |
 | 2026-11-17 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (719 keys), pnpm audit, OpenAPI snapshot and generated types | 96 passed; clean |
 | 2026-11-17 | Docker Desktop, rebuilt stack | Playwright Chromium, full suite (20 tests, two workers) | First run: the new journey's last assertion failed (test defect, see below); after the fix 20/20 in two consecutive runs |
+| 2026-11-17 | GitHub Actions, PR #9 run 44159185613 (after ADR 0022) | All four jobs | Green; Playwright on Chromium and Firefox |
 | 2026-11-17 | GitHub Actions, PR #9 run 44158425076 | All four jobs | Backend and contract green; frontend failed in `pnpm audit --audit-level high` on a newly published dev-only advisory (GHSA-fc5q-39xc-vjpf, no fix); E2E skipped. Owner decision: ignore this advisory only (ADR 0022) |
 
 ### Defects found by testing and fixed
@@ -436,12 +439,83 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 - Import (FR-IMP-01), seed data and the NFR-01 performance check: Phase 5b.
 - Very large exports (near 50,000 rows) are covered by the cap test and batching, not timed; the 5b seed provides the volumes for a timing run.
 
+## 10. Phase 5b — Import, seed data and performance
+
+### Strategy
+
+- **Each acceptance criterion through HTTP on PostgreSQL**: AC1 with a mixed file (valid, wrong EIK, unknown industry, repeated row, invalid size band, duplicate across scripts) and the preview's exact field/code pairs and match; AC2 twice — strict refusal while rows are invalid, and a row that becomes invalid between validation and commit (a list value retired) so the whole commit writes nothing; AC3 with skip and update of a duplicate organization and contact duplicates by email; AC4 with batch tags in the database, Admin-only rollback that archives and reverts, and a record edited after the import kept as `changed_since_import`.
+- **Per record type**: contacts linked by transliterated organization name, leads with source names, owner emails and decimal commas, opportunities with organization by spaced EIK, Bulgarian stage names, `DD.MM.YYYY` dates and the stage default probability; all records tagged.
+- **Parsing as unit tests**: UTF-8 with BOM and quoted commas, Windows-1251 with semicolons, XLSX numbers/dates/repeated headers/blank rows, formulas not evaluated, unreadable files; mapping suggestions by key and both languages.
+- **Limits and lifecycle**: 415/413 for bad, large and too-long files (limits patched small), states out of order, discard, the 7-day purge, mapping rule errors.
+- **Seed**: the generator against the test database (volumes, board and lists work) and refusal in production.
+- **Authorization matrix** grows by 10 routes (Manager+ and Admin-only rollback).
+- **Frontend**: upload (multipart sent, batch opened), mapping payload and validation, preview with translated reasons, commit modes, discard, rollback visible only to Admins, nav hidden from Sales Reps, and the preview filter after commit (regression).
+- **E2E** in both languages as the Admin: a semicolon CSV with a repeated row, the counts and reason, import skipping invalid rows (2 organizations found by API), rollback (0 found).
+- **Performance** (NFR-01): seeded volumes and a timed run of 15 requests × 40 on the composed stack, plus timings of a 20,000-row export and a 5,000-row import.
+
+### Test cases added (summary)
+
+| Area | Cases | Files |
+|---|---|---|
+| Import API (templates, upload, mapping, files, AC1–AC4, record types, discard, expiry, seed) | 14 | `backend/tests/api/test_imports.py` |
+| Parsing and mapping suggestions | 8 | `backend/tests/unit/test_import_parsing.py` |
+| Seed refused in production | 1 | `backend/tests/unit/test_cli.py` |
+| Authorization matrix: 10 new routes | +10 | `backend/tests/api/test_authorization_matrix.py` |
+| Route catalog: new routes | +20 | `backend/tests/api/test_route_catalog.py` |
+| Import wizard | 6 | `frontend/src/features/imports/imports.test.tsx` |
+| Import journey (en, bg) | 1 × 2 languages × 2 browsers | `frontend/e2e/imports.spec.ts` |
+
+### Runs performed
+
+| Date | Where | What | Result |
+|---|---|---|---|
+| 2026-11-17 | Developer Mac, scratch PostgreSQL 18.7 | Migration 0007 up/down/up; `alembic check` | OK, no drift |
+| 2026-11-17 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 878 passed, 96% coverage; clean |
+| 2026-11-17 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (814 keys), `pnpm audit` (high, one approved ignore) and `--prod`, OpenAPI snapshot and generated types | 101 passed; clean |
+| 2026-11-17 | Docker Desktop, rebuilt stack | Playwright Chromium, full suite (22 tests) | First run: the import journey failed (UX defect, see below); a second attempt was invalid because rebuilding only the proxy restarted the backend with default sign-in limits; after restarting the whole stack 22/22 in two consecutive runs |
+| 2026-11-17 | Docker Desktop, composed stack with seeded NFR-01 volumes | `scripts/perf_check.py` (15 requests × 40, after warm-up) | All p95 under 500 ms (below) |
+| 2026-11-17 | Same | Bulk timings | Export 20,000 leads: 2.3 s XLSX, 1.1 s CSV; import 5,000 organizations: upload 0.3 s, validation 2.4 s, commit 6.9 s |
+
+NFR-01 measurement (milliseconds):
+
+| Endpoint | p50 ms | p95 ms | max ms |
+|---|---|---|---|
+| `/api/v1/organizations` | 5 | 11 | 15 |
+| `/api/v1/organizations?q=alfa%20mrezhi&sort=name` | 5 | 6 | 6 |
+| `/api/v1/organizations?city=Варна&sort=-created_at&page=20` | 10 | 15 | 15 |
+| `/api/v1/contacts?q=иванова` | 10 | 34 | 34 |
+| `/api/v1/leads` | 21 | 23 | 24 |
+| `/api/v1/leads?q=fibre&status=new&sort=-estimated_value` | 7 | 11 | 12 |
+| `/api/v1/leads?page=400` | 55 | 64 | 83 |
+| `/api/v1/opportunities` | 10 | 13 | 13 |
+| `/api/v1/opportunities?q=cloud&stage_type=open&sort=amount` | 8 | 16 | 18 |
+| `/api/v1/opportunities?is_stale=true` | 8 | 9 | 10 |
+| `/api/v1/opportunities/board` | 34 | 92 | 108 |
+| `/api/v1/activities` | 5 | 7 | 8 |
+| `/api/v1/search?q=vega` | 15 | 17 | 18 |
+| `/api/v1/search?q=Сириус` | 21 | 28 | 56 |
+| `/api/v1/reports/dashboard` | 17 | 20 | 22 |
+
+### Defects found by testing and fixed
+
+| Found by | Defect | Fix |
+|---|---|---|
+| E2E import journey | After commit and rollback the preview kept the "invalid rows" filter from the checking step and hid the imported rows and their rollback results | The preview remounts per batch status; Vitest regression test |
+| API tests (test defects) | Test data used a wrong Bulgarian industry name; one expectation missed that "abc" is also an invalid amount | Test data and expectation corrected |
+| Vitest (tooling) | jsdom `File` objects cannot be read back from a multipart body by MSW | The component test checks the multipart request is sent; the API and E2E tests cover the real upload |
+| Performance check (tooling) | The compose file did not pass `RATE_LIMIT_USER_PER_MINUTE`, so 600 requests per minute would throttle the check | Variable passed through (default unchanged) |
+
+### Gaps and deferred
+
+- Imports through integration clients and asynchronous large imports are out of R1 scope.
+- The performance figures come from one developer machine; the on-premises server should be measured again before go-live (Phase 8 hardening).
+
 ## Appendix — test case inventory
 
 <!-- inventory:start -->
 _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 
-### Backend (pytest: unit, API, authorization matrix, migrations) — 825 test cases
+### Backend (pytest: unit, API, authorization matrix, migrations) — 878 test cases
 
 **`backend/tests/api/test_activities.py`** (13)
 
@@ -493,11 +567,11 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Login is rate limited per ip | — | 1 |
 | Rate limit response has retry after | — | 1 |
 
-**`backend/tests/api/test_authorization_matrix.py`** (104)
+**`backend/tests/api/test_authorization_matrix.py`** (114)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| Route role matrix | FR-AUTH-05 | 103 |
+| Route role matrix | FR-AUTH-05 | 113 |
 | Matrix covers every api route | — | 1 |
 
 **`backend/tests/api/test_contacts_reference_search.py`** (12)
@@ -552,6 +626,25 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Health reveals status only | NFR-08 | 1 |
 | Openapi document is public outside production | FR-INT-10 | 1 |
 | Openapi requires sign in in production | FR-INT-10 | 1 |
+
+**`backend/tests/api/test_imports.py`** (14)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Templates in both languages | FR-IMP-01 | 1 |
+| Csv upload detects encoding delimiter and mapping | FR-IMP-01 AC1 | 1 |
+| Mapping rules | FR-IMP-01 | 1 |
+| File checks | FR-IMP-01 | 1 |
+| Ac3 validation preview with reasons | FR-IMP-01 AC1 | 1 |
+| Strict commit writes nothing while rows are invalid | FR-IMP-01 AC2 | 1 |
+| Ac3 ac4 commit update duplicates and roll back | FR-IMP-01 AC2 | 1 |
+| Rollback keeps records changed since import | FR-IMP-01 AC4 | 1 |
+| Commit is all or nothing when a row fails late | FR-IMP-01 AC2 | 1 |
+| Contacts link organizations and skip duplicates | FR-IMP-01 | 1 |
+| Leads with sources and owners | FR-IMP-01 | 1 |
+| Opportunities with lookups | FR-IMP-01 | 1 |
+| Discard and expiry | — | 1 |
+| Seed creates fictional volumes | NFR-01 | 1 |
 
 **`backend/tests/api/test_leads.py`** (21)
 
@@ -673,13 +766,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Report export with total row | FR-REP-02 | 1 |
 | Forecast conversion and win loss exports | FR-REP-02 | 1 |
 
-**`backend/tests/api/test_route_catalog.py`** (369)
+**`backend/tests/api/test_route_catalog.py`** (389)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Catalog is parsed | — | 1 |
-| Every route is in the catalog | — | 107 |
-| Every api route declares the catalog access level | — | 105 |
+| Every route is in the catalog | — | 117 |
+| Every api route declares the catalog access level | — | 115 |
 | Every catalog entry is built or pending | — | 154 |
 | Pending list only names catalog entries | — | 1 |
 | No route is hidden from the openapi document | — | 1 |
@@ -726,13 +819,14 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Pg trgm is installed | — | 1 |
 | Application role cannot run ddl | NFR-04 | 1 |
 
-**`backend/tests/unit/test_cli.py`** (3)
+**`backend/tests/unit/test_cli.py`** (4)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Export openapi writes document | FR-INT-10 | 1 |
 | Export openapi defaults to stdout | — | 1 |
 | Command is required | — | 1 |
+| Seed demo is refused in production | NFR-01 | 1 |
 
 **`backend/tests/unit/test_config.py`** (7)
 
@@ -767,6 +861,16 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Client request id is echoed | — | 1 |
 | Unsafe client request id is replaced | — | 1 |
 | Request id is generated when absent | — | 1 |
+
+**`backend/tests/unit/test_import_parsing.py`** (8)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Csv utf8 with bom and commas | FR-IMP-01 | 1 |
+| Csv windows 1251 and semicolons | FR-IMP-01 | 1 |
+| Xlsx values are text and formulas are not run | FR-IMP-01 | 1 |
+| Unreadable files | FR-IMP-01 | 4 |
+| Mapping suggestion by key and both languages | FR-IMP-01 | 1 |
 
 **`backend/tests/unit/test_lead_lifecycle.py`** (34)
 
@@ -833,7 +937,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Failing job does not stop other jobs | — | 1 |
 | Worker runs jobs until stopped | — | 1 |
 
-### Frontend (Vitest + Testing Library + MSW) — 91 test cases
+### Frontend (Vitest + Testing Library + MSW) — 97 test cases
 
 **`frontend/src/app/app.test.tsx`** (15)
 
@@ -871,6 +975,16 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-I18N-01 locale detection › ignores unsupported stored values | FR-I18N-01 | 1 |
 | FR-I18N-01 locale detection › remembers the chosen language | FR-I18N-01 | 1 |
 
+**`frontend/src/features/activities/activities.test.tsx`** (5)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-ACT-03 timeline › merges activities with system events, including the source lead | FR-ACT-03 | 1 |
+| FR-ACT-03 timeline › FR-ACT-01 logs a call against the record | FR-ACT-03, FR-ACT-01 | 1 |
+| FR-ACT-03 timeline › FR-ACT-02 a task needs a due date | FR-ACT-03, FR-ACT-02 | 1 |
+| FR-ACT-03 timeline freshness › reloads the timeline after a change to the record | FR-ACT-03 | 1 |
+| FR-ACT-02 my tasks › shows overdue tasks and marks them done | FR-ACT-02 | 1 |
+
 **`frontend/src/features/admin/admin.test.tsx`** (9)
 
 | Test | Requirement | Cases |
@@ -885,15 +999,16 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
 | FR-AUTH-04 settings › FR-OPP-06 saves the stale-opportunity threshold | FR-AUTH-04, FR-OPP-06 | 1 |
 
-**`frontend/src/features/activities/activities.test.tsx`** (5)
+**`frontend/src/features/auth/setPassword.test.tsx`** (6)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-ACT-03 timeline › merges activities with system events, including the source lead | FR-ACT-03 | 1 |
-| FR-ACT-03 timeline › FR-ACT-01 logs a call against the record | FR-ACT-03, FR-ACT-01 | 1 |
-| FR-ACT-03 timeline › FR-ACT-02 a task needs a due date | FR-ACT-03, FR-ACT-02 | 1 |
-| FR-ACT-03 timeline freshness › reloads the timeline after a change to the record | FR-ACT-03 | 1 |
-| FR-ACT-02 my tasks › shows overdue tasks and marks them done | FR-ACT-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › checks the token from the URL fragment and sets the password | FR-AUTH-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › explains an invalid or used link | FR-AUTH-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › shows the policy error returned by the server | FR-AUTH-02 | 1 |
+| forgot password › always confirms without revealing whether the account exists | — | 1 |
+| safeNext | — | 1 |
+| set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
 
 **`frontend/src/features/leads/leads.test.tsx`** (14)
 
@@ -945,35 +1060,6 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
 | FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
 
-**`frontend/src/features/profile/profile.test.tsx`** (3)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
-| profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
-| profile › shows the server error for a wrong current password | — | 1 |
-
-**`frontend/src/features/auth/setPassword.test.tsx`** (6)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-AUTH-02 set password from a one-time link › checks the token from the URL fragment and sets the password | FR-AUTH-02 | 1 |
-| FR-AUTH-02 set password from a one-time link › explains an invalid or used link | FR-AUTH-02 | 1 |
-| FR-AUTH-02 set password from a one-time link › shows the policy error returned by the server | FR-AUTH-02 | 1 |
-| forgot password › always confirms without revealing whether the account exists | — | 1 |
-| safeNext | — | 1 |
-| set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
-
-**`frontend/src/features/reports/reports.test.tsx`** (5)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-REP-01 dashboard › shows pipeline, forecast, rates and my tasks; the owner filter is in the URL | FR-REP-01 | 1 |
-| FR-REP-01 dashboard › FR-I18N-01 in Bulgarian | FR-REP-01, FR-I18N-01 | 1 |
-| FR-REP-03 win/loss report › groups by loss reason with a total row and regroups by month | FR-REP-03 | 1 |
-| FR-REP-02 export › downloads the list with its filters and without paging | FR-REP-02 | 1 |
-| FR-REP-02 export › explains when the export is too large | FR-REP-02 | 1 |
-
 **`frontend/src/features/contacts/contacts.test.tsx`** (7)
 
 | Test | Requirement | Cases |
@@ -986,7 +1072,36 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
 | FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
 
-### End-to-end (Playwright, composed stack) — 40 test cases
+**`frontend/src/features/profile/profile.test.tsx`** (3)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
+| profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
+| profile › shows the server error for a wrong current password | — | 1 |
+
+**`frontend/src/features/imports/imports.test.tsx`** (6)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-IMP-01 import wizard › uploads a file and opens the batch | FR-IMP-01 | 1 |
+| FR-IMP-01 import wizard › FR-IMP-01 AC1 maps columns, then saves and checks the rows | FR-IMP-01, FR-IMP-01 AC1 | 1 |
+| FR-IMP-01 import wizard › FR-IMP-01 AC1 AC2 shows invalid rows with reasons and imports without them | FR-IMP-01, FR-IMP-01 AC1 | 1 |
+| FR-IMP-01 import wizard › FR-IMP-01 AC4 only an Admin can roll back | FR-IMP-01, FR-IMP-01 AC4 | 1 |
+| FR-IMP-01 import wizard › shows all rows once imported (the checking filter does not carry over) | FR-IMP-01 | 1 |
+| FR-IMP-01 import wizard › is hidden from Sales Reps | FR-IMP-01 | 1 |
+
+**`frontend/src/features/reports/reports.test.tsx`** (5)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-REP-01 dashboard › shows pipeline, forecast, rates and my tasks; the owner filter is in the URL | FR-REP-01 | 1 |
+| FR-REP-01 dashboard › FR-I18N-01 in Bulgarian | FR-REP-01, FR-I18N-01 | 1 |
+| FR-REP-03 win/loss report › groups by loss reason with a total row and regroups by month | FR-REP-03 | 1 |
+| FR-REP-02 export › downloads the list with its filters and without paging | FR-REP-02 | 1 |
+| FR-REP-02 export › explains when the export is too large | FR-REP-02 | 1 |
+
+### End-to-end (Playwright, composed stack) — 44 test cases
 
 **`frontend/e2e/identity.spec.ts`** (8)
 
@@ -1000,6 +1115,15 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Journey 1 in bg › FR-AUTH-02 admin creates a rep who sets a password, signs in and gets locked out (firefox) | FR-AUTH-02 | 1 |
 | NFR-04 mutating requests without the CSRF header are rejected (firefox) | NFR-04 | 1 |
 | FR-AUTH-01 anonymous API calls get 401 (firefox) | FR-AUTH-01 | 1 |
+
+**`frontend/e2e/imports.spec.ts`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Import in en › FR-IMP-01 upload, preview with reasons, import valid rows, roll back (chromium) | FR-IMP-01 | 1 |
+| Import in bg › FR-IMP-01 upload, preview with reasons, import valid rows, roll back (chromium) | FR-IMP-01 | 1 |
+| Import in en › FR-IMP-01 upload, preview with reasons, import valid rows, roll back (firefox) | FR-IMP-01 | 1 |
+| Import in bg › FR-IMP-01 upload, preview with reasons, import valid rows, roll back (firefox) | FR-IMP-01 | 1 |
 
 **`frontend/e2e/journey.spec.ts`** (4)
 
