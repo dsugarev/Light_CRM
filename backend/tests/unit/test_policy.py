@@ -20,6 +20,10 @@ ROLE_ACCESS = {
     AccessLevel.OWNER_PLUS_OR_ASSIGNEE: {"admin", "sales_manager", "sales_rep"},
     AccessLevel.MANAGER_PLUS: {"admin", "sales_manager"},
     AccessLevel.ADMIN: {"admin"},
+    AccessLevel.SIGNED_IN_OR_TYPE_SCOPE: {"admin", "sales_manager", "sales_rep", "viewer"},
+    AccessLevel.SIGNED_IN_OR_RESOURCE_SCOPE: {"admin", "sales_manager", "sales_rep", "viewer"},
+    AccessLevel.ADMIN_OR_OWN_SYSTEM: {"admin"},
+    AccessLevel.ADMIN_OR_OWN_SYSTEM_DELETE: {"admin"},
 }
 HUMAN_ROLES = [RoleCode.ADMIN, RoleCode.SALES_MANAGER, RoleCode.SALES_REP, RoleCode.VIEWER]
 

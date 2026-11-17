@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
 from app.core import health, reference, runtime_settings, search, system
-from app.core.auth import csrf_protect
+from app.core.auth import combined_authenticator, csrf_protect
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine, create_session_factory
@@ -24,6 +24,9 @@ from app.modules.audit import service as audit_service
 from app.modules.dataimport import router as dataimport_router
 from app.modules.identity import router as identity_router
 from app.modules.identity import service as identity_service
+from app.modules.integration import router as integration_router
+from app.modules.integration import service as integration_service
+from app.modules.integration.middleware import IntegrationMiddleware
 from app.modules.party import router as party_router
 from app.modules.party import service as party_service
 from app.modules.reporting import router as reporting_router
@@ -77,10 +80,19 @@ def create_app(
     app.state.clock = clock or SystemClock()
     app.state.mailer = mailer or create_mailer(settings)
     app.state.event_bus = create_event_bus()
-    app.state.authenticator = identity_service.authenticate_request
+    app.state.authenticator = combined_authenticator(
+        identity_service.authenticate_request, integration_service.authenticate_bearer
+    )
+    # List filters on external references (API spec 19.4), applied by party and sales.
+    app.state.external_filter = integration_service.external_filter
     # Configurable lists served by /reference/{list}; each module registers its own.
     app.state.reference_lists = {
-        ref.name: ref for ref in (*party_service.REFERENCE_LISTS, *sales_service.REFERENCE_LISTS)
+        ref.name: ref
+        for ref in (
+            *party_service.REFERENCE_LISTS,
+            *sales_service.REFERENCE_LISTS,
+            *integration_service.REFERENCE_LISTS,
+        )
     }
     # Modules contribute to global search and to the organisation 360 view (ADR 0018).
     app.state.search_providers = {
@@ -90,6 +102,7 @@ def create_app(
     app.state.organization_archive_guards = sales_service.ORGANIZATION_ARCHIVE_GUARDS
 
     register_error_handlers(app)
+    app.add_middleware(IntegrationMiddleware)  # inside: request IDs are already set
     app.add_middleware(RequestContextMiddleware)
 
     app.include_router(health.router)
@@ -109,6 +122,8 @@ def create_app(
     api_v1.include_router(search.router)
     api_v1.include_router(reporting_router.router)
     api_v1.include_router(dataimport_router.router)
+    for router in integration_router.routers:
+        api_v1.include_router(router)
     api_v1.include_router(audit_router.router)
     app.include_router(api_v1)
 

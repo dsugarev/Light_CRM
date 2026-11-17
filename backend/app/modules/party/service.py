@@ -27,8 +27,9 @@ from app.core.export import (
     reference_name,
 )
 from app.core.export import Locale as ExportLocale
+from app.core.external import ExternalFilter, ExternalQuery, apply_external
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
-from app.core.policy import MANAGER_ROLES, check_owner
+from app.core.policy import MANAGER_ROLES, check_owner, record_owner
 from app.core.principal import Principal
 from app.core.reference import ReferenceList, is_active_item
 from app.core.search import SearchHit, SearchProvider
@@ -73,6 +74,7 @@ class Context:
     settings: Settings
     now: datetime
     organization_stats: Sequence[OrganizationStats] = ()
+    external_filter: ExternalFilter | None = None
     organization_archive_guards: Sequence[OrganizationArchiveGuard] = ()
 
 
@@ -83,12 +85,14 @@ class OrganizationFilters:
     cities: tuple[str, ...] = ()
     countries: tuple[str, ...] = ()
     size_bands: tuple[str, ...] = ()
+    external: ExternalQuery | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class ContactFilters:
     organization_ids: tuple[UUID, ...] = ()
     owner_ids: tuple[UUID, ...] = ()
+    external: ExternalQuery | None = None
 
 
 # --- Shared helpers ---------------------------------------------------------------------
@@ -280,7 +284,7 @@ async def create_organization(
     ctx: Context, principal: Principal, data: OrganizationCreate, *, commit: bool = True
 ) -> OrganizationOut:
     """`commit=False` lets another module create it inside its own transaction (lead conversion)."""
-    owner_id = data.owner_id or principal.user_id
+    owner_id = record_owner(principal, data.owner_id)
     await _check_owner_choice(ctx, principal, owner_id)
     await _check_industry(ctx, data.industry_id)
     if not data.confirm_duplicate:
@@ -340,6 +344,9 @@ async def list_organizations(
         countries=filters.countries,
         size_bands=filters.size_bands,
     )
+    statement = apply_external(
+        statement, ctx.external_filter, "organization", Organization.id, filters.external
+    )
     if query.sync:
         rows, cursor = await fetch_sync(
             ctx.session, statement, query, Organization.updated_at, Organization.id,
@@ -380,7 +387,8 @@ async def update_organization(
     if "owner_id" in changes:
         new_owner = changes.pop("owner_id")
         if new_owner is not None and new_owner != org.owner_id:
-            if principal.role not in MANAGER_ROLES and not principal.is_integration:
+            # Managers+ only; integration clients may not change owners (API spec 19.3).
+            if principal.role not in MANAGER_ROLES:
                 raise AppError(ErrorCode.PERMISSION_DENIED, HTTPStatus.FORBIDDEN)
             await _check_owner_choice(ctx, principal, new_owner)
             changes["owner_id"] = new_owner
@@ -594,6 +602,9 @@ async def list_contacts(
         organization_ids=filters.organization_ids,
         owner_ids=filters.owner_ids,
     )
+    statement = apply_external(
+        statement, ctx.external_filter, "contact", Contact.id, filters.external
+    )
     if query.sync:
         rows, cursor = await fetch_sync(
             ctx.session, statement, query, Contact.updated_at, Contact.id,
@@ -696,6 +707,9 @@ async def export_organizations(
         countries=filters.countries,
         size_bands=filters.size_bands,
     )
+    statement = apply_external(
+        statement, ctx.external_filter, "organization", Organization.id, filters.external
+    )
     locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
     file, rows = await build_export(
         ctx.session, statement, query, ORGANIZATION_SORT, Organization.id,
@@ -721,6 +735,9 @@ async def export_contacts(
         include_archived=query.include_archived,
         organization_ids=filters.organization_ids,
         owner_ids=filters.owner_ids,
+    )
+    statement = apply_external(
+        statement, ctx.external_filter, "contact", Contact.id, filters.external
     )
     locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
     file, rows = await build_export(

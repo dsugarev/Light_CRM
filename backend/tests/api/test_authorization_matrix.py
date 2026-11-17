@@ -10,15 +10,17 @@ API keys exist (Phase 6), when they join this matrix.
 """
 
 import re
+from typing import get_args
 from uuid import uuid4
 
 import httpx
 import pytest
 
-from app.core.access import ACCESS_EXTENSION
+from app.core.access import ACCESS_EXTENSION, SCOPE_EXTENSION
 from app.core.config import Environment, Settings
 from app.core.principal import RoleCode
 from app.main import create_app
+from app.modules.integration.schemas import Scope
 from tests.api.spec_catalog import load_catalog
 from tests.helpers import TestApp
 
@@ -41,6 +43,13 @@ EXPECTED: dict[str, set[str]] = {
     "Owner+ or assignee": {"admin", "sales_manager", "sales_rep"},
     "Manager+": {"admin", "sales_manager"},
     "Admin": {"admin"},
+    # External references (API spec 19.4): integrations are covered by the scope matrix.
+    "Signed-in; Integration: read scope of the resolved type": HUMANS,
+    "Signed-in; Integration: read scope of {resource}": HUMANS,
+    "Admin; Integration: external-references:write and {system} equals the client's system": {
+        "admin"
+    },
+    "Admin; Integration: as for PUT": {"admin"},
 }
 
 _SPEC = {entry.key: entry.access for entry in load_catalog()}
@@ -88,3 +97,55 @@ async def test_FR_AUTH_05_route_role_matrix(test_app: TestApp, route: str) -> No
 def test_matrix_covers_every_api_route() -> None:
     assert len(_ROUTES) >= 26
     assert all(route in _SPEC for route in _ROUTES)
+
+
+# --- Integration clients (API spec 19.3; FR-INT-03) ----------------------------------------------
+
+ALL_SCOPES = list(get_args(Scope))
+_SCOPES = {
+    f"{method.upper()} {path}": operation.get(SCOPE_EXTENSION)
+    for path, operations in create_app(Settings(env=Environment.DEVELOPMENT))
+    .openapi()["paths"]
+    .items()
+    for method, operation in operations.items()
+    if ACCESS_EXTENSION in operation and path.startswith("/api/v1/")
+}
+_FIXED_PARAMS = {"resource": "organizations", "system": "erp", "list": "industries"}
+
+
+def _integration_path(path: str) -> str:
+    return re.sub(r"\{([^}]+)\}", lambda m: _FIXED_PARAMS.get(m.group(1), str(uuid4())), path)
+
+
+@pytest.mark.parametrize("route", _ROUTES)
+async def test_FR_INT_03_integration_scope_matrix(test_app: TestApp, route: str) -> None:
+    """Deny by default: an integration reaches a route only when the route declares a scope
+    the client holds (or is open to any client, e.g. GET /me)."""
+    method, path = route.split(" ", 1)
+    scope = _SCOPES[route]
+    open_to_clients = _SPEC[route] == "Signed-in or any integration client"
+    full = await test_app.integration_client(ALL_SCOPES)
+    bare = await test_app.integration_client([], system="billing", name="Billing")
+    body: dict[str, object] | None = {} if method in {"POST", "PUT", "PATCH"} else None
+    request_path = _integration_path(path)
+
+    response = await full.http.request(method, request_path, json=body)
+    if scope is not None or open_to_clients:
+        assert response.status_code not in {401, 403} or response.json()["code"] not in {
+            "permission.not_for_integrations",
+            "permission.scope_missing",
+            "permission.denied",
+            "auth.api_key_invalid",
+        }, f"all-scopes client should pass {route}: {response.status_code} {response.text}"
+    else:
+        assert response.status_code == 403, f"{route}: {response.status_code} {response.text}"
+        assert response.json()["code"] == "permission.not_for_integrations"
+
+    response = await bare.http.request(method, request_path, json=body)
+    if open_to_clients:
+        assert response.status_code not in {401, 403}, route
+    elif scope is not None:
+        assert response.status_code == 403, f"{route}: {response.status_code}"
+        assert response.json()["code"] == "permission.scope_missing"
+    else:
+        assert response.json()["code"] == "permission.not_for_integrations"
