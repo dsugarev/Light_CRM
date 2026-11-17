@@ -16,6 +16,7 @@ A light B2B CRM for a telecom Commercial team (about 20 internal users, on-premi
 | `docs/04-test-strategy.md` | What tests are required and how |
 | `docs/05-api-specification.md` | Every REST endpoint: path, purpose, access level, requirement IDs, error codes, payload shapes; section 19 is the integration API (scopes, external references, sync, idempotency, webhooks) |
 | `docs/adr/` | Decisions already made; add one for each new significant decision |
+| `docs/Plan.md` | Implementation log: what each phase built, with code excerpts, deviations and open items. Update it with every implemented task |
 
 These documents are the source of truth. If code and documents disagree, raise it; do not silently pick one.
 
@@ -49,47 +50,43 @@ These documents are the source of truth. If code and documents disagree, raise i
 
 ## Commands
 
-Keep this section current as the project takes shape (established in Phase 0).
+Established in Phase 0; keep this section current.
 
-There shall be scripts in scripts/ for:
 ```bash
-# Mac
-scripts/start-mac.sh    # Start
-scripts/stop-mac.sh     # Stop
+# Production-like stack (Caddy on https://localhost; only ports 80/443 published).
+# First run creates .env from .env.example with generated passwords.
+scripts/start-mac.sh        scripts/stop-mac.sh
+scripts/start-linux.sh      scripts/stop-linux.sh
+scripts/start-windows.ps1   scripts/stop-windows.ps1
 
-# Linux
-scripts/start-linux.sh
-scripts/stop-linux.sh
-
-# Windows
-scripts/start-windows.ps1
-scripts/stop-windows.ps1
-```
-
-Backend available at http://localhost:8000
-
-# Full stack
+# Development stack: backend with hot reload on http://localhost:8000 (/api/docs),
+# PostgreSQL on localhost:5432 with a crm_test database (ADR 0011)
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 # Backend (from backend/)
 uv sync
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
-uv run python -m app.worker                          # webhook delivery and housekeeping
-uv run python -m app.cli create-integration-client   # register Conclusion / ERP / Billing
+uv run python -m app.worker                                   # webhook delivery and housekeeping
+uv run python -m app.cli export-openapi --output openapi.json # OpenAPI document for the frontend
+uv run python -m app.cli create-admin                         # Phase 1
+uv run python -m app.cli create-integration-client            # Phase 6
 uv run ruff check . && uv run ruff format --check .
-uv run mypy app
+uv run mypy
 uv run lint-imports
-uv run pytest
+uv run pytest                 # needs PostgreSQL: TEST_DATABASE_URL / TEST_APP_DATABASE_URL
 
 # Frontend (from frontend/)
 pnpm install
-pnpm dev
+pnpm dev                      # http://localhost:5173, proxies /api to :8000
 pnpm lint && pnpm typecheck
 pnpm test
-pnpm generate:api        # regenerate types from the backend OpenAPI document
-pnpm e2e                 # Playwright, needs the stack running
+pnpm check:i18n
+pnpm generate:api [file|url]  # regenerate src/api/schema.d.ts from the backend OpenAPI document
+pnpm e2e                      # Playwright against https://localhost (E2E_BASE_URL to override)
 ```
+
+Adding an endpoint: add it to `docs/05-api-specification.md`, declare `openapi_extra=access(AccessLevel.X)` on the route, remove it from `backend/tests/api/catalog_pending.py`, regenerate the frontend types (ADR 0012).
 
 ## Quality gate (run before declaring work complete)
 
