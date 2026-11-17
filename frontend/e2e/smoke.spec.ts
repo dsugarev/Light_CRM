@@ -8,7 +8,7 @@ test.describe('English browser', () => {
 
   test('FR-I18N-01 sign-in placeholder loads over HTTPS', async ({ page }) => {
     const response = await page.goto('/')
-    expect(page.url()).toMatch(/^https:\/\/.+\/sign-in$/)
+    await expect(page).toHaveURL(/^https:\/\/.+\/sign-in$/)
     expect(response?.headers()['strict-transport-security']).toContain('max-age=')
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
     await expect(page.getByTestId('api-status')).toContainText('Online')

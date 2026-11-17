@@ -1,0 +1,34 @@
+# Reverse proxy and static file server (architecture sections 1 and 7).
+#   /api/*  -> backend (FastAPI)
+#   /*      -> the built SPA, with index.html as the fallback for client routes
+#
+# CRM_SITE_ADDRESS  host name users open (default: localhost)
+# CRM_TLS           "internal" for Caddy's local CA (development), or
+#                   "/certs/crm.crt /certs/crm.key" for the certificate from IT (A5)
+
+{$CRM_SITE_ADDRESS:localhost} {
+	tls {$CRM_TLS:internal}
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		root * /srv/www
+		@immutable path /assets/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}
