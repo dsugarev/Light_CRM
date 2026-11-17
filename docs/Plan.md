@@ -931,7 +931,7 @@ Party never imports sales: `GET /organizations/{id}` merges `{"open_leads": …}
 | pnpm audit (high) | pass; moderate dev-only advisory remains |
 | Contract drift, OpenAPI snapshot | up to date |
 | Playwright Chromium vs. rebuilt stack | 14/14 in two consecutive runs (a first run under load timed out in 5 older tests) |
-| GitHub Actions | on the Phase 3 pull request |
+| GitHub Actions (PR #5, run 44116111752) | all four jobs green, including Vitest with default timeouts and Playwright on Chromium and Firefox |
 
 ### Definition of done
 
@@ -939,7 +939,7 @@ Party never imports sales: `GET /organizations/{id}` merges `{"open_leads": …}
 |---|---|---|
 | 1 | AC tests with requirement IDs | Done for FR-LEAD-01, 02, 03, 05, 06, FR-ADM-02 |
 | 2 | `docker compose up` works | Done |
-| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 3 | Lint, types, suites green | Done locally and in CI |
 | 4 | Permission checks + matrix | Done for all 58 routes; owner/non-owner lead cases |
 | 5 | UI text en + bg | Done |
 | 6 | Additive migrations + tests | Done (0004) |

@@ -257,7 +257,7 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 | 2026-11-17 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 614 passed, 96% coverage (lead service 96%); clean |
 | 2026-11-17 | Developer Mac (heavily loaded by other applications, load average 8–15) | ESLint, Prettier, tsc, Vitest, i18n (458 keys), pnpm audit, contract, OpenAPI snapshot | 69 passed with a 60 s per-test timeout for the local run (default 5 s exceeded under load); clean |
 | 2026-11-17 | Docker Desktop, rebuilt stack | Playwright Chromium, full suite (14 tests) | Run 1: 5 timeouts in older tests at the 30 s limit under load; runs 2 and 3 (two workers): 14/14 |
-| 2026-11-17 | GitHub Actions | Phase 3 pull request | See `Plan.md` |
+| 2026-11-17 | GitHub Actions, PR #5 run 44116111752 | All four jobs | Green; Vitest with default timeouts; Playwright on Chromium and Firefox |
 
 ### Defects found by testing and fixed
 
