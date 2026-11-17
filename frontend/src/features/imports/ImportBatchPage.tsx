@@ -69,7 +69,10 @@ export function ImportBatchPage() {
       <Counts batch={b} />
       {editable ? <MappingCard key={`${b.id}-${b.status}`} batch={b} /> : null}
       {b.status === 'validated' ? <CommitCard batch={b} /> : null}
-      {b.status !== 'uploaded' && b.status !== 'mapped' ? <Preview batch={b} /> : null}
+      {b.status !== 'uploaded' && b.status !== 'mapped' ? (
+        // A new step starts with its own default filter (invalid rows while checking).
+        <Preview key={b.status} batch={b} />
+      ) : null}
       {b.status === 'committed' ? <RollbackCard batch={b} /> : null}
     </section>
   )

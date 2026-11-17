@@ -181,6 +181,13 @@ describe('FR-IMP-01 import wizard', () => {
     })
   })
 
+  it('shows all rows once imported (the checking filter does not carry over)', async () => {
+    signedInAs(MANAGER_ME)
+    onBatch({ ...VALIDATED, status: 'committed' })
+    await renderApp(`/admin/imports/${BATCH.id}`)
+    expect(await screen.findByRole('combobox', { name: 'Show' })).toHaveValue('')
+  })
+
   it('is hidden from Sales Reps', async () => {
     signedInAs(REP_ME)
     await renderApp('/')
