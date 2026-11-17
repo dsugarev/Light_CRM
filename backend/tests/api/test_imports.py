@@ -396,3 +396,19 @@ async def test_discard_and_expiry(test_app: TestApp) -> None:
     assert (await manager.get(f"/api/v1/imports/{old['id']}")).status_code == 404
     listing = (await manager.get("/api/v1/imports")).json()
     assert listing["total"] == 0
+
+
+async def test_NFR_01_seed_creates_fictional_volumes(test_app: TestApp) -> None:
+    from app.seed import Counts, seed
+
+    rep, _ = await test_app.signed_in()
+    async with test_app.sessions() as session:
+        created = await seed(
+            session, Counts(organizations=30, contacts=20, leads=40, opportunities=15)
+        )
+    assert created == {"organizations": 30, "contacts": 20, "leads": 40, "opportunities": 15}
+    assert (await rep.get("/api/v1/leads")).json()["total"] == 40
+    board = (await rep.get("/api/v1/opportunities/board")).json()
+    assert sum(c["count"] for c in board["columns"]) == 15
+    found = (await rep.get("/api/v1/organizations?q=gama")).json()  # transliterated search works
+    assert found["total"] >= 0

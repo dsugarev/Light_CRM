@@ -1,7 +1,7 @@
 """Operator commands: `python -m app.cli <command>`.
 
-Commands: `export-openapi`, `create-admin`. Phase 6 adds
-`create-integration-client`.
+Commands: `export-openapi`, `create-admin`, `seed-demo` (test and demo environments).
+Phase 6 adds `create-integration-client`.
 """
 
 import argparse
@@ -11,6 +11,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from app import seed
 from app.core.clock import SystemClock
 from app.core.config import Environment, Settings, get_settings
 from app.core.db import create_engine, create_session_factory
@@ -62,6 +63,25 @@ async def create_admin(email: str, full_name: str, locale: str, password: str | 
     return 0
 
 
+async def seed_demo(counts: seed.Counts, seed_value: int) -> int:
+    """NFR-01 volumes of fictional data; refused in production."""
+    settings = get_settings()
+    if settings.is_production:
+        print("seed-demo is not available in production.", file=sys.stderr)
+        return 1
+    engine = create_engine(settings)
+    try:
+        async with create_session_factory(engine)() as session:
+            created = await seed.seed(session, counts, seed=seed_value)
+    except RuntimeError as error:
+        print(f"Could not seed: {error}", file=sys.stderr)
+        return 1
+    finally:
+        await engine.dispose()
+    print("Created " + ", ".join(f"{n} {kind}" for kind, n in created.items()) + ".")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -79,6 +99,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         help="Read the password from stdin instead of printing a set-password link",
     )
 
+    demo = commands.add_parser("seed-demo", help="Insert fictional data (not in production)")
+    defaults = seed.Counts()
+    for kind in ("organizations", "contacts", "leads", "opportunities"):
+        demo.add_argument(f"--{kind}", type=int, default=getattr(defaults, kind))
+    demo.add_argument("--seed", type=int, default=1, help="Random seed (same data each time)")
+
     args = parser.parse_args(argv)
     if args.command == "export-openapi":
         export_openapi(args.output)
@@ -87,6 +113,14 @@ def main(argv: Sequence[str] | None = None) -> None:
         raise SystemExit(
             asyncio.run(create_admin(args.email, args.full_name, args.locale, password))
         )
+    elif args.command == "seed-demo":
+        counts = seed.Counts(
+            organizations=args.organizations,
+            contacts=args.contacts,
+            leads=args.leads,
+            opportunities=args.opportunities,
+        )
+        raise SystemExit(asyncio.run(seed_demo(counts, args.seed)))
 
 
 if __name__ == "__main__":
