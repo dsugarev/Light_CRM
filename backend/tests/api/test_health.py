@@ -7,7 +7,7 @@ from pydantic import PostgresDsn
 from app.core import health
 from app.core.config import Environment, Settings
 from app.main import create_app
-from tests.helpers import app_client
+from tests.helpers import TestApp, app_client
 
 
 async def test_NFR_08_live_is_ok_without_dependencies(client: httpx.AsyncClient) -> None:
@@ -60,13 +60,20 @@ async def test_FR_INT_10_openapi_document_is_public_outside_production(
     assert (await client.get("/api/docs")).status_code == 200
 
 
-async def test_openapi_and_docs_are_not_published_in_production(settings: Settings) -> None:
-    production = settings.model_copy(
-        update={
-            "env": Environment.PRODUCTION,
-            "database_url": PostgresDsn("postgresql+asyncpg://crm_app:real@127.0.0.1:1/crm"),
-        }
+async def test_FR_INT_10_openapi_requires_sign_in_in_production(
+    test_app: TestApp, settings: Settings
+) -> None:
+    production = create_app(
+        settings.model_copy(update={"env": Environment.PRODUCTION}), clock=test_app.clock
     )
-    async with app_client(create_app(production)) as client:
-        assert (await client.get("/api/v1/openapi.json")).status_code == 404
+    user = await test_app.create_user()
+    async with app_client(production) as client:
+        client.headers["X-Requested-With"] = "XMLHttpRequest"
         assert (await client.get("/api/docs")).status_code == 404
+        anonymous = await client.get("/api/v1/openapi.json")
+        assert anonymous.status_code == 401
+        assert anonymous.json()["code"] == "auth.session_expired"
+        await test_app.login(client, user.email)
+        document = await client.get("/api/v1/openapi.json")
+        assert document.status_code == 200
+        assert "/api/v1/users" in document.json()["paths"]

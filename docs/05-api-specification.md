@@ -117,10 +117,11 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `auth.account_locked` | 423 | Too many failed attempts; `locked_until` included |
 | `auth.account_inactive` | 401 | User deactivated (returned as invalid credentials at sign-in) |
 | `auth.token_invalid` | 400 | Set or reset password token invalid, used or expired |
-| `auth.password_policy` | 422 | Password fails the policy; `errors` lists rules failed |
+| `auth.password_policy` | 422 | Password fails the policy; `errors` lists rules failed (`password.too_short`, `password.too_long`, `password.too_common`) |
 | `auth.csrf_failed` | 403 | Missing header or bad origin |
 | `auth.mfa_required` | 401 | Password accepted, TOTP code needed (only if MFA enabled) |
 | `permission.denied` | 403 | Role or ownership does not allow the action |
+| `permission.last_admin` | 409 | The change would leave no active Admin (demote or deactivate the last one) |
 | `resource.not_found` | 404 | No such record (also returned for unknown paths) |
 | `request.method_not_allowed` | 405 | HTTP method not supported on this path |
 | `server.internal_error` | 500 | Unexpected error; details are only in the server log, under the `request_id` |
@@ -234,7 +235,7 @@ Rules: auth endpoints are rate limited per IP and per account. `forgot` returns 
 | DELETE | `/api/v1/users/{user_id}/sessions` | Revoke all of a user's sessions | Admin | FR-AUTH-04 |
 | GET | `/api/v1/roles` | Roles with their permission lists (read-only in R1) | Admin | FR-AUTH-05 |
 
-An Admin cannot deactivate themselves or remove the last active Admin (`409`, code `permission.last_admin`; add to the code table when implemented).
+An Admin cannot deactivate themselves (`403 permission.denied`) or remove the last active Admin, by deactivation or role change (`409 permission.last_admin`).
 
 ## 6. Settings and reference data
 

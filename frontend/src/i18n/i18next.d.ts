@@ -7,5 +7,7 @@ declare module 'i18next' {
   interface CustomTypeOptions {
     defaultNS: typeof defaultNS
     resources: (typeof resources)['en']
+    // Keys such as auth.invalid_credentials contain underscores; contexts are not used.
+    contextSeparator: '|'
   }
 }

@@ -14,3 +14,6 @@ One file per decision: `NNNN-title.md` with context, decision and consequences. 
 - [0010 External references table for cross-system IDs](0010-external-references-table.md)
 - [0011 Local HTTPS through Caddy; development ports only in the dev override](0011-local-https-and-development-ports.md)
 - [0012 Enforcing the endpoint catalog and access levels](0012-route-catalog-enforcement.md)
+- [0013 Principal resolution and the single permission policy](0013-principal-and-permission-policy.md)
+- [0014 Audit log through in-process domain events](0014-audit-log-through-domain-events.md)
+- [0015 Runtime settings and rate limits as core infrastructure](0015-runtime-settings-and-rate-limits-in-core.md)

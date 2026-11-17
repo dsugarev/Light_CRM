@@ -19,6 +19,8 @@ services:
   backend:
     environment:
       ENV: development
+      # The Vite dev server (pnpm dev) sends requests from this origin.
+      CSRF_TRUSTED_ORIGINS: '["http://localhost:5173"]'
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000",
               "--reload", "--reload-dir", "app", "--no-access-log"]
     volumes:

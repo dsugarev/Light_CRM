@@ -13,6 +13,8 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
+import app.core.ratelimit  # registers core tables
+import app.core.runtime_settings
 import app.modules
 from app.core.config import get_settings
 from app.core.db import Base

@@ -13,6 +13,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
+# Caller address for the audit log; set per request by the middleware.
+client_ip_var: ContextVar[str | None] = ContextVar("client_ip", default=None)
 
 # Attributes every LogRecord has; anything else was passed through `extra=`.
 _STANDARD_ATTRS = frozenset(
