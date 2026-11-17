@@ -69,7 +69,8 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 uv run python -m app.worker                                   # webhook delivery and housekeeping
 uv run python -m app.cli export-openapi --output openapi.json # OpenAPI document for the frontend
-uv run python -m app.cli create-admin                         # Phase 1
+uv run python -m app.cli create-admin --email … --full-name …  # first Admin; prints a one-time link
+                                                              # (--password-stdin for automation)
 uv run python -m app.cli create-integration-client            # Phase 6
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
@@ -83,10 +84,11 @@ pnpm lint && pnpm typecheck
 pnpm test
 pnpm check:i18n
 pnpm generate:api [file|url]  # regenerate src/api/schema.d.ts from the backend OpenAPI document
-pnpm e2e                      # Playwright against https://localhost (E2E_BASE_URL to override)
+pnpm e2e                      # Playwright against https://localhost (E2E_BASE_URL to override);
+                              # needs E2E_ADMIN_EMAIL_EN/_BG + E2E_ADMIN_PASSWORD (e2e/support.ts)
 ```
 
-Adding an endpoint: add it to `docs/05-api-specification.md`, declare `openapi_extra=access(AccessLevel.X)` on the route, remove it from `backend/tests/api/catalog_pending.py`, regenerate the frontend types (ADR 0012).
+Adding an endpoint: add it to `docs/05-api-specification.md`, declare `**endpoint(AccessLevel.X, scope=...)` on the route (ADR 0013), remove it from `backend/tests/api/catalog_pending.py`, make sure the authorization matrix knows its level, publish domain events for changes (ADR 0014), regenerate the frontend types (ADR 0012).
 
 ## Quality gate (run before declaring work complete)
 

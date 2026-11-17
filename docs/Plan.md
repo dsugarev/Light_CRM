@@ -4,8 +4,8 @@ What has been built, phase by phase, with the key code. The specifications in `d
 
 | Phase | Status | Branch |
 |---|---|---|
-| 0 — Foundation | Built, CI green, awaiting owner review | `phase-0-foundation` (PR #1) |
-| 1 — Identity, access and audit | Not started | — |
+| 0 — Foundation | Done, merged (PR #1) | `phase-0-foundation` |
+| 1 — Identity, access and audit | Built, awaiting owner review | `phase-1-identity` |
 
 ---
 
@@ -411,3 +411,243 @@ Carried to later phases (spec observations, not blocking):
 - **Phase 3:** `lead.estimated_value` has no `currency` column, but the API returns `currency`.
 - **Phase 5:** the requirements limit Sales Rep exports to their own data and Viewers make no changes, while the API spec opens every export to any signed-in user.
 - **Phase 7:** the Cerebras skill uses `reasoning_effort="low"` and no `allow_fallbacks`; the architecture sketch differs. The skill wins (ADR 0007).
+
+---
+
+## Phase 1 — Identity, access and audit
+
+Requirements: FR-AUTH-01 to 06, FR-ADM-01, FR-ADM-03, FR-I18N-01 to 03. Exit: an Admin creates a Sales Rep, who sets a password and signs in; every action appears in the audit log.
+
+Owner decisions at the start (2026-11-17): build `/settings` now (session timeouts only); optional SMTP sender with the standard library; bundle the SecLists common-password list; add `argon2-cffi`, `factory-boy`, `react-hook-form`, `zod`, `@hookform/resolvers`; a simple paginated user table until Phase 2.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 1.1 | Schema: `role`, `app_user`, `user_session`, `password_token`, `audit_log`, `app_setting`, `rate_limit_bucket`; `updated_at` trigger; seeds; append-only audit grants | Done: migration `0002` |
+| 1.2 | Principal, single policy, `endpoint()` declaration + enforcement, Argon2id, password policy, `AuthProvider`, CSRF, rate limits, injectable clock | Done (ADR 0013, 0015) |
+| 1.3 | Audit module and domain event bus | Done (ADR 0014) |
+| 1.4 | Identity service and endpoints (§3, §4, §5), settings (§6.1), system info (§2), audit log (§16) | Done: 26 endpoints |
+| 1.5 | Route × role authorization matrix | Done |
+| 1.6 | `create-admin` CLI | Done (link, or `--password-stdin`) |
+| 1.7 | Frontend foundation: forms, current user, 401 handling, `can()`, error codes, Sofia time formatting | Done |
+| 1.8 | Sign-in, set/forgot password, profile, users admin, audit log viewer, settings; en + bg | Done |
+| 1.9 | Playwright journey 1 (en + bg), cookie flags, CSRF | Done |
+| 1.10 | Gate, ADRs, docs, PR | Done; see Verification |
+
+### Endpoints built (26)
+
+`GET /system/info`; `POST /auth/login`, `/auth/logout`, `/auth/password/set`, `/auth/password/forgot`, `/auth/password/change`, `GET /auth/password/token/{token}`; `GET|PATCH /me`, `GET /me/sessions`, `DELETE /me/sessions/{session_id}`; all of §5 (`/users/lookup`, `/users`, `/users/{id}` and its `deactivate`, `activate`, `password-reset`, `unlock`, `sessions`, `/roles`); `GET|PATCH /settings`; `GET /audit-log`, `/audit-log/{entry_id}`. Plus: the OpenAPI document in production is served to signed-in callers only.
+
+Not built yet (still in `tests/api/catalog_pending.py`): MFA endpoints (FR-AUTH-07, Phase 8), `/me/tasks` (Phase 4), `/audit-log/export` (Phase 5, with the export machinery).
+
+### Backend
+
+#### Declaring and enforcing access (`app/core/auth.py`, `app/core/policy.py`)
+
+```python
+@users_router.get("", summary="Full user list ...", **endpoint(AccessLevel.ADMIN))
+async def list_users(ctx: Ctx, q: ... = None, ...) -> UserPage:
+    ...
+
+def endpoint(level: AccessLevel, *, scope: str | None = None) -> dict[str, Any]:
+    """Keyword arguments for a route decorator: declared level + its enforcement."""
+    return {
+        "openapi_extra": access(level, scope),                       # x-access-level in OpenAPI
+        "dependencies": [Depends(_requirement(level, scope))],       # check_access + per-user rate limit
+    }
+
+def check_access(principal: Principal | None, level: AccessLevel, scope: str | None = None) -> None:
+    if level is AccessLevel.PUBLIC:
+        return
+    if principal is None:
+        raise AppError(ErrorCode.AUTH_SESSION_EXPIRED, HTTPStatus.UNAUTHORIZED)
+    if principal.is_integration:
+        _check_integration(principal, level, scope)   # not_for_integrations / scope_missing
+        return
+    if principal.role not in _ROLES_BY_LEVEL[level]:
+        raise AppError(ErrorCode.PERMISSION_DENIED, HTTPStatus.FORBIDDEN)
+```
+
+Core never imports identity: `app.main` wires `app.state.authenticator = identity_service.authenticate_request`.
+
+#### Sessions (`identity/service.py`)
+
+Opaque 256-bit token in the `session` cookie (`HttpOnly; Secure; SameSite=Strict; Path=/api`), only its SHA-256 stored. On each request:
+
+```python
+expired = (
+    now >= user_session.expires_at                       # absolute timeout (default 7 days)
+    or now - user_session.last_seen_at > idle_limit      # idle timeout (default 8 hours)
+    or not user.is_active
+    or not user.is_human
+)
+if expired:
+    await repository.delete_session(session, user_session.id)
+    ...
+if now - user_session.last_seen_at >= _TOUCH_INTERVAL:  # write last_seen at most once a minute
+    user_session.last_seen_at = now
+```
+
+Sign-out deletes the row; a password change deletes all the user's other sessions; set/reset password and deactivation delete all of them.
+
+#### Sign-in and lockout (FR-AUTH-01)
+
+```python
+if not await provider.verify_credentials(user, password):
+    user.failed_login_count += 1
+    await _publish(ctx, "auth.login_failed", ..., details={"email": user.email, "reason": "bad_password"})
+    if user.failed_login_count >= ctx.settings.login_max_failed_attempts:          # 5
+        user.locked_until = ctx.now + timedelta(minutes=ctx.settings.login_lockout_minutes)  # 15
+        user.failed_login_count = 0
+        await _publish(ctx, "auth.account_locked", ...)
+    await ctx.session.commit()      # audit survives the failed request
+    raise AppError(ErrorCode.AUTH_INVALID_CREDENTIALS, HTTPStatus.UNAUTHORIZED)
+```
+
+Unknown emails run a dummy Argon2 verification so timing does not reveal them; inactive and service users get the same generic error. A locked account answers `423 auth.account_locked` with `locked_until`.
+
+#### Passwords (FR-AUTH-03)
+
+Argon2id with OWASP parameters (`m=19 MiB, t=2, p=1`), hashed in a thread. Policy: 12–128 characters and not in the bundled 10,000 common passwords (case-insensitive) → `422 auth.password_policy` with field codes `password.too_short | too_long | too_common`.
+
+One-time links (`/set-password#token=…`; the token travels in the URL fragment, which browsers never send to servers, and the request log masks `/auth/password/token/***`). Set links last 72 hours, reset links 2 hours (`PASSWORD_SET_TOKEN_HOURS`, `PASSWORD_RESET_TOKEN_HOURS`). A new link voids older unused ones.
+
+#### CSRF, credentials, rate limits
+
+```python
+async def csrf_protect(request: Request) -> None:      # dependency on the whole /api/v1 router
+    if request.method in _SAFE_METHODS or "authorization" in request.headers:
+        return
+    if request.headers.get(CSRF_HEADER) != CSRF_HEADER_VALUE:
+        raise AppError(ErrorCode.AUTH_CSRF_FAILED, HTTPStatus.FORBIDDEN)
+    origin = request.headers.get("origin")
+    if origin is not None and origin.rstrip("/") not in settings.trusted_origins:
+        raise AppError(ErrorCode.AUTH_CSRF_FAILED, HTTPStatus.FORBIDDEN)
+```
+
+Cookie + `Authorization` together → `400 auth.mixed_credentials`; a bearer key alone → `401 auth.api_key_invalid` until Phase 6. Rate limits (PostgreSQL fixed windows, `Retry-After` on 429): sign-in 10/min per IP, password endpoints 5 per 15 min per IP, 600/min per user.
+
+#### Audit (ADR 0014)
+
+```python
+async def record(session: AsyncSession, event: DomainEvent) -> None:   # subscribed in app.main
+    actor = event.actor
+    repository.add(session, AuditLog(
+        occurred_at=event.occurred_at,
+        actor_id=actor.user_id if actor else None,
+        actor_type=actor.type.value if actor else "anonymous",
+        actor_label=actor.display_name if actor else None,
+        action=event.action, entity_type=event.entity_type, entity_id=event.entity_id,
+        before=_payload(event.before), after=_payload(event.after),   # secret keys stripped
+        details=_payload(event.details) or None,
+        ip=client_ip_var.get(), request_id=request_id_var.get(),
+    ))
+```
+
+```sql
+-- migration 0002
+REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM crm_app;
+GRANT SELECT, INSERT ON audit_log TO crm_app;
+```
+
+Actions recorded: `auth.login_succeeded|login_failed|account_locked|logout|password_set|password_changed|password_reset_requested`, `user.created|updated|role_changed|deactivated|activated|password_reset_issued|unlocked|sessions_revoked`, `session.revoked`, `settings.updated`.
+
+#### User administration rules
+
+- Email unique case-insensitively (`409 conflict.duplicate`, field `user.email_taken`).
+- An Admin cannot deactivate themselves (`403 permission.denied`) or leave no active Admin by demotion or deactivation (`409 permission.last_admin`, added to the spec).
+- `users/lookup` lists active human users only; service users never appear.
+
+#### Operations
+
+```bash
+docker compose exec backend python -m app.cli create-admin --email admin@company.bg --full-name "First Admin"
+# Created admin admin@company.bg (…).
+# Set the password here (valid until 2026-11-20 09:00 UTC):
+# https://crm.company.bg/set-password#token=…
+echo "$PASSWORD" | docker compose exec -T backend python -m app.cli create-admin ... --password-stdin   # automation
+```
+
+The worker purges expired sessions, stale password tokens and old rate-limit windows hourly.
+
+#### Tests
+
+391 backend tests, 95% coverage (identity service 96%, policy 97%). Highlights:
+- `tests/api/test_authorization_matrix.py`: every API route × anonymous/admin/manager/rep/viewer, expectations from the spec's access levels; verified to fail when a route's level is weakened.
+- `tests/api/test_auth.py`: cookie flags, generic errors, lockout and release after 15 minutes, idle (8 h) and absolute (7 d) timeouts with a frozen clock, configurable timeouts, sign-out invalidation, password change revoking other sessions, one-time and expiring links, SMTP on/off, CSRF, mixed credentials, rate limits with `Retry-After`.
+- `tests/api/test_users.py`, `test_me_settings_audit.py`: admin rules, audit before/after values, no secrets in the log, application role cannot UPDATE/DELETE `audit_log`.
+- `tests/unit/test_policy.py`: role matrix and integration scopes (`not_for_integrations`, `scope_missing` with `required_scope`).
+
+### Frontend
+
+- `api.call()` unwraps openapi-fetch results and throws `ApiError(status, code, errors)`; a 401 anywhere clears the current user and redirects to `/sign-in?next=…` (only same-site paths are accepted).
+
+```ts
+export async function call<T>(request: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
+  const { data, error, response } = await request
+  if (!response.ok) {
+    const problem = (error && typeof error === 'object' ? error : {}) as Problem
+    throw new ApiError(response.status, problem)
+  }
+  return data as T
+}
+```
+
+- Server codes are translated: `errors.json` is nested by code (`auth.invalid_credentials` → `errors:auth.invalid_credentials`); field errors from 422 problems are put on the form fields (`applyServerErrors`).
+- `useMe()` (GET /me) drives `RequireAuth`, `RequirePermission` and `useCan()`; the UI follows the profile language and the language switch saves it on the profile (FR-I18N-01).
+- Dates are shown in Europe/Sofia (`Intl.DateTimeFormat(..., { timeZone: 'Europe/Sofia' })`), numbers and EUR per locale (FR-I18N-03).
+- Screens: sign-in, set password, forgot password, profile (details, language, password, sessions), users (list with URL filters, create with one-time link panel, detail with edit, deactivate/activate, unlock, reset link, end sessions), audit log (filters, entry detail with before/after as escaped text), settings.
+- 207 translation keys in English and Bulgarian; 43 Vitest tests.
+
+#### End-to-end (`frontend/e2e/identity.spec.ts`)
+
+Journey 1 in English and in Bulgarian: the Admin creates a Sales Rep → the rep opens the one-time link in a separate browser session, sets a password, signs in (cookie flags checked) → five wrong passwords lock the account → the audit log shows "User created" and "Account locked". The E2E Admins are created with `create-admin --password-stdin`; CI does this and raises the per-IP limits because all browsers share one IP.
+
+### Verification (2026-11-17)
+
+| Gate | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14 contracts) | clean |
+| pytest (scratch PostgreSQL 18.7) | 391 passed, 95.3% coverage |
+| pip-audit | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n parity (207 keys) | clean |
+| Vitest | 43 passed |
+| pnpm audit (high) | pass; the moderate `minimatch` advisory (dev tooling) remains |
+| Contract drift | types up to date |
+| Docker stack | rebuilt; migration 0002 applied; two admins created with the CLI |
+| Playwright on Chromium vs. the stack | 9/9, three consecutive runs |
+| Playwright on Firefox | runs in CI (local Firefox still cannot start on this Mac) |
+| GitHub Actions | on the Phase 1 pull request |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests named with requirement IDs | Done for FR-AUTH-01..06, FR-ADM-01, FR-ADM-03, FR-I18N-01..03 |
+| 2 | `docker compose up` works | Done |
+| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 4 | Permission checks + authorization matrix | Done for all 26 routes |
+| 5 | UI text in en and bg | Done |
+| 6 | Additive migrations passing migration tests | Done (0002, up/down/drift) |
+| 7 | Audit entries for create/update/delete | Done, asserted per endpoint |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec updated with `permission.last_admin` and password field codes |
+
+### Decisions and deviations
+
+- **Tables beyond the architecture list:** `app_setting` (single row) and `rate_limit_bucket` live in core (ADR 0015); `audit_log` adds `actor_type`, `actor_label`, `details` (ADR 0014).
+- **`/settings` holds only session timeouts** for now; stale-opportunity days, AI limits and MFA enforcement are added by their phases as new columns.
+- **Link lifetimes:** set-password 72 hours, reset 2 hours (configurable). Please confirm these suit the team.
+- **Forgot password without SMTP** does nothing (still `202`), so the Admin reset flow is the fallback, as the spec says.
+- **Common-password list:** only 10 of the 10,000 entries are 12+ characters, so with the 12-character minimum the list adds little protection. A longer list (e.g. 100k) could be swapped in later.
+- **Email validation** uses a simple shape check instead of `email-validator`, which was not on the approved dependency list.
+- **Integration principals** are covered by policy unit tests; they join the HTTP matrix in Phase 6 when API keys exist.
+- **Accessibility fix** found by the E2E run: buttons used as links (`role="button"` on navigation) were replaced by real links styled as buttons.
+- **Frontend typing:** i18next's context separator set to `|` because error-code keys contain underscores.
+
+### Open items
+
+1. Owner review of PR for Phase 1.
+2. Confirm the password link lifetimes (72 h / 2 h).
+3. SMTP relay details when available (open question 4); set `SMTP_*` in `.env`.

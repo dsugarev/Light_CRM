@@ -2,7 +2,7 @@
 
 A light B2B CRM for the Commercial team: lead and opportunity management, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, Docker Compose.
 
-Status: **Phase 0 (foundation)**. The stack runs and is production-shaped; the sign-in page is a placeholder until Phase 1. See [`docs/Plan.md`](docs/Plan.md) for what is built.
+Status: **Phase 1 (identity, access and audit)**. Users sign in, Admins manage users and see the audit log; leads and opportunities follow in later phases. See [`docs/Plan.md`](docs/Plan.md) for what is built.
 
 ## Documentation
 
@@ -32,6 +32,14 @@ scripts/stop-mac.sh         # or scripts/stop-linux.sh
 
 On first run the start script creates `.env` from `.env.example` with random database passwords. The CRM is then at **https://localhost**. Caddy uses its own local certificate authority, so the browser warns until you trust it (or set `CRM_TLS` to a real certificate, see `.env.example`).
 
+There is no default account. Create the first Admin, then open the printed one-time link to set the password:
+
+```bash
+docker compose exec backend python -m app.cli create-admin --email you@company.bg --full-name "Your Name"
+```
+
+Without SMTP (`SMTP_HOST` empty) nothing is emailed: Admins create users in the UI and hand over the one-time link shown there.
+
 ## Develop
 
 Development stack (backend with hot reload on http://localhost:8000, interactive API docs at http://localhost:8000/api/docs, PostgreSQL on localhost:5432 with a `crm_test` database):
@@ -49,6 +57,7 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 uv run python -m app.worker
 uv run python -m app.cli export-openapi --output openapi.json
+uv run python -m app.cli create-admin --email admin@example.test --full-name "Admin"
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run lint-imports
@@ -64,7 +73,8 @@ pnpm lint && pnpm typecheck
 pnpm test
 pnpm check:i18n
 pnpm generate:api [openapi.json]   # regenerate src/api/schema.d.ts (default: running backend)
-pnpm e2e                           # Playwright against https://localhost (E2E_BASE_URL to override)
+pnpm e2e                           # Playwright against https://localhost (E2E_BASE_URL to override);
+                                   # needs E2E_ADMIN_EMAIL_EN/_BG and E2E_ADMIN_PASSWORD (see e2e/support.ts)
 ```
 
 ## Layout
