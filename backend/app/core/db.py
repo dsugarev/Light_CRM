@@ -1,18 +1,22 @@
 """Async database engine, session factory and the declarative base."""
 
 from collections.abc import AsyncIterator
+from datetime import datetime
+from typing import Annotated
+from uuid import UUID
 
-from fastapi import Request
-from sqlalchemy import MetaData
+from fastapi import Depends, Request
+from sqlalchemy import DateTime, FetchedValue, ForeignKey, MetaData, func
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 from app.core.config import Settings
+from app.core.ids import new_id
 
 # Deterministic constraint names so Alembic migrations stay reviewable and stable.
 NAMING_CONVENTION = {
@@ -26,6 +30,45 @@ NAMING_CONVENTION = {
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+class IdMixin:
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=new_id)
+
+
+class TimestampMixin:
+    """created_at/updated_at in UTC. updated_at is maintained by a database trigger
+    (`set_updated_at`, migration 0002), so every change, however made, moves it."""
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        server_onupdate=FetchedValue(),
+        nullable=False,
+    )
+
+
+class AuthorshipMixin:
+    """created_by/updated_by reference the acting user (human or service user)."""
+
+    @declared_attr
+    def created_by(cls) -> Mapped[UUID | None]:  # noqa: N805 - declared_attr receives the class
+        return mapped_column(ForeignKey("app_user.id"), nullable=True)
+
+    @declared_attr
+    def updated_by(cls) -> Mapped[UUID | None]:  # noqa: N805
+        return mapped_column(ForeignKey("app_user.id"), nullable=True)
+
+
+class ArchiveMixin:
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class BusinessTableMixin(IdMixin, TimestampMixin, AuthorshipMixin, ArchiveMixin):
+    """Columns every business table carries (architecture 4.1)."""
 
 
 def create_engine(settings: Settings) -> AsyncEngine:
@@ -49,3 +92,6 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
     factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
     async with factory() as session:
         yield session
+
+
+DbSession = Annotated[AsyncSession, Depends(get_session)]

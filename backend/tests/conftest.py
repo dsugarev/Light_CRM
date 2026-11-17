@@ -11,11 +11,15 @@ import httpx
 import pytest
 from alembic import command
 from pydantic import PostgresDsn
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
+from app.core import runtime_settings
+from app.core.clock import FrozenClock
 from app.core.config import Environment, Settings
 from app.core.migrations import alembic_config
 from app.main import create_app
-from tests.helpers import app_client
+from tests.helpers import START, RecordingMailer, TestApp, app_client
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://crm_migrator:change-me@localhost:5432/crm_test"
@@ -40,11 +44,43 @@ def settings() -> Settings:
         migration_database_url=PostgresDsn(TEST_DATABASE_URL),
         database_pool_size=2,
         health_check_timeout_seconds=2.0,
+        public_url="https://crm.example.test",
     )
 
 
+# Tables emptied before each API test. TRUNCATE needs the migration role: the
+# application role may not truncate the append-only audit_log.
+_DATA_TABLES = "audit_log, user_session, password_token, app_user, rate_limit_bucket, app_setting"
+
+
 @pytest.fixture
-async def client(migrated_database: str, settings: Settings) -> AsyncIterator[httpx.AsyncClient]:
+async def clean_database(migrated_database: str) -> None:
+    engine = create_async_engine(migrated_database)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(text(f"TRUNCATE {_DATA_TABLES} CASCADE"))
+            await connection.execute(text("INSERT INTO app_setting (id) VALUES (1)"))
+    finally:
+        await engine.dispose()
+    runtime_settings.invalidate_cache()
+
+
+@pytest.fixture
+async def test_app(clean_database: None, settings: Settings) -> AsyncIterator[TestApp]:
+    """A running app on a clean database, with a frozen clock and a recording mailer."""
+    clock = FrozenClock(START)
+    mailer = RecordingMailer()
+    app = create_app(settings, clock=clock, mailer=mailer)
+    async with app.router.lifespan_context(app):
+        harness = TestApp(app, clock, mailer)
+        try:
+            yield harness
+        finally:
+            await harness.close()
+
+
+@pytest.fixture
+async def client(clean_database: None, settings: Settings) -> AsyncIterator[httpx.AsyncClient]:
     """HTTP client for an app connected to the migrated test database."""
     async with app_client(create_app(settings)) as c:
         yield c

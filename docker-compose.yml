@@ -6,6 +6,13 @@ name: light-crm
 x-backend-env: &backend-env
   ENV: ${ENV:-production}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  PUBLIC_URL: ${CRM_PUBLIC_URL:-https://localhost}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_FROM: ${SMTP_FROM:-crm@localhost}
+  RATE_LIMIT_LOGIN_PER_MINUTE: ${RATE_LIMIT_LOGIN_PER_MINUTE:-10}
   DATABASE_URL: postgresql+asyncpg://crm_app:${CRM_APP_PASSWORD:?set CRM_APP_PASSWORD in .env}@db:5432/crm
   MIGRATION_DATABASE_URL: postgresql+asyncpg://crm_migrator:${CRM_MIGRATOR_PASSWORD:?set CRM_MIGRATOR_PASSWORD in .env}@db:5432/crm
 

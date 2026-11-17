@@ -10,7 +10,7 @@ from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.errors import ErrorCode, problem_response
-from app.core.logging import request_id_var
+from app.core.logging import client_ip_var, request_id_var
 
 REQUEST_ID_HEADER = "X-Request-ID"
 # Client-supplied IDs are echoed back only when they are short and harmless.
@@ -36,6 +36,8 @@ class RequestContextMiddleware:
 
         request_id = _incoming_request_id(scope) or uuid.uuid4().hex
         token = request_id_var.set(request_id)
+        client = scope.get("client")
+        ip_token = client_ip_var.set(client[0] if client else None)
         started = time.perf_counter()
         status_code = HTTPStatus.INTERNAL_SERVER_ERROR.value
         response_started = False
@@ -63,12 +65,20 @@ class RequestContextMiddleware:
                 "request",
                 extra={
                     "method": scope["method"],
-                    "path": scope["path"],
+                    "path": _loggable_path(scope["path"]),
                     "status": status_code,
                     "duration_ms": round((time.perf_counter() - started) * 1000, 1),
                 },
             )
             request_id_var.reset(token)
+            client_ip_var.reset(ip_token)
+
+
+def _loggable_path(path: str) -> str:
+    """Hide one-time tokens that travel in the path (API spec section 3)."""
+    marker = "/auth/password/token/"
+    head, sep, _ = path.partition(marker)
+    return f"{head}{sep}***" if sep else path
 
 
 def _incoming_request_id(scope: Scope) -> str | None:

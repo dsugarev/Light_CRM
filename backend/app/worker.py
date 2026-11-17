@@ -8,20 +8,50 @@ import asyncio
 import contextlib
 import logging
 import signal
+import time
 from collections.abc import Awaitable, Callable, Sequence
+from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from app.core import ratelimit
+from app.core.clock import SystemClock
 from app.core.config import Settings, get_settings
-from app.core.db import create_engine
+from app.core.db import create_engine, create_session_factory
 from app.core.logging import configure_logging
+from app.modules.identity import service as identity_service
 
 Job = Callable[[AsyncEngine], Awaitable[None]]
 
-# Jobs run once per poll interval, in order. Empty until Phase 6.
-JOBS: Sequence[Job] = ()
-
 logger = logging.getLogger("app.worker")
+
+
+def every(interval: timedelta, job: Job) -> Job:
+    """Run `job` at most once per `interval` (the loop itself polls more often)."""
+    last_run: float | None = None
+
+    async def wrapper(engine: AsyncEngine) -> None:
+        nonlocal last_run
+        if last_run is not None and time.monotonic() - last_run < interval.total_seconds():
+            return
+        last_run = time.monotonic()
+        await job(engine)
+
+    wrapper.__name__ = getattr(job, "__name__", "job")
+    return wrapper
+
+
+async def purge_expired(engine: AsyncEngine) -> None:
+    """Housekeeping: expired sessions, stale password tokens, old rate-limit windows."""
+    now = SystemClock().now()
+    async with create_session_factory(engine)() as session:
+        removed = await identity_service.purge_expired(session, now)
+    removed["rate_limit_windows"] = await ratelimit.purge_expired(engine, now)
+    logger.info("housekeeping_done", extra=removed)
+
+
+# Jobs run once per poll interval, in order. Phase 6 adds webhook delivery.
+JOBS: Sequence[Job] = (every(timedelta(hours=1), purge_expired),)
 
 
 async def run_once(engine: AsyncEngine, jobs: Sequence[Job]) -> None:
