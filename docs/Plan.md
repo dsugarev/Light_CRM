@@ -8,8 +8,8 @@ What has been built, phase by phase, with the key code. The specifications in `d
 | 1 — Identity, access and audit | Done, merged (PR #2), CI green | `phase-1-identity` |
 | 2 — Organizations and contacts | Done, merged (PR #4) | `phase-2-party` |
 | 3 — Leads | Done, merged (PR #5) | `phase-3-leads` |
-| 4a — Pipelines, opportunities and board | Built; PR open, owner review after 4b | `phase-4a-opportunities` |
-| 4b — Activities, timelines and lead conversion | Not started | — |
+| 4a — Pipelines, opportunities and board | Built; PR #6 open, CI green; owner review with 4b | `phase-4a-opportunities` |
+| 4b — Activities, timelines and lead conversion | Built; PR open (stacked on 4a), awaiting owner review | `phase-4b-activities` |
 
 ---
 
@@ -1120,6 +1120,7 @@ const apply = (card: BoardCard, from: StageSummary, target: Target) => {
 | pnpm audit (production) | no known vulnerabilities |
 | Contract: OpenAPI snapshot regenerated, frontend types generated from it without diff | up to date |
 | Playwright Chromium vs. rebuilt stack | 16/16 (two workers), including a real mouse drag on the board in both languages |
+| GitHub Actions (PR #6, run 44124492826) | all four jobs green, including Playwright on Chromium and Firefox |
 
 ### Definition of done
 
@@ -1145,5 +1146,167 @@ const apply = (card: BoardCard, from: StageSummary, target: Target) => {
 
 ### Open items
 
-1. Phase 4b: activities and tasks (`/activities`, `/me/tasks`), `last_activity_at`, timelines (ADR for `timeline_event`), lead conversion, the full lead → won journey, then owner review of 4a + 4b.
+1. ~~Phase 4b~~: done, see below. Owner review of 4a + 4b.
+
+---
+
+## Phase 4b — Activities, timelines and lead conversion
+
+Requirements: FR-ACT-01..03, FR-LEAD-04, the activity part of FR-OPP-06, and the Phase 4 exit: the Playwright journey lead → qualify → convert → progress → close won in English and Bulgarian (close lost and manager reopen are in the 4a journey). Accepted recommendations used here: a separate `timeline_event` table fed by domain events (ADR 0020); tasks can be assigned to any active user who can change records; the owner or the assignee completes and reopens; Owner+ archives.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 4b.1 | Schema: `activity` (type check, at-least-one-link check, open-task index), `timeline_event` | Done: migration `0006` |
+| 4b.2 | Activity service: create/update/archive, tasks (complete/reopen), `/me/tasks`, list filters and sync | Done |
+| 4b.3 | Timelines: event subscriber, merged paged query, name resolution, four timeline endpoints | Done (ADR 0020) |
+| 4b.4 | Opportunity freshness from activities (`last_activity_at`) | Done |
+| 4b.5 | Lead conversion: preview and one-transaction convert (party create functions gain `commit=False`) | Done |
+| 4b.6 | New access wordings for activities (spec 11) in the policy, matrix and catalog | Done |
+| 4b.7 | Backend tests | Done (773 total; 20 new API tests + matrix/catalog growth) |
+| 4b.8 | Screens: timeline with "Log activity" on lead, opportunity, organization and contact pages; My tasks; conversion screen; Convert button | Done, en + bg |
+| 4b.9 | E2E: full journey in both languages | Done |
+| 4b.10 | Documentation (spec v0.6, ADR 0020, snapshot, this log, test record), gate, PR | Done |
+
+### Endpoints built (14)
+
+`GET|POST /activities`, `GET|PATCH|DELETE /activities/{activity_id}`, `POST /activities/{activity_id}/complete|reopen`, `GET /me/tasks`, `GET /leads/{lead_id}/timeline`, `GET /opportunities/{opp_id}/timeline`, `GET /organizations/{org_id}/timeline`, `GET /contacts/{contact_id}/timeline`, `GET /leads/{lead_id}/conversion-preview`, `POST /leads/{lead_id}/convert`. 91 routes in the authorization matrix.
+
+### Backend
+
+#### Timeline events from domain events (`activity/service.py`, ADR 0020)
+
+```python
+# app/main.py
+bus.subscribe(audit_service.record)
+bus.subscribe(activity_service.record_event)  # record timelines (ADR 0020)
+
+async def record_event(session: AsyncSession, event: DomainEvent) -> None:
+    entity_type, _, verb = event.action.partition(".")
+    if entity_type not in TIMELINE_ENTITIES or verb not in TIMELINE_EVENTS or ...:
+        return
+    session.add(TimelineEvent(entity_type=entity_type, entity_id=event.entity_id,
+                              event_type=verb, occurred_at=event.occurred_at,
+                              actor_id=event.actor.user_id if event.actor else None,
+                              data=_event_data_from(verb, event)))   # IDs only; names on read
+```
+
+#### One paged query per timeline (`activity/repository.py`)
+
+```python
+activities = select(literal("activity").label("kind"), Activity.id.label("id"),
+                    Activity.occurred_at.label("at")).where(Activity.archived_at.is_(None), or_(
+    _in(Activity.lead_id, scope.leads), _in(Activity.opportunity_id, scope.opportunities),
+    _in(Activity.organization_id, scope.organizations), _in(Activity.contact_id, scope.contacts)))
+events = select(literal("event").label("kind"), TimelineEvent.id.label("id"),
+                TimelineEvent.occurred_at.label("at")).where(or_(...per entity type...))
+merged = union_all(activities, events).subquery()
+rows = await session.execute(select(merged.c.kind, merged.c.id)
+                             .order_by(merged.c.at.desc(), merged.c.id.desc())
+                             .offset((page - 1) * page_size).limit(page_size))
+```
+
+The opportunity scope adds its source lead (FR-LEAD-04 AC3); the organization scope adds the IDs of its contacts (party) and leads and opportunities (`sales.links`).
+
+#### Activity rules
+
+```python
+def _may_edit(principal: Principal, activity: Activity) -> bool:
+    """Owner+, or the assignee of a task (API spec 11)."""
+    if can_edit_owned(principal, activity.owner_id):
+        return True
+    return activity.type == "task" and activity.assignee_id == principal.user_id
+
+async def _touch(ctx: Context, activity: Activity, at: datetime) -> None:
+    """Logged activity keeps an opportunity fresh (FR-OPP-06)."""
+    if activity.opportunity_id is not None:
+        await sales.links.touch_opportunity(ctx.session, activity.opportunity_id, min(at, ctx.now))
+```
+
+`touch_opportunity` uses `greatest(coalesce(last_activity_at, at), at)`, so an older activity never makes an opportunity look staler.
+
+#### Lead conversion in one transaction (`sales/service/leads.py`)
+
+```python
+async def convert(ctx, principal, lead_id, data: ConvertRequest) -> ConversionResult:
+    lead = await _load(ctx, lead_id)                 # row lock
+    check_owner(principal, lead.owner_id)
+    await _check_version(ctx, lead, data.version)
+    if lead.status != "qualified":
+        raise AppError(ErrorCode.LEAD_NOT_CONVERTIBLE, HTTPStatus.CONFLICT, extra={"status": lead.status})
+    organization = await _conversion_organization(ctx, principal, data.organization)   # party, commit=False
+    contact = await _conversion_contact(ctx, principal, data.contact, organization.id)  # party, commit=False
+    opportunity = await opportunities.create_opportunity(ctx, principal, OpportunityCreate(...),
+                                                         source_lead_id=lead.id, commit=False)
+    ...                                              # lead -> converted, links, version + 1
+    await _publish(ctx, "lead.converted", lead, principal, before=before, after=after)
+    await ctx.session.commit()                       # nothing is stored if any step raised (AC2)
+```
+
+`ConversionOrganization` / `ConversionContact` reuse party's create schemas with an "exactly one of `existing_id` and `new`" validator. `GET /conversion-preview` returns organization matches (duplicate check across scripts), contacts with the lead's email and suggested values.
+
+#### Access wording
+
+`AccessLevel.OWNER_PLUS_OR_TASK_ASSIGNEE` ("Owner+ (owner = activity owner; assignee may update a task)") and `AccessLevel.OWNER_PLUS_OR_ASSIGNEE` ("Owner+ or assignee") let the route catalog and matrix match the spec text; route-level roles are those of Contributor, and the service applies the record rule.
+
+### Frontend
+
+- `features/activities`: `RecordTimeline` (paged, newest first; activities with type, task checkbox, overdue badge and links to other records; events rendered per type with stage/owner/status names in the UI language and a link to the record they belong to), `ActivityForm` (type, subject, details, date/time or due date and assignee for tasks), `MyTasksPage` (`/tasks`, overdue first, show completed), `TaskCheckbox`.
+- `features/leads/ConvertPage` (`/leads/:id/convert`): radio choices for the linked organization, duplicate-check matches or a new one (name prefilled), the same for the contact (or none), and the opportunity's name, amount, expected close date and stage. A `409 conflict.duplicate` lists the matches and offers "Create anyway". The lead page shows "Convert" for qualified leads and links a converted lead to its opportunity.
+- Timelines appear on lead, opportunity, organization and contact pages; "My tasks" in the navigation.
+- **Every successful mutation marks timelines stale** (query client mutation cache), found by the journey:
+
+```ts
+mutationCache: new MutationCache({
+  onError: handle,
+  // Any change can add an event to record timelines (FR-ACT-03); mark them stale.
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['timeline'] }),
+}),
+```
+
+- 679 translation keys (en = bg); 91 Vitest tests (9 new); a default MSW handler returns empty timelines.
+
+### Verification (2026-11-17)
+
+| Gate | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| Migration 0006 up → down → up; `alembic check` | OK, no drift |
+| pytest (scratch PostgreSQL 18.7) | 773 passed, 96% coverage (activity service 96%) |
+| pip-audit | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n (679 keys) | clean |
+| Vitest | 91 passed |
+| pnpm audit (production) | no known vulnerabilities |
+| OpenAPI snapshot and generated types | up to date |
+| Playwright Chromium vs. rebuilt stack | 18/18 in two consecutive runs, including the full journey in both languages |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | Done for FR-ACT-01..03, FR-LEAD-04 AC1–AC3, FR-OPP-06 |
+| 2 | `docker compose up` works | Done |
+| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 4 | Permission checks + matrix | Done for all 91 routes; owner, assignee and stranger cases |
+| 5 | UI text en + bg | Done |
+| 6 | Additive migrations + tests | Done (0006) |
+| 7 | Audit for create/update/delete | Done (`activity.*`, `lead.converted`) |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.6 |
+| Exit | Journey lead → qualify → convert → progress → won in en and bg (+ close lost and manager reopen) | Done (`journey.spec.ts`, `opportunities.spec.ts`) |
+
+### Decisions and deviations
+
+- **Timeline events** are their own table, recorded from domain events; names are resolved on read (ADR 0020). No backfill for records created before 4b (not in production).
+- **Assignees** must be active Admins, Sales Managers or Sales Reps (a Viewer could not complete a task); new field code `assignee.invalid`.
+- **Assignee edits**: the spec allows the assignee to update a task (PATCH), which is slightly wider than "owner or Manager+ edits" in the recommendation; the spec wording was followed. Archive stays Owner+.
+- **Only non-task activities and completed tasks** make an opportunity fresh; creating a future task does not.
+- **Conversion** reuses party's create functions with `commit=False`, so duplicate rules and audit events are identical to creating the records directly.
+- **Timeline items carry an `id`** (the activity's or event's ID) for stable list keys; the spec example was updated.
+- New codes: `activity.not_a_task` (409); field codes `activity.link_required`, `activity.due_required`, `activity.task_only`, `assignee.invalid`, `lead.not_found`, `lead.archived`, `opportunity.not_found`, `opportunity.archived`.
+
+### Open items
+
+1. Owner review of Phase 4 (PR #6 for 4a and the 4b PR, stacked on it).
 

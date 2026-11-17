@@ -1,6 +1,6 @@
 # 05 — API Specification (Release 1)
 
-Status: Draft v0.5 (updated after Phase 4a, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+Status: Draft v0.6 (updated after Phase 4b, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
 
 This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
 
@@ -14,16 +14,16 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | 1.3 Lists: paging, sorting, filters, `q`, `include_archived`, sync mode | 2 | Built (shared machinery, ADR 0017); users and audit-log lists keep their Phase 1 parameters |
 | 2 System and health | 0–1 | Built |
 | 3 Authentication and sessions | 1 | Built, except MFA endpoints (FR-AUTH-07, Phase 8) |
-| 4 Current user | 1 | Built, except `/me/tasks` (Phase 4) |
+| 4 Current user | 1, 4 | Built; `/me/tasks` since Phase 4b |
 | 5 Users and roles | 1 | Built |
 | 6.1 Application settings | 1, 4 | Built with session timeouts (Phase 1) and the stale-opportunity threshold (Phase 4); further settings added by their phases |
 | 6.2 Reference lists | 2–4 | Built; `industries`, `lead-sources`, `disqualification-reasons`, `loss-reasons` registered; `external-systems` (Phase 6) follows |
 | 6.3 Pipelines and stages | 4 | Built (Phase 4a) |
-| 7 Organizations | 2–4 | Built, except `/timeline` (Phase 4b) and `/export` (Phase 5); `/leads` and the open-lead count added in Phase 3; `/opportunities`, open-opportunity figures and the archive guard in Phase 4a |
-| 8 Contacts | 2 | Built, except `/timeline` (Phase 4), GDPR `personal-data`/`anonymize` (Phase 8), `/export` (Phase 5) |
-| 9 Leads | 3 | Built, except `conversion-preview`, `convert`, `/timeline` (Phase 4) and `/export` (Phase 5) |
-| 10 Opportunities and pipeline board | 4 | Built (Phase 4a), except `/timeline` (Phase 4b) and `/export` (Phase 5) |
-| 11 Activities and tasks | 4 | Pending (Phase 4b) |
+| 7 Organizations | 2–4 | Built, except `/export` (Phase 5); `/leads` and the open-lead count added in Phase 3; `/opportunities`, open-opportunity figures and the archive guard in Phase 4a; `/timeline` in Phase 4b |
+| 8 Contacts | 2, 4 | Built, except GDPR `personal-data`/`anonymize` (Phase 8) and `/export` (Phase 5); `/timeline` since Phase 4b |
+| 9 Leads | 3, 4 | Built, except `/export` (Phase 5); `conversion-preview`, `convert` and `/timeline` since Phase 4b |
+| 10 Opportunities and pipeline board | 4 | Built, except `/export` (Phase 5) |
+| 11 Activities and tasks | 4 | Built (Phase 4b) |
 | 12 Search | 2–4 | Built for organizations, contacts, leads and opportunities |
 | 13–15 Reports, exports, import | 5 | Pending |
 | 16 Audit log | 1 | Built, except `/audit-log/export` (Phase 5) |
@@ -171,6 +171,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `lead.invalid_transition` | 409 | Status change not allowed from the current status |
 | `lead.bant_incomplete` | 409 | Cannot qualify while a BANT item is unknown |
 | `lead.not_convertible` | 409 | Lead is not Qualified or is already converted |
+| `activity.not_a_task` | 409 | Complete or reopen called on an activity that is not a task |
 | `lead.read_only` | 409 | Lead is converted or disqualified; only reopen (disqualified, Manager+) is possible |
 | `opportunity.closed` | 409 | Change attempted on a closed opportunity |
 | `opportunity.loss_reason_required` | 422 | Lost outcome without a loss reason |
@@ -201,7 +202,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `owner.required` | 422 | Integration-created record has no `owner_id` and the client has no default owner |
 | `webhook.url_not_allowed` | 422 | Webhook URL not HTTPS or host not in the allowlist |
 
-**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, `contact.not_found`, `contact.organization_mismatch`, `lead.bant_unknown`, `stage.not_open` (stage must be an active open stage), `stage.order_incomplete`, `validation.use_action_endpoint`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`). Field names are the request body or query field names.
+**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, `contact.not_found`, `contact.organization_mismatch`, `lead.bant_unknown`, `stage.not_open` (stage must be an active open stage), `stage.order_incomplete`, `activity.link_required` (field `links`), `activity.due_required`, `activity.task_only`, `assignee.invalid`, `lead.not_found`, `lead.archived`, `opportunity.not_found`, `opportunity.archived`, `validation.use_action_endpoint`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`). Field names are the request body or query field names.
 
 ### 1.7 Access levels used in the tables
 
@@ -211,6 +212,8 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | Signed-in | Any active user: Admin, Sales Manager, Sales Rep, Viewer |
 | Contributor | Admin, Sales Manager, Sales Rep |
 | Owner+ | Admin, Sales Manager, or the Sales Rep who owns the record |
+| Owner+ (owner = activity owner; assignee may update a task) | Admin, Sales Manager, the Sales Rep who owns the activity, or the assignee of a task |
+| Owner+ or assignee | Admin, Sales Manager, the Sales Rep who owns the task, or its assignee |
 | Manager+ | Admin, Sales Manager |
 | Admin | Admin only |
 | Integration: `scope` | An integration client holding that scope (section 19.3) |
@@ -544,7 +547,7 @@ Conversion request and response:
 
 Exactly one of `existing_id` and `new` is set for organization; `contact` may be `null`. Any failure rolls back the whole conversion.
 
-Rules (as built in Phase 3; conversion follows in Phase 4):
+Rules (as built in Phase 3; conversion in Phase 4b, see below):
 
 - **Capture** (`POST`): `title` and `company_name` are required (≤ 200); optional `contact_name`, `email` (stored lower case), `phone`, `source_id` (active lead source), `description` (≤ 5000), `estimated_value` (decimal string or number, ≥ 0, 2 decimals; returned as a string with `currency: "EUR"`), `organization_id` and `contact_id` (links to existing, non-archived records; a contact of another organization returns `422`, field `contact_id` / `contact.organization_mismatch`), `owner_id` (a Sales Rep may only name themselves), and an optional `qualification` object. Status starts as `new`.
 - **BANT** (`qualification`): `budget`, `authority`, `need`, `timeline`, each `{ "status": "unknown" | "no" | "partial" | "yes", "note" }`, plus `fits_target_profile`. In requests every part is optional and only the parts sent change. **Score** = yes 25 + partial 12.5 per item, no/unknown 0, rounded half up (0–100; the example above, yes/partial/yes/unknown, is 63). The fit flag does not change the score. The score is stored, so lists sort by it.
@@ -552,8 +555,18 @@ Rules (as built in Phase 3; conversion follows in Phase 4):
 - **Actions** take `{ "version" }` (plus the fields below) and return the lead with an incremented version: `mark-contacted` (new → contacted), `qualify` (contacted → qualified; `409 lead.bant_incomplete` with one `errors` entry per unknown item, field `qualification.<item>` / `lead.bant_unknown`), `disqualify` (`{ reason_id, note?, version }` from new, contacted or qualified; `reason_id` must be an active disqualification reason), `reopen` (Manager+, disqualified → contacted; clears the disqualification). Any other change returns `409 lead.invalid_transition` with `status` and `action`.
 - **Assign** (`{ owner_id, version }`): a Sales Rep may only take a lead for themselves, including one owned by another rep (owner decision, Phase 3); Managers+ assign to any active person (`422` `owner.invalid` otherwise). Converted or disqualified leads cannot be reassigned.
 - **List filters**: `status` (repeatable), `owner_id` (repeatable, `me`), `source_id`, `created_at_from` / `created_at_to`, `fits_target_profile`; default sort `-created_at`; `q` searches title, company, contact name, email and phone in both scripts.
-- `disqualification` in the response is `{ reason, note, disqualified_at }` when the lead is disqualified, else `null`; `converted_opportunity` stays `null` until Phase 4.
-- Audit actions: `lead.created`, `lead.updated`, `lead.status_changed`, `lead.owner_changed`, `lead.archived`, `lead.restored`, with before and after values.
+- `disqualification` in the response is `{ reason, note, disqualified_at }` when the lead is disqualified, else `null`; `converted_opportunity` is `{ id, name }` once converted.
+- Audit actions: `lead.created`, `lead.updated`, `lead.status_changed`, `lead.owner_changed`, `lead.converted`, `lead.archived`, `lead.restored`, with before and after values.
+
+Conversion rules (as built, Phase 4b; FR-LEAD-04):
+
+- `POST /convert` needs the lead's `version` and Owner+; only a `qualified`, non-archived lead converts (`409 lead.not_convertible` with `status` otherwise, also for an already converted lead).
+- `organization`: exactly one of `existing_id` (an existing, non-archived organization; `422`, field `organization.existing_id`) and `new` (the organization create body of section 7, including `confirm_duplicate`; duplicates return `409 conflict.duplicate` with `matches`). Sending both or neither returns `422`, field `organization`.
+- `contact`: `null`, or exactly one of `existing_id` (must belong to the chosen organization or to none: `contact.organization_mismatch`) and `new` (the contact create body of section 8; it always belongs to the chosen organization; email duplicates as in section 8).
+- `opportunity`: `name` (required), `amount`, `expected_close_date`, `stage_id` (an active open stage; default the first), `owner_id` (same rules as section 10; default the caller). The opportunity's `source_lead` is the lead and its primary contact the chosen contact.
+- Everything happens in one transaction: any error leaves no organization, contact or opportunity and the lead unchanged (AC2). The lead becomes `converted` with `converted_opportunity`, `converted_at`, and links to the organization and contact.
+- Response `201`: `{ lead, organization, contact, opportunity }` (full resources). Audited as `organization.created`, `contact.created`, `opportunity.created` (when new) and `lead.converted`.
+- `GET /conversion-preview` (Owner+): `{ organization: { linked, matches, suggested: { name } }, contact: { linked, matches, suggested: { first_name, last_name, email, phone } | null }, opportunity: { name, amount, stage } }`. Organization matches use the duplicate check of section 7 on the company name (across scripts); contact matches are contacts with the lead's email; `suggested` values come from the lead (the contact name is split at the last space).
 - `GET /organizations/{org_id}/leads` lists the leads linked to the organization (list conventions apply); the organization's `counts.open_leads` counts its open (new, contacted, qualified), non-archived leads.
 
 ## 10. Opportunities and pipeline board
@@ -642,14 +655,27 @@ Timeline items (returned by every `/timeline` endpoint) share one shape so the U
 
 ```json
 { "items": [
-  { "kind": "activity", "occurred_at": "...", "actor": { ... }, "activity": { ... } },
-  { "kind": "event", "occurred_at": "...", "actor": { ... },
+  { "id": "...", "kind": "activity", "occurred_at": "...", "actor": { ... }, "activity": { ... } },
+  { "id": "...", "kind": "event", "occurred_at": "...", "actor": { ... },
     "event": { "type": "stage_changed", "entity_type": "opportunity", "entity_id": "...",
-               "data": { "from_stage": "Qualification", "to_stage": "Solution & Proposal" } } }
+               "data": { "from_stage": { "name_en": "Qualification", "name_bg": "Квалификация", ... },
+                         "to_stage": { "name_en": "Solution & Proposal", "name_bg": "Решение и оферта", ... } } } }
 ], "total": 42, "page": 1, "page_size": 25 }
 ```
 
 Event types in R1: `created`, `updated`, `owner_changed`, `status_changed`, `stage_changed`, `converted`, `closed_won`, `closed_lost`, `reopened`, `archived`, `restored`. Later modules add their own types.
+
+Rules (as built, Phase 4b):
+
+- **Activity resource**: `{ id, type, subject, body, occurred_at, due_at, done_at, is_done, is_overdue, owner, assignee, links: { lead, opportunity, organization, contact } (each { id, name } or null), created_at, updated_at, created_by, archived_at, version }`.
+- **Create** (Contributor): `type` (`note | call | meeting | email | task`), `subject` (≤ 200) required; `body` (≤ 10000); `occurred_at` (default now); at least one of `lead_id`, `opportunity_id`, `organization_id`, `contact_id` (`422`, field `links` / `activity.link_required`), each existing and not archived (`lead.not_found`, `opportunity.archived`, …); `owner_id` as for other records. **Tasks** need `due_at` (`activity.due_required`); `assignee_id` defaults to the owner and must be an active Admin, Sales Manager or Sales Rep (`assignee.invalid`, owner decision). Other types refuse `due_at` and `assignee_id` (`activity.task_only`).
+- **PATCH** requires `version`; changes `subject`, `body`, `occurred_at`, and for tasks `due_at` and `assignee_id`. `type`, `owner_id` and `done` return `422 validation.use_action_endpoint`. Allowed for Owner+ and, on a task, its assignee.
+- **Complete / reopen** (`{ version }`): tasks only (`409 activity.not_a_task`); Owner+ or the assignee. **Archive** (Owner+) hides the activity from lists (unless `include_archived`) and timelines.
+- **Opportunity freshness** (FR-OPP-06): logging a non-task activity on an opportunity, or completing a task on it, moves `last_activity_at` forward to the activity time (never into the future, never backwards).
+- **List**: filters as in the table (`owner_id` and `assignee_id` accept `me`; `is_done` applies to tasks), `q` searches the subject, sort `occurred_at` (default, descending), `due_at`, `created_at`, `updated_at`; sync mode as in 1.3.
+- **`GET /me/tasks`**: the caller's tasks as assignee, open only unless `include_done=true`, sorted by due date so overdue tasks come first.
+- **Timelines** (`page`, `page_size` ≤ 100; newest first): the lead's own items; the opportunity's plus those of its source lead (FR-LEAD-04 AC3); the contact's own; the organization's plus those of its contacts, leads and opportunities. Each item has `id`, `kind`, `occurred_at`, `actor` and either `activity` or `event`. Event `data` uses the record's values: `status_changed` `{ from_status, to_status }`; `stage_changed`, `closed_won`, `reopened` `{ from_stage, to_stage }` and `closed_lost` also `loss_reason` (stage and reason objects with `name_en`/`name_bg`); `owner_changed` `{ from_owner, to_owner }` (`{ id, full_name }`); `converted` `{ opportunity: { id, name } }`; `updated` `{ fields }`. Events are recorded from the same domain events as the audit log, in the same transaction (ADR 0020).
+- Audit actions: `activity.created`, `activity.updated`, `activity.completed`, `activity.reopened`, `activity.archived`.
 
 ## 12. Search
 
