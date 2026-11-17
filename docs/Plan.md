@@ -6,8 +6,9 @@ What has been built, phase by phase, with the key code. The specifications in `d
 |---|---|---|
 | 0 — Foundation | Done, merged (PR #1) | `phase-0-foundation` |
 | 1 — Identity, access and audit | Done, merged (PR #2), CI green | `phase-1-identity` |
-| 2 — Organizations and contacts | Built, awaiting owner review | `phase-2-party` |
-| 3 — Leads | Not started | — |
+| 2 — Organizations and contacts | Done, merged (PR #4) | `phase-2-party` |
+| 3 — Leads | Built, awaiting owner review | `phase-3-leads` |
+| 4 — Opportunities, pipeline and activities | Not started | — |
 
 ---
 
@@ -824,4 +825,136 @@ const duplicates = useQuery({
 
 ### Open items
 
-1. Owner review of the Phase 2 pull request.
+1. ~~Owner review of the Phase 2 pull request~~ — merged 2026-11-17 (PR #4).
+
+---
+
+## Phase 3 — Leads
+
+Requirements: FR-LEAD-01, 02, 03, 05, 06, FR-ADM-02 (lead sources, disqualification reasons). FR-LEAD-04 (conversion) is Phase 4. Owner decisions (2026-11-17, "accept the recommendations"): score yes 25 / partial 12.5 / no and unknown 0, rounded, fit flag shown separately; a Sales Rep may take over any lead for themselves (audited); optional links to an existing organization and contact; a `currency` column on leads; the proposed seeded lists.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 3.1 | Schema: `lead`, `lead_source`, `disqualification_reason` (seeded), score column, version, indexes | Done: migration `0004` |
+| 3.2 | Lead service: lifecycle, BANT and score, version checks, owner/assign rules, audit | Done |
+| 3.3 | Lists, global search, organisation leads and counts | Done via extension points (ADR 0018) |
+| 3.4 | Backend tests | Done (614 total) |
+| 3.5 | Screens: list, form, lead page with BANT and actions, lists admin, 360 leads | Done, en + bg |
+| 3.6 | E2E | Done (en, bg) |
+| 3.7 | Documentation, gate, PR | Done |
+
+### Endpoints built (12)
+
+`GET|POST /leads`, `GET|PATCH|DELETE /leads/{lead_id}`, `POST /leads/{lead_id}/restore|assign|mark-contacted|qualify|disqualify|reopen`, `GET /organizations/{org_id}/leads`; plus `lead-sources` and `disqualification-reasons` under `/reference/{list}` and leads in `/search`.
+
+### Backend
+
+#### Lifecycle and score (`app/modules/sales/lifecycle.py`)
+
+```python
+TRANSITIONS: Mapping[str, tuple[frozenset[str], str]] = {
+    "mark_contacted": (frozenset({"new"}), "contacted"),
+    "qualify": (frozenset({"contacted"}), "qualified"),
+    "disqualify": (OPEN_STATUSES, "disqualified"),
+    "reopen": (frozenset({"disqualified"}), "contacted"),
+    "convert": (frozenset({"qualified"}), "converted"),  # Phase 4
+}
+_POINTS = {"yes": 25.0, "partial": 12.5, "no": 0.0, "unknown": 0.0}
+
+def qualification_score(statuses: Mapping[str, str]) -> int:
+    total = sum(_POINTS[statuses[item]] for item in BANT_ITEMS)
+    return int(total + 0.5)          # the spec example yes/partial/yes/unknown -> 63
+```
+
+#### Optimistic concurrency and action-only fields (`sales/service.py`)
+
+```python
+async def _check_version(ctx: Context, lead: Lead, version: int) -> None:
+    if lead.version != version:
+        current = (await _leads_out(ctx, [lead]))[0]
+        raise AppError(ErrorCode.CONFLICT_VERSION_MISMATCH, HTTPStatus.CONFLICT,
+                       extra={"current": current.model_dump(mode="json")})
+...
+for field in ("status", "owner_id"):
+    if field in data.model_fields_set:
+        raise AppError(ErrorCode.VALIDATION_USE_ACTION_ENDPOINT, HTTPStatus.UNPROCESSABLE_CONTENT,
+                       errors=[FieldError(field, "validation.use_action_endpoint")])
+```
+
+The row is locked (`SELECT … FOR UPDATE`) before the version comparison; every effective change increments `version` and publishes an audit event (`lead.status_changed`, `lead.owner_changed`, …). Converted and disqualified leads answer `409 lead.read_only`.
+
+#### Extension points (ADR 0018)
+
+```python
+# app/main.py
+app.state.search_providers = {p.type: p for p in (*party_service.SEARCH_PROVIDERS, *sales_service.SEARCH_PROVIDERS)}
+app.state.organization_stats = (sales_service.organization_lead_stats,)
+app.state.reference_lists = {ref.name: ref for ref in (*party_service.REFERENCE_LISTS, *sales_service.REFERENCE_LISTS)}
+```
+
+Party never imports sales: `GET /organizations/{id}` merges `{"open_leads": …}` from the registered provider, and `GET /search` (moved to `app/core/search.py`) runs one provider per type.
+
+#### Other details
+
+- `estimated_value` is `numeric(14,2)` with `currency` (default EUR) and travels as a decimal string; the serializer applies to JSON only.
+- Links to an existing organization/contact are validated through party's public functions (`check_organization_link`, `contact_link`); a contact of another organization is refused.
+- `AccessLevel.CONTRIBUTOR_RULES_IN_SERVICE` matches the spec wording for `assign`.
+
+### Frontend
+
+- `features/leads`: list (status, owner, source, fit, archived filters in the URL; score and value columns), capture/edit form (decimal comma accepted), lead page with **BANT editor** (live score using the same rule), **status actions** shown only when allowed (Qualify disabled with a hint while BANT is incomplete), a **disqualify form** requiring a reason, **reopen** for Manager+, **take over** for reps and **assign** for Manager+, archive/restore.
+- `useLeadMutation`: on `409 conflict.version_mismatch` it shows the server's `current` lead and explains; other errors become translated toasts.
+- Organization 360: real leads table with "New lead" prefilled; `/admin/reference/:list` manages all three lists; lead hits in search.
+- 458 translation keys; 69 Vitest tests (10 new). Testing Library waits up to 3 s (was 1 s).
+
+```tsx
+{editable && lead.status === 'contacted' ? (
+  <Button type="button" disabled={qualify.isPending || unknownBant.length > 0}
+          title={unknownBant.length > 0 ? t('bant.incomplete') : undefined}
+          onClick={() => { qualify.mutate(undefined) }}>
+    {t('actions.qualify')}
+  </Button>
+) : null}
+```
+
+### Verification (2026-11-17)
+
+| Gate | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| pytest (scratch PostgreSQL 18.7) | 614 passed, 96% coverage (lead service 96%) |
+| pip-audit | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n (458 keys) | clean |
+| Vitest | 69 passed (local run with a 60 s timeout because the machine was heavily loaded) |
+| pnpm audit (high) | pass; moderate dev-only advisory remains |
+| Contract drift, OpenAPI snapshot | up to date |
+| Playwright Chromium vs. rebuilt stack | 14/14 in two consecutive runs (a first run under load timed out in 5 older tests) |
+| GitHub Actions | on the Phase 3 pull request |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | Done for FR-LEAD-01, 02, 03, 05, 06, FR-ADM-02 |
+| 2 | `docker compose up` works | Done |
+| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 4 | Permission checks + matrix | Done for all 58 routes; owner/non-owner lead cases |
+| 5 | UI text en + bg | Done |
+| 6 | Additive migrations + tests | Done (0004) |
+| 7 | Audit for create/update/delete | Done (`lead.*`) |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.4 (rules, payloads, `lead.read_only`) |
+
+### Decisions and deviations
+
+- **Extension points** for search and organisation figures (ADR 0018); `/search` moved from party to core (same URL and response).
+- **`lead.read_only`** (409) is a new code for changes to converted or disqualified leads.
+- **Reopen** clears the stored disqualification reason and note; the history stays in the audit log.
+- **Assign** refuses converted and disqualified leads; reps may take over other reps' leads (owner decision).
+- **Lead response**: `source` carries `name_en`/`name_bg` like other reference values (Phase 2 decision).
+
+### Open items
+
+1. Owner review of the Phase 3 pull request.
