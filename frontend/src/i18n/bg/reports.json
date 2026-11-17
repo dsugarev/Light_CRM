@@ -1,0 +1,51 @@
+{
+  "export": {
+    "label": "Експорт",
+    "xlsx": "Експорт XLSX",
+    "csv": "Експорт CSV"
+  },
+  "filters": {
+    "owner": "Отговорник",
+    "everyone": "Всички",
+    "mine": "Моите",
+    "year": "Година"
+  },
+  "dashboard": {
+    "title": "Табло за управление",
+    "openPipeline": "Отворени възможности",
+    "weighted": "Претеглено {{value}}",
+    "conversionRate": "Конверсия на потенциални клиенти",
+    "conversionDetail": "{{converted}} от {{created}} превърнати",
+    "winRate": "Успеваемост",
+    "winDetail": "{{won}} спечелени, {{lost}} загубени",
+    "myTasks": "Моите отворени задачи",
+    "overdue_one": "{{count}} просрочена",
+    "overdue_other": "{{count}} просрочени",
+    "pipelineByStage": "Отворени възможности по етапи",
+    "forecast": "Претеглена прогноза за следващите 6 месеца",
+    "total": "Общо",
+    "weightedShort": "Претеглено",
+    "noData": "Няма данни"
+  },
+  "winLoss": {
+    "title": "Спечелени и загубени",
+    "groupBy": "Групиране по",
+    "groups": {
+      "loss_reason": "Причина за загуба",
+      "owner": "Отговорник",
+      "month": "Месец"
+    },
+    "none": "Не е посочено (спечелени)",
+    "total": "Общо"
+  },
+  "columns": {
+    "stage": "Етап",
+    "count": "Възможности",
+    "month": "Месец",
+    "won": "Спечелени",
+    "wonAmount": "Спечелени (EUR)",
+    "lost": "Загубени",
+    "lostAmount": "Загубени (EUR)",
+    "winRate": "Успеваемост"
+  }
+}

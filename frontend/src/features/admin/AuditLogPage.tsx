@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table'
 import { DISPLAY_TIME_ZONE, formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
+import { ExportMenu } from '@/features/reports/ExportMenu'
 
 import { useAuditLabels } from './auditLabels'
 
@@ -60,6 +61,14 @@ export function AuditLogPage() {
   const actorId = params.get('actor_id')
   const entityId = params.get('entity_id')
 
+  const filterQuery = {
+    ...(value('action') ? { action: [value('action')] } : {}),
+    ...(value('entity_type') ? { entity_type: value('entity_type') } : {}),
+    ...(value('from') ? { occurred_at_from: sofiaDayBoundary(value('from'), false) } : {}),
+    ...(value('to') ? { occurred_at_to: sofiaDayBoundary(value('to'), true) } : {}),
+    ...(actorId ? { actor_id: actorId } : {}),
+    ...(entityId ? { entity_id: entityId } : {}),
+  }
   const entries = useQuery({
     queryKey: ['audit-log', params.toString()],
     // Keep showing the current rows while the next page, sort or filter loads.
@@ -68,18 +77,7 @@ export function AuditLogPage() {
       call(
         api.GET('/api/v1/audit-log', {
           params: {
-            query: {
-              page,
-              page_size: PAGE_SIZE,
-              ...(value('action') ? { action: [value('action')] } : {}),
-              ...(value('entity_type') ? { entity_type: value('entity_type') } : {}),
-              ...(value('from')
-                ? { occurred_at_from: sofiaDayBoundary(value('from'), false) }
-                : {}),
-              ...(value('to') ? { occurred_at_to: sofiaDayBoundary(value('to'), true) } : {}),
-              ...(actorId ? { actor_id: actorId } : {}),
-              ...(entityId ? { entity_id: entityId } : {}),
-            },
+            query: { page, page_size: PAGE_SIZE, ...filterQuery },
           },
         }),
       ),
@@ -95,7 +93,10 @@ export function AuditLogPage() {
 
   return (
     <section className="mx-auto max-w-6xl">
-      <PageHeader title={t('audit.title')} />
+      <PageHeader
+        title={t('audit.title')}
+        actions={<ExportMenu path="/api/v1/audit-log/export" query={filterQuery} />}
+      />
       <form
         className="mb-4 grid items-end gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]"
         onSubmit={(event) => {

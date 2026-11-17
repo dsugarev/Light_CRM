@@ -1,0 +1,51 @@
+{
+  "export": {
+    "label": "Export",
+    "xlsx": "Export XLSX",
+    "csv": "Export CSV"
+  },
+  "filters": {
+    "owner": "Owner",
+    "everyone": "Everyone",
+    "mine": "Mine",
+    "year": "Year"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "openPipeline": "Open pipeline",
+    "weighted": "Weighted {{value}}",
+    "conversionRate": "Lead conversion rate",
+    "conversionDetail": "{{converted}} of {{created}} leads converted",
+    "winRate": "Win rate",
+    "winDetail": "{{won}} won, {{lost}} lost",
+    "myTasks": "My open tasks",
+    "overdue_one": "{{count}} overdue",
+    "overdue_other": "{{count}} overdue",
+    "pipelineByStage": "Open pipeline by stage",
+    "forecast": "Weighted forecast, next 6 months",
+    "total": "Total",
+    "weightedShort": "Weighted",
+    "noData": "No data"
+  },
+  "winLoss": {
+    "title": "Win/loss report",
+    "groupBy": "Group by",
+    "groups": {
+      "loss_reason": "Loss reason",
+      "owner": "Owner",
+      "month": "Month"
+    },
+    "none": "Not set (won)",
+    "total": "Total"
+  },
+  "columns": {
+    "stage": "Stage",
+    "count": "Opportunities",
+    "month": "Month",
+    "won": "Won",
+    "wonAmount": "Won (EUR)",
+    "lost": "Lost",
+    "lostAmount": "Lost (EUR)",
+    "winRate": "Win rate"
+  }
+}

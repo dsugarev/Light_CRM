@@ -37,3 +37,10 @@ export function formatDay(day: string, locale: Locale): string {
     new Date(`${day}T00:00:00Z`),
   )
 }
+
+/** A share between 0 and 1 as a percentage, e.g. 0.4 → "40%". */
+export function formatPercent(share: number, locale: Locale): string {
+  return new Intl.NumberFormat(TAGS[locale], { style: 'percent', maximumFractionDigits: 1 }).format(
+    share,
+  )
+}

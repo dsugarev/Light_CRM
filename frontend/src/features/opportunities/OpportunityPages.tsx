@@ -18,6 +18,7 @@ import { formatDay, formatMoney } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useListParams } from '@/lib/useListParams'
 import { useLocale } from '@/lib/useLocale'
+import { ExportMenu } from '@/features/reports/ExportMenu'
 
 import { OpportunityForm } from './OpportunityForm'
 import {
@@ -112,7 +113,8 @@ export function OpportunitiesPage() {
       <PageHeader
         title={t('list.title')}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportMenu path="/api/v1/opportunities/export" query={list.apiQuery} />
             <Link to="/opportunities/board" className={buttonVariants({ variant: 'outline' })}>
               {t('board.title')}
             </Link>

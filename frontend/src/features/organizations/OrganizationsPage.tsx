@@ -17,6 +17,7 @@ import { formatDateTime } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useListParams } from '@/lib/useListParams'
 import { useLocale } from '@/lib/useLocale'
+import { ExportMenu } from '@/features/reports/ExportMenu'
 
 type Organization = Schemas['OrganizationOut']
 const PAGE_SIZE = 25
@@ -77,11 +78,14 @@ export function OrganizationsPage() {
       <PageHeader
         title={t('organizations.title')}
         actions={
-          can('records.create') ? (
-            <Link to="/organizations/new" className={buttonVariants()}>
-              {t('organizations.new')}
-            </Link>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportMenu path="/api/v1/organizations/export" query={list.apiQuery} />
+            {can('records.create') ? (
+              <Link to="/organizations/new" className={buttonVariants()}>
+                {t('organizations.new')}
+              </Link>
+            ) : null}
+          </div>
         }
       />
       <div className="mb-4 grid items-center gap-3 sm:grid-cols-[2fr_1fr_1fr_auto]">
