@@ -210,6 +210,7 @@ describe('FR-AUTH-04 settings', () => {
         HttpResponse.json({
           session_idle_timeout_minutes: 480,
           session_absolute_timeout_minutes: 10080,
+          stale_opportunity_days: 14,
         }),
       ),
     )
@@ -219,5 +220,35 @@ describe('FR-AUTH-04 settings', () => {
     await userEvent.type(idle, '5')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByText('The value is too small.')).toBeInTheDocument()
+  })
+
+  it('FR-OPP-06 saves the stale-opportunity threshold', async () => {
+    let body: Record<string, unknown> = {}
+    const current = {
+      session_idle_timeout_minutes: 480,
+      session_absolute_timeout_minutes: 10080,
+      stale_opportunity_days: 14,
+    }
+    server.use(
+      http.get('*/api/v1/settings', () => HttpResponse.json(current)),
+      http.patch('*/api/v1/settings', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({ ...current, ...body })
+      }),
+    )
+    await renderApp('/admin/settings')
+    const stale = await screen.findByLabelText(
+      'Days without activity before an opportunity needs attention',
+    )
+    await userEvent.clear(stale)
+    await userEvent.type(stale, '400')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('The value is too large.')).toBeInTheDocument()
+    await userEvent.clear(stale)
+    await userEvent.type(stale, '21')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(body).toMatchObject({ stale_opportunity_days: 21 })
+    })
   })
 })

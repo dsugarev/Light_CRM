@@ -416,6 +416,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/opportunities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List and search opportunities */
+        get: operations["list_opportunities_api_v1_opportunities_get"];
+        put?: never;
+        /** Create; stage defaults to the first open stage, probability to its default */
+        post: operations["create_opportunity_api_v1_opportunities_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Kanban data: one column per active open stage with totals and cards */
+        get: operations["board_api_v1_opportunities_board_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opp_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail with organization, contact, stage, source lead and is_stale */
+        get: operations["get_opportunity_api_v1_opportunities__opp_id__get"];
+        put?: never;
+        post?: never;
+        /** Archive */
+        delete: operations["archive_opportunity_api_v1_opportunities__opp_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update fields; requires version; 409 opportunity.closed if closed */
+        patch: operations["update_opportunity_api_v1_opportunities__opp_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opp_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change owner; a Sales Rep may only assign to themselves */
+        post: operations["assign_opportunity_api_v1_opportunities__opp_id__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opp_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close as won or lost; lost needs a loss reason */
+        post: operations["close_opportunity_api_v1_opportunities__opp_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opp_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change stage within open stages; probability follows unless overridden */
+        post: operations["move_opportunity_api_v1_opportunities__opp_id__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opp_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen into a chosen open stage */
+        post: operations["reopen_opportunity_api_v1_opportunities__opp_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opp_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore */
+        post: operations["restore_opportunity_api_v1_opportunities__opp_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/{opp_id}/stage-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stage changes with user, time, from and to */
+        get: operations["stage_history_api_v1_opportunities__opp_id__stage_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations": {
         parameters: {
             query?: never;
@@ -504,6 +660,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/opportunities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opportunities of this organization */
+        get: operations["organization_opportunities_api_v1_organizations__org_id__opportunities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/restore": {
         parameters: {
             query?: never;
@@ -519,6 +692,92 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipelines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pipelines (one in R1) with their stages in order */
+        get: operations["list_pipelines_api_v1_pipelines_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipelines/{pipeline_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One pipeline with stages */
+        get: operations["get_pipeline_api_v1_pipelines__pipeline_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipelines/{pipeline_id}/stages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a stage: name (en/bg), default probability, type */
+        post: operations["add_stage_api_v1_pipelines__pipeline_id__stages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipelines/{pipeline_id}/stages/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reorder stages */
+        put: operations["reorder_stages_api_v1_pipelines__pipeline_id__stages_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipelines/{pipeline_id}/stages/{stage_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an unused stage; 409 stage.in_use otherwise */
+        delete: operations["delete_stage_api_v1_pipelines__pipeline_id__stages__stage_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename, change probability, activate or deactivate */
+        patch: operations["update_stage_api_v1_pipelines__pipeline_id__stages__stage_id__patch"];
         trace?: never;
     };
     "/api/v1/reference/{list}": {
@@ -893,6 +1152,74 @@ export interface components {
             /** Status */
             status?: ("unknown" | "no" | "partial" | "yes") | null;
         };
+        /** Board */
+        Board: {
+            /** Columns */
+            columns: components["schemas"]["BoardColumn"][];
+            /**
+             * Currency
+             * @default EUR
+             * @constant
+             */
+            currency: "EUR";
+            /**
+             * Pipeline Id
+             * Format: uuid
+             */
+            pipeline_id: string;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** BoardCard */
+        BoardCard: {
+            /** Amount */
+            amount: string | null;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Expected Close Date */
+            expected_close_date: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Stale */
+            is_stale: boolean;
+            /** Name */
+            name: string;
+            organization: components["schemas"]["LinkSummary"];
+            owner: components["schemas"]["UserSummary"];
+            /** Version */
+            version: number;
+        };
+        /** BoardColumn */
+        BoardColumn: {
+            /** Cards */
+            cards: components["schemas"]["BoardCard"][];
+            /** Count */
+            count: number;
+            stage: components["schemas"]["StageSummary"];
+            /** Total Amount */
+            total_amount: string;
+            /** Weighted Amount */
+            weighted_amount: string;
+        };
+        /** CloseRequest */
+        CloseRequest: {
+            /** Actual Close Date */
+            actual_close_date?: string | null;
+            /** Competitor */
+            competitor?: string | null;
+            /** Loss Reason Id */
+            loss_reason_id?: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "won" | "lost";
+            /** Version */
+            version: number;
+        };
         /** ContactCreate */
         ContactCreate: {
             /**
@@ -1231,6 +1558,143 @@ export interface components {
             /** Locale */
             locale?: ("en" | "bg") | null;
         };
+        /** MoveRequest */
+        MoveRequest: {
+            /**
+             * Stage Id
+             * Format: uuid
+             */
+            stage_id: string;
+            /** Version */
+            version: number;
+        };
+        /** OpportunityCreate */
+        OpportunityCreate: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Competitor */
+            competitor?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Expected Close Date */
+            expected_close_date?: string | null;
+            /** Name */
+            name: string;
+            /** Next Step */
+            next_step?: string | null;
+            /**
+             * Organization Id
+             * Format: uuid
+             */
+            organization_id: string;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Primary Contact Id */
+            primary_contact_id?: string | null;
+            /** Probability */
+            probability?: number | null;
+            /** Stage Id */
+            stage_id?: string | null;
+        };
+        /** OpportunityOut */
+        OpportunityOut: {
+            /** Actual Close Date */
+            actual_close_date: string | null;
+            /** Amount */
+            amount: string | null;
+            /** Archived At */
+            archived_at: string | null;
+            /** Competitor */
+            competitor: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            created_by: components["schemas"]["UserSummary"] | null;
+            /** Currency */
+            currency: string;
+            /** Description */
+            description: string | null;
+            /** Expected Close Date */
+            expected_close_date: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Stale */
+            is_stale: boolean;
+            /** Last Activity At */
+            last_activity_at: string | null;
+            loss_reason: components["schemas"]["app__modules__sales__schemas__ReferenceSummary"] | null;
+            /** Name */
+            name: string;
+            /** Next Step */
+            next_step: string | null;
+            organization: components["schemas"]["LinkSummary"];
+            owner: components["schemas"]["UserSummary"];
+            /**
+             * Pipeline Id
+             * Format: uuid
+             */
+            pipeline_id: string;
+            primary_contact: components["schemas"]["LinkSummary"] | null;
+            /** Probability */
+            probability: number;
+            /** Probability Overridden */
+            probability_overridden: boolean;
+            source_lead: components["schemas"]["LinkSummary"] | null;
+            stage: components["schemas"]["StageSummary"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            /** Weighted Amount */
+            weighted_amount: string | null;
+        };
+        /** OpportunityUpdate */
+        OpportunityUpdate: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Competitor */
+            competitor?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Expected Close Date */
+            expected_close_date?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Next Step */
+            next_step?: string | null;
+            /**
+             * Organization Id
+             * @description An opportunity stays with its organization
+             */
+            organization_id?: unknown;
+            /**
+             * Owner Id
+             * @description Not changeable here; use POST /assign
+             */
+            owner_id?: unknown;
+            /** Primary Contact Id */
+            primary_contact_id?: string | null;
+            /** Probability */
+            probability?: number | null;
+            /**
+             * Stage Id
+             * @description Not changeable here; use /move or /close
+             */
+            stage_id?: unknown;
+            /**
+             * Version
+             * @description The version you loaded; a stale one returns 409
+             */
+            version: number;
+        };
         /** OrganizationCounts */
         OrganizationCounts: {
             /** Contacts */
@@ -1444,6 +1908,17 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[OpportunityOut] */
+        Page_OpportunityOut_: {
+            /** Items */
+            items: components["schemas"]["OpportunityOut"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
         /** Page[OrganizationOut] */
         Page_OrganizationOut_: {
             /** Items */
@@ -1498,6 +1973,20 @@ export interface components {
              * @enum {string}
              */
             purpose: "set" | "reset";
+        };
+        /** PipelineOut */
+        PipelineOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Default */
+            is_default: boolean;
+            /** Name */
+            name: string;
+            /** Stages */
+            stages: components["schemas"]["StageOut"][];
         };
         /** Qualification */
         Qualification: {
@@ -1560,6 +2049,16 @@ export interface components {
             /** Name En */
             name_en?: string | null;
         };
+        /** ReopenRequest */
+        ReopenRequest: {
+            /**
+             * Stage Id
+             * Format: uuid
+             */
+            stage_id: string;
+            /** Version */
+            version: number;
+        };
         /**
          * RoleCode
          * @enum {string}
@@ -1579,6 +2078,8 @@ export interface components {
             session_absolute_timeout_minutes: number;
             /** Session Idle Timeout Minutes */
             session_idle_timeout_minutes: number;
+            /** Stale Opportunity Days */
+            stale_opportunity_days: number;
         };
         /** RuntimeSettingsUpdate */
         RuntimeSettingsUpdate: {
@@ -1586,6 +2087,8 @@ export interface components {
             session_absolute_timeout_minutes?: number | null;
             /** Session Idle Timeout Minutes */
             session_idle_timeout_minutes?: number | null;
+            /** Stale Opportunity Days */
+            stale_opportunity_days?: number | null;
         };
         /** SearchHit */
         SearchHit: {
@@ -1654,6 +2157,91 @@ export interface components {
             locale: "en" | "bg";
             role: components["schemas"]["RoleCode"];
         };
+        /** StageChange */
+        StageChange: {
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+            changed_by: components["schemas"]["UserSummary"] | null;
+            from_stage: components["schemas"]["StageSummary"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            to_stage: components["schemas"]["StageSummary"];
+        };
+        /** StageCreate */
+        StageCreate: {
+            /** Default Probability */
+            default_probability: number;
+            /** Name Bg */
+            name_bg: string;
+            /** Name En */
+            name_en: string;
+            /**
+             * Stage Type
+             * @enum {string}
+             */
+            stage_type: "open" | "won" | "lost";
+        };
+        /** StageOut */
+        StageOut: {
+            /** Default Probability */
+            default_probability: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Name Bg */
+            name_bg: string;
+            /** Name En */
+            name_en: string;
+            /** Position */
+            position: number;
+            /**
+             * Stage Type
+             * @enum {string}
+             */
+            stage_type: "open" | "won" | "lost";
+        };
+        /** StageSummary */
+        StageSummary: {
+            /** Default Probability */
+            default_probability: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name Bg */
+            name_bg: string;
+            /** Name En */
+            name_en: string;
+            /** Position */
+            position: number;
+            /**
+             * Stage Type
+             * @enum {string}
+             */
+            stage_type: "open" | "won" | "lost";
+        };
+        /** StageUpdate */
+        StageUpdate: {
+            /** Default Probability */
+            default_probability?: number | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Name Bg */
+            name_bg?: string | null;
+            /** Name En */
+            name_en?: string | null;
+        };
         /** SyncPage[ContactOut] */
         SyncPage_ContactOut_: {
             /** Items */
@@ -1665,6 +2253,13 @@ export interface components {
         SyncPage_LeadOut_: {
             /** Items */
             items: components["schemas"]["LeadOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** SyncPage[OpportunityOut] */
+        SyncPage_OpportunityOut_: {
+            /** Items */
+            items: components["schemas"]["OpportunityOut"][];
             /** Next Cursor */
             next_cursor: string | null;
         };
@@ -2836,6 +3431,417 @@ export interface operations {
             };
         };
     };
+    list_opportunities_api_v1_opportunities_get: {
+        parameters: {
+            query?: {
+                stage_id?: string[] | null;
+                stage_type?: ("open" | "won" | "lost")[] | null;
+                owner_id?: string[] | null;
+                organization_id?: string[] | null;
+                expected_close_date_from?: string | null;
+                expected_close_date_to?: string | null;
+                amount_from?: number | string | null;
+                amount_to?: number | string | null;
+                is_stale?: boolean | null;
+                page?: number;
+                page_size?: number | null;
+                /** @description Sortable: amount, expected_close_date, updated_at, name; prefix - for descending */
+                sort?: string | null;
+                q?: string | null;
+                include_archived?: boolean;
+                updated_since?: string | null;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_OpportunityOut_"] | components["schemas"]["SyncPage_OpportunityOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_opportunity_api_v1_opportunities_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpportunityCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    board_api_v1_opportunities_board_get: {
+        parameters: {
+            query?: {
+                pipeline_id?: string | null;
+                owner_id?: string[] | null;
+                expected_close_date_from?: string | null;
+                expected_close_date_to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Board"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_opportunity_api_v1_opportunities__opp_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opp_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_opportunity_api_v1_opportunities__opp_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opp_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_opportunity_api_v1_opportunities__opp_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opp_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpportunityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_opportunity_api_v1_opportunities__opp_id__assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opp_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_opportunity_api_v1_opportunities__opp_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opp_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_opportunity_api_v1_opportunities__opp_id__move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opp_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_opportunity_api_v1_opportunities__opp_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opp_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReopenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_opportunity_api_v1_opportunities__opp_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opp_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stage_history_api_v1_opportunities__opp_id__stage_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                opp_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageChange"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_organizations_api_v1_organizations_get: {
         parameters: {
             query?: {
@@ -3119,6 +4125,46 @@ export interface operations {
             };
         };
     };
+    organization_opportunities_api_v1_organizations__org_id__opportunities_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number | null;
+                /** @description Sortable: amount, expected_close_date, updated_at, name; prefix - for descending */
+                sort?: string | null;
+                q?: string | null;
+                include_archived?: boolean;
+                updated_since?: string | null;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_OpportunityOut_"] | components["schemas"]["SyncPage_OpportunityOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     restore_organization_api_v1_organizations__org_id__restore_post: {
         parameters: {
             query?: never;
@@ -3137,6 +4183,193 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_pipelines_api_v1_pipelines_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineOut"][];
+                };
+            };
+        };
+    };
+    get_pipeline_api_v1_pipelines__pipeline_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pipeline_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_stage_api_v1_pipelines__pipeline_id__stages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pipeline_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_stages_api_v1_pipelines__pipeline_id__stages_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pipeline_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": string[];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_stage_api_v1_pipelines__pipeline_id__stages__stage_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pipeline_id: string;
+                stage_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_stage_api_v1_pipelines__pipeline_id__stages__stage_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pipeline_id: string;
+                stage_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineOut"];
                 };
             };
             /** @description Validation Error */

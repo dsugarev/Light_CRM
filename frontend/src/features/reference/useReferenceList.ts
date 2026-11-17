@@ -5,7 +5,12 @@ import type { Locale } from '@/i18n'
 
 export type ReferenceItem = Schemas['ReferenceItem']
 
-export const REFERENCE_LISTS = ['industries', 'lead-sources', 'disqualification-reasons'] as const
+export const REFERENCE_LISTS = [
+  'industries',
+  'lead-sources',
+  'disqualification-reasons',
+  'loss-reasons',
+] as const
 export type ReferenceListName = (typeof REFERENCE_LISTS)[number]
 
 export function useReferenceList(list: ReferenceListName, includeInactive = false) {

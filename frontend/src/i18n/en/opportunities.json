@@ -1,0 +1,154 @@
+{
+  "list": {
+    "title": "Opportunities",
+    "new": "New opportunity",
+    "search": "Search by name, organization or competitor",
+    "stage": "Stage",
+    "allStages": "All stages",
+    "stageType": "Status",
+    "allTypes": "Open, won and lost",
+    "owner": "Owner",
+    "everyone": "Everyone",
+    "mine": "Mine",
+    "staleOnly": "Needs attention",
+    "archived": "Show archived",
+    "columns": {
+      "name": "Opportunity",
+      "organization": "Organization",
+      "stage": "Stage",
+      "amount": "Amount",
+      "probability": "Probability",
+      "weighted": "Weighted",
+      "expectedClose": "Expected close",
+      "owner": "Owner"
+    }
+  },
+  "stageType": {
+    "open": "Open",
+    "won": "Won",
+    "lost": "Lost"
+  },
+  "stale": {
+    "label": "Needs attention",
+    "hint": "No activity for a while, or the expected close date has passed."
+  },
+  "fields": {
+    "name": "Name",
+    "organization": "Organization",
+    "contact": "Primary contact",
+    "amount": "Amount (EUR)",
+    "probability": "Probability (%)",
+    "weighted": "Weighted amount",
+    "expectedCloseDate": "Expected close date",
+    "actualCloseDate": "Actual close date",
+    "lossReason": "Loss reason",
+    "competitor": "Competitor",
+    "nextStep": "Next step",
+    "description": "Description",
+    "owner": "Owner",
+    "sourceLead": "Source lead",
+    "none": "Not set"
+  },
+  "hints": {
+    "probability": "Leave empty to follow the stage's default probability."
+  },
+  "createTitle": "New opportunity",
+  "editTitle": "Edit opportunity",
+  "create": "Create opportunity",
+  "actions": {
+    "title": "Actions",
+    "moveTo": "Stage",
+    "move": "Move",
+    "closeWon": "Close as won",
+    "closeLost": "Close as lost",
+    "reopen": "Reopen",
+    "reopenInto": "Reopen into stage",
+    "edit": "Edit",
+    "archive": "Archive",
+    "restore": "Restore",
+    "takeOver": "Take over",
+    "assign": "Assign",
+    "assignTo": "New owner",
+    "confirmArchive": "Archive the opportunity “{{name}}”?"
+  },
+  "close": {
+    "wonTitle": "Close as won",
+    "lostTitle": "Close as lost",
+    "reason": "Loss reason",
+    "chooseReason": "Choose a reason",
+    "date": "Actual close date",
+    "dateHint": "Leave empty for today.",
+    "confirmWon": "Close as won",
+    "confirmLost": "Close as lost"
+  },
+  "detail": {
+    "details": "Details",
+    "createdBy": "Created by {{name}} on {{date}}",
+    "probabilityOverridden": "{{value}}% (set manually)",
+    "wonInfo": "Won on {{date}}.",
+    "lostInfo": "Lost on {{date}}: {{reason}}"
+  },
+  "history": {
+    "title": "Stage history",
+    "created": "Created in {{to}}",
+    "moved": "{{from}} → {{to}}"
+  },
+  "board": {
+    "title": "Pipeline board",
+    "listView": "List view",
+    "help": "Drag a card to another stage, or onto Won or Lost to close it. You can also use the drag handle with the keyboard (Space, arrow keys, Space) or the “Move to” list on each card.",
+    "totals_one": "{{countText}} opportunity · {{total}} · weighted {{weighted}}",
+    "totals_other": "{{countText}} opportunities · {{total}} · weighted {{weighted}}",
+    "truncated": "Only the first 500 opportunities are shown. Narrow the filters to see the rest.",
+    "dropWon": "Won",
+    "dropLost": "Lost",
+    "moveTo": "Move to…",
+    "moveCard": "Move {{name}} to",
+    "dragHandle": "Drag {{name}}",
+    "announce": {
+      "instructions": "Press Space to pick up the card, use the arrow keys to move it and Space again to drop it. Press Escape to cancel.",
+      "start": "Picked up {{name}}.",
+      "over": "{{name}} is over {{target}}.",
+      "outside": "{{name}} is not over a stage.",
+      "dropped": "{{name}} dropped on {{target}}.",
+      "cancelled": "Moving {{name}} was cancelled."
+    }
+  },
+  "stages": {
+    "title": "Pipeline stages",
+    "help": "A stage in use cannot be deleted; deactivate it instead. At least one active open, won and lost stage must remain.",
+    "nameEn": "Name (English)",
+    "nameBg": "Name (Bulgarian)",
+    "probability": "Default probability (%)",
+    "type": "Type",
+    "inactive": "Inactive",
+    "save": "Save",
+    "saved": "Stage saved.",
+    "added": "Stage added.",
+    "deleted": "Stage deleted.",
+    "add": "Add stage",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "delete": "Delete",
+    "confirmDelete": "Delete the stage “{{name}}”?"
+  },
+  "toasts": {
+    "created": "Opportunity created.",
+    "saved": "Opportunity saved.",
+    "stageChanged": "Moved to {{stage}}.",
+    "won": "Opportunity won.",
+    "lost": "Opportunity closed as lost.",
+    "reopened": "Opportunity reopened.",
+    "assigned": "Owner changed.",
+    "archived": "Opportunity archived.",
+    "restored": "Opportunity restored.",
+    "conflict": "Someone else changed this opportunity. The latest version is shown; please repeat your change."
+  },
+  "organization": {
+    "title": "Opportunities",
+    "new": "New opportunity",
+    "none": "No opportunities yet."
+  }
+}

@@ -1,6 +1,6 @@
 # 05 — API Specification (Release 1)
 
-Status: Draft v0.4 (updated after Phase 3, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+Status: Draft v0.5 (updated after Phase 4a, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
 
 This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
 
@@ -16,14 +16,15 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | 3 Authentication and sessions | 1 | Built, except MFA endpoints (FR-AUTH-07, Phase 8) |
 | 4 Current user | 1 | Built, except `/me/tasks` (Phase 4) |
 | 5 Users and roles | 1 | Built |
-| 6.1 Application settings | 1 | Built with session timeouts; further settings added by their phases |
-| 6.2 Reference lists | 2–3 | Built; `industries`, `lead-sources`, `disqualification-reasons` registered; `loss-reasons` (Phase 4) and `external-systems` (Phase 6) follow |
-| 6.3 Pipelines and stages | 4 | Pending |
-| 7 Organizations | 2–3 | Built, except `/opportunities`, `/timeline` (Phase 4), `/export` (Phase 5); `/leads` and the open-lead count added in Phase 3 |
+| 6.1 Application settings | 1, 4 | Built with session timeouts (Phase 1) and the stale-opportunity threshold (Phase 4); further settings added by their phases |
+| 6.2 Reference lists | 2–4 | Built; `industries`, `lead-sources`, `disqualification-reasons`, `loss-reasons` registered; `external-systems` (Phase 6) follows |
+| 6.3 Pipelines and stages | 4 | Built (Phase 4a) |
+| 7 Organizations | 2–4 | Built, except `/timeline` (Phase 4b) and `/export` (Phase 5); `/leads` and the open-lead count added in Phase 3; `/opportunities`, open-opportunity figures and the archive guard in Phase 4a |
 | 8 Contacts | 2 | Built, except `/timeline` (Phase 4), GDPR `personal-data`/`anonymize` (Phase 8), `/export` (Phase 5) |
 | 9 Leads | 3 | Built, except `conversion-preview`, `convert`, `/timeline` (Phase 4) and `/export` (Phase 5) |
-| 10–11 Opportunities, activities | 4 | Pending |
-| 12 Search | 2–3 | Built for organizations, contacts and leads; opportunities join in Phase 4 |
+| 10 Opportunities and pipeline board | 4 | Built (Phase 4a), except `/timeline` (Phase 4b) and `/export` (Phase 5) |
+| 11 Activities and tasks | 4 | Pending (Phase 4b) |
+| 12 Search | 2–4 | Built for organizations, contacts, leads and opportunities |
 | 13–15 Reports, exports, import | 5 | Pending |
 | 16 Audit log | 1 | Built, except `/audit-log/export` (Phase 5) |
 | 17 AI assistant | 7 | Pending |
@@ -173,7 +174,10 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `lead.read_only` | 409 | Lead is converted or disqualified; only reopen (disqualified, Manager+) is possible |
 | `opportunity.closed` | 409 | Change attempted on a closed opportunity |
 | `opportunity.loss_reason_required` | 422 | Lost outcome without a loss reason |
+| `opportunity.not_closed` | 409 | Reopen attempted on an opportunity that is not closed |
+| `organization.has_open_opportunities` | 409 | Archive attempted while the organization has open opportunities |
 | `stage.in_use` | 409 | Stage cannot be removed while in use |
+| `stage.required` | 409 | The change would leave the pipeline without an active stage of a type (open, won or lost) |
 | `reference.in_use` | 409 | Reference value cannot be removed while in use |
 | `import.invalid_file` | 415 | Not a readable XLSX or CSV |
 | `import.too_large` | 413 | File exceeds 10 MB |
@@ -197,7 +201,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `owner.required` | 422 | Integration-created record has no `owner_id` and the client has no default owner |
 | `webhook.url_not_allowed` | 422 | Webhook URL not HTTPS or host not in the allowlist |
 
-**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, `contact.not_found`, `contact.organization_mismatch`, `lead.bant_unknown`, `validation.use_action_endpoint`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`). Field names are the request body or query field names.
+**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, `contact.not_found`, `contact.organization_mismatch`, `lead.bant_unknown`, `stage.not_open` (stage must be an active open stage), `stage.order_incomplete`, `validation.use_action_endpoint`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`). Field names are the request body or query field names.
 
 ### 1.7 Access levels used in the tables
 
@@ -332,6 +336,7 @@ Settings present so far (later phases add theirs; unknown fields return `422`):
 |---|---|---|---|
 | `session_idle_timeout_minutes` | 480 (8 h) | 15–1440, not above the absolute timeout | 1 |
 | `session_absolute_timeout_minutes` | 10080 (7 days) | 60–43200 | 1 |
+| `stale_opportunity_days` | 14 | 1–365 | 4 |
 
 Changes take effect within 30 seconds on every backend process and are audited as `settings.updated` with before and after values.
 
@@ -351,7 +356,7 @@ One uniform set of endpoints serves every configurable list. `{list}` is one of 
 
 New lists in later releases are added by extending the allowed `{list}` values, not by new endpoint shapes.
 
-As built: `lead-sources` (seeded: campaign, inbound, referral, event, cold_outreach, partner, other) and `disqualification-reasons` (seeded: no_budget, no_need, no_decision_maker, bad_timing, chose_competitor, unreachable, duplicate, outside_target, other), both in English and Bulgarian, since Phase 3. `industries` is available (seeded with 14 values in English and Bulgarian: telecommunications, IT and software, finance and banking, public sector, healthcare, manufacturing, retail and wholesale, energy and utilities, transport and logistics, construction and real estate, education, hospitality and tourism, media, other). Other names return `404`.
+As built: `lead-sources` (seeded: campaign, inbound, referral, event, cold_outreach, partner, other) and `disqualification-reasons` (seeded: no_budget, no_need, no_decision_maker, bad_timing, chose_competitor, unreachable, duplicate, outside_target, other), both in English and Bulgarian, since Phase 3. `industries` is available (seeded with 14 values in English and Bulgarian: telecommunications, IT and software, finance and banking, public sector, healthcare, manufacturing, retail and wholesale, energy and utilities, transport and logistics, construction and real estate, education, hospitality and tourism, media, other). `loss-reasons` is seeded with price, chose_competitor, no_budget, no_decision (no decision or project stopped), timing, solution_fit, other, in English and Bulgarian, since Phase 4. Other names return `404`.
 
 - `POST` body `{ "code", "name_en", "name_bg", "is_active" }`; `code` is `^[a-z0-9_]{1,50}$` and unique in the list (`409 conflict.duplicate`, field `code` / `reference.code_taken`); the value goes to the end of the order. Returns `201` with `Location`.
 - `PATCH` body `{ "name_en"?, "name_bg"?, "is_active"? }`; the code is permanent.
@@ -371,6 +376,16 @@ As built: `lead-sources` (seeded: campaign, inbound, referral, event, cold_outre
 | DELETE | `/api/v1/pipelines/{pipeline_id}/stages/{stage_id}` | Delete an unused stage; `409 stage.in_use` otherwise | Admin | FR-OPP-02 AC1 |
 
 Creating additional pipelines is out of scope for R1; the paths are already pipeline-scoped so it can be added without change.
+
+Rules (as built, Phase 4a):
+
+- Seeded default pipeline "Sales pipeline" with six stages (English / Bulgarian, default probability, type): Prospecting / Проучване 10 open; Qualification / Квалификация 25 open; Solution & Proposal / Решение и оферта 50 open; Negotiation / Преговори 75 open; Closed Won / Спечелена 100 won; Closed Lost / Загубена 0 lost.
+- Stage resource: `{ id, name_en, name_bg, position, default_probability, stage_type, is_active }`; `stage_type` is `open | won | lost`. Every write returns the whole pipeline.
+- `POST …/stages` body `{ name_en, name_bg, default_probability (0–100), stage_type }`, added at the end; returns `201`. `PATCH` body `{ name_en?, name_bg?, default_probability?, is_active? }`; the type is permanent. `PUT …/order` body: every stage ID of the pipeline once (`422`, field `body` / `stage.order_incomplete` otherwise).
+- A stage referenced by an opportunity or its stage history cannot be deleted (`409 stage.in_use`); deactivate it instead. Deactivating or deleting the last active stage of a type returns `409 stage.required` with `stage_type`. Inactive stages keep their opportunities; new opportunities, moves and reopens use active stages only.
+- Changing a stage's default probability does not change existing opportunities.
+- Audited as `pipeline_stage.created|updated|reordered|deleted`.
+- `GET` endpoints are open to integration clients with `reference:read`.
 
 ## 7. Organizations
 
@@ -409,7 +424,7 @@ Rules (as built):
 - A wrong EIK check digit does not block saving; the response lists it in `warnings`.
 - **Duplicates** (FR-PARTY-01 AC1): create, and a `PATCH` that changes `name` or `registration_number`, return `409 conflict.duplicate` with `matches` when another organization (archived ones included) has the same registration number or the same name key. The key ignores script (Cyrillic/Latin), case, punctuation and the legal form, so «Акме ЕООД» and "ACME e.o.o.d." match. Send `"confirm_duplicate": true` to save anyway. `duplicate-check` (`name`, `registration_number` query parameters) additionally returns similar names. Each match: `{ id, name, registration_number, city, archived, reason }` with `reason` `registration_number | name | similar_name`.
 - **Ownership**: the owner defaults to the creator. Sales Reps may only own their own records: setting someone else as owner, on create or update, needs Manager+ (`403 permission.denied`). The owner must be an active person (`422`, field `owner_id` / `owner.invalid`). Owner changes are audited as `organization.owner_changed`.
-- Archived records cannot be changed (`409 resource.archived`) until restored. Archiving will be refused while the organization has open opportunities once opportunities exist (Phase 4).
+- Archived records cannot be changed (`409 resource.archived`) until restored. Archiving is refused while the organization has open opportunities (`409 organization.has_open_opportunities`, Phase 4).
 - Audit actions: `organization.created`, `organization.updated`, `organization.owner_changed`, `organization.archived`, `organization.restored`, with before and after values.
 - List filters: `owner_id` (repeatable, `me`), `industry_id`, `city` (case-insensitive), `country`, `size_band` (all repeatable); `q` searches name (both scripts), registration and VAT numbers, city and website.
 
@@ -552,7 +567,7 @@ Rules (as built in Phase 3; conversion follows in Phase 4):
 | DELETE | `/api/v1/opportunities/{opp_id}` | Archive | Owner+ | — |
 | POST | `/api/v1/opportunities/{opp_id}/restore` | Restore | Manager+ | — |
 | POST | `/api/v1/opportunities/{opp_id}/assign` | Change owner; same rules as leads | Contributor (rules in service) | FR-LEAD-06 |
-| POST | `/api/v1/opportunities/{opp_id}/move` | Change stage within open stages. Body `{ "stage_id", "version" }`. Probability resets to the stage default unless it was overridden. Moving to a `lost` stage requires `loss_reason_id` | Owner+ | FR-OPP-02, 03 |
+| POST | `/api/v1/opportunities/{opp_id}/move` | Change stage within open stages. Body `{ "stage_id", "version" }`. Probability resets to the stage default unless it was overridden. Won and lost go through `/close` | Owner+ | FR-OPP-02, 03 |
 | POST | `/api/v1/opportunities/{opp_id}/close` | Close. Body `{ "outcome": "won" \| "lost", "loss_reason_id", "competitor", "actual_close_date", "version" }` | Owner+ | FR-OPP-05 |
 | POST | `/api/v1/opportunities/{opp_id}/reopen` | Reopen into a chosen open stage | Manager+ | FR-OPP-05 |
 | GET | `/api/v1/opportunities/{opp_id}/stage-history` | Stage changes with user, time, from and to | Signed-in | FR-OPP-02 AC2 |
@@ -568,7 +583,7 @@ Board response shape:
   "currency": "EUR",
   "columns": [
     {
-      "stage": { "id": "...", "name": "Qualification", "position": 2, "default_probability": 25 },
+      "stage": { "id": "...", "name_en": "Qualification", "name_bg": "Квалификация", "stage_type": "open", "position": 2, "default_probability": 25 },
       "count": 14, "total_amount": "612000.00", "weighted_amount": "153000.00",
       "cards": [
         { "id": "...", "name": "Acme – branch connectivity", "organization": { "id": "...", "name": "Acme EOOD" },
@@ -582,6 +597,34 @@ Board response shape:
 ```
 
 `can_edit` lets the UI disable dragging (FR-OPP-03 AC2); the server still enforces it on `move`.
+
+Opportunity resource (response):
+
+```json
+{ "id": "...", "name": "Acme – branch connectivity",
+  "organization": { "id": "...", "name": "Acme EOOD" }, "primary_contact": { "id": "...", "name": "Мария Иванова" },
+  "owner": { "id": "...", "full_name": "Ivan Petrov" }, "pipeline_id": "...",
+  "stage": { "id": "...", "name_en": "Negotiation", "name_bg": "Преговори", "stage_type": "open", "position": 4, "default_probability": 75 },
+  "amount": "48000.00", "currency": "EUR", "probability": 75, "probability_overridden": false, "weighted_amount": "36000.00",
+  "expected_close_date": "2027-02-28", "actual_close_date": null, "next_step": "Send the offer", "description": null,
+  "source_lead": { "id": "...", "name": "Fibre for 3 branches" }, "loss_reason": null, "competitor": null,
+  "is_stale": false, "last_activity_at": null,
+  "created_at": "...", "updated_at": "...", "created_by": { ... }, "archived_at": null, "version": 3 }
+```
+
+Rules (as built, Phase 4a):
+
+- **Create**: `name` (≤ 200) and `organization_id` (existing, not archived) required; optional `primary_contact_id` (must belong to the organization or to none: `contact.organization_mismatch`), `amount` (`numeric(14,2)`, ≥ 0, decimal string), `expected_close_date`, `probability` (0–100), `next_step`, `description`, `competitor`, `stage_id` (an active open stage, else `stage.not_open`), `owner_id` (same rules as leads). Without `stage_id` the first active open stage is used; without `probability` the stage default applies (`probability_overridden: false`). The creation is the first stage-history entry.
+- **PATCH** requires `version`; `stage_id`, `owner_id` and `organization_id` return `422 validation.use_action_endpoint`; a closed opportunity returns `409 opportunity.closed`, an archived one `409 resource.archived`. `probability: null` returns to the stage default.
+- **Move** accepts active open stages only (`422`, field `stage_id` / `stage.not_open`); moving to the current stage changes nothing.
+- **Close** moves to the first active stage of type `won` or `lost`, sets the probability to that stage's default (100 / 0) and `actual_close_date` (default: today in Europe/Sofia). `lost` without `loss_reason_id` returns `422 opportunity.loss_reason_required`; an inactive or unknown reason returns `422`, field `loss_reason_id` / `reference.invalid`. `competitor` is optional for both outcomes.
+- **Reopen** (Manager+) into an active open stage; clears `actual_close_date` and the loss reason; `409 opportunity.not_closed` if the opportunity is open.
+- Every stage change (create, move, close, reopen) writes a stage-history row `{ id, from_stage, to_stage, changed_by, changed_at }`.
+- **Stale** (FR-OPP-06): an open opportunity is stale when it had no activity (`last_activity_at`, else creation) for `stale_opportunity_days` (setting, default 14) or its expected close date has passed. Closed opportunities are never stale.
+- **Board**: active open stages of the default pipeline (or `pipeline_id`), excluding archived opportunities, cards ordered by expected close date; `count`, `total_amount` and `weighted_amount` (Σ amount × probability / 100) cover every matching opportunity even when cards are truncated. `owner_id` accepts `me`.
+- List filters: `stage_id`, `stage_type`, `owner_id` (`me`), `organization_id` (all repeatable), `expected_close_date_from/to`, `amount_from/to`, `is_stale`; `q` searches name, organization name and competitor in both scripts. Sync mode as in 1.3.
+- Organization figures: `open_opportunities` and `open_pipeline_value` (Σ amount of open, non-archived opportunities) in `GET /organizations/{id}`; archiving an organization with open opportunities returns `409 organization.has_open_opportunities`.
+- Audit actions: `opportunity.created`, `updated`, `stage_changed`, `closed_won`, `closed_lost`, `reopened`, `owner_changed`, `archived`, `restored`.
 
 ## 11. Activities and tasks
 
@@ -614,7 +657,7 @@ Event types in R1: `created`, `updated`, `owner_changed`, `status_changed`, `sta
 |---|---|---|---|---|
 | GET | `/api/v1/search` | Global quick search across organizations, contacts, leads and opportunities. `q` required (min 2 chars), `types` optional, up to 5 results per type | Signed-in | FR-PARTY-04 |
 
-Response: `{ "items": [ { "type": "organization" | "contact", "id", "label", "detail" } ] }` grouped by type, archived records excluded. `detail` is the city for organizations, the organization name (else email) for contacts, and the company name for leads. `types` may repeat (`organization`, `contact`, `lead`; `opportunity` from Phase 4).
+Response: `{ "items": [ { "type": "organization" | "contact" | "lead" | "opportunity", "id", "label", "detail" } ] }` grouped by type, archived records excluded. `detail` is the city for organizations, the organization name (else email) for contacts, the company name for leads and the organization name for opportunities. `types` may repeat (`organization`, `contact`, `lead`, `opportunity`).
 
 ## 13. Reports and dashboard
 

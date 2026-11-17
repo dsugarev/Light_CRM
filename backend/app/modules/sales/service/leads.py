@@ -14,11 +14,10 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode, FieldError
-from app.core.events import DomainEvent, EventBus
+from app.core.events import DomainEvent
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
-from app.core.policy import MANAGER_ROLES, check_owner
+from app.core.policy import check_owner
 from app.core.principal import Principal
 from app.core.reference import ReferenceList, is_active_item
 from app.core.search import SearchHit, SearchProvider
@@ -45,8 +44,14 @@ from app.modules.sales.schemas import (
     LinkSummary,
     Qualification,
     QualificationUpdate,
-    ReferenceSummary,
-    UserSummary,
+)
+from app.modules.sales.service.common import (
+    Context,
+    check_owner_choice,
+    invalid,
+    not_found,
+    reference,
+    user,
 )
 
 LEAD_SORT = {
@@ -55,14 +60,6 @@ LEAD_SORT = {
     "qualification_score": Lead.qualification_score,
     "company_name": Lead.company_name,
 }
-
-
-@dataclass(frozen=True, slots=True)
-class Context:
-    session: AsyncSession
-    events: EventBus
-    settings: Settings
-    now: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,18 +74,6 @@ class LeadFilters:
 
 
 # --- Helpers ------------------------------------------------------------------------------
-
-
-def _not_found() -> AppError:
-    return AppError(ErrorCode.RESOURCE_NOT_FOUND, HTTPStatus.NOT_FOUND)
-
-
-def _invalid(field: str, code: str) -> AppError:
-    return AppError(
-        ErrorCode.VALIDATION_FAILED,
-        HTTPStatus.UNPROCESSABLE_CONTENT,
-        errors=[FieldError(field, code)],
-    )
 
 
 def _statuses(lead: Lead) -> dict[str, str]:
@@ -148,16 +133,6 @@ async def _publish(
     )
 
 
-def _reference(item: LeadSource | DisqualificationReason | None) -> ReferenceSummary | None:
-    if item is None:
-        return None
-    return ReferenceSummary(id=item.id, code=item.code, name_en=item.name_en, name_bg=item.name_bg)
-
-
-def _user(names: Mapping[UUID, str], user_id: UUID | None) -> UserSummary | None:
-    return UserSummary(id=user_id, full_name=names.get(user_id, "")) if user_id else None
-
-
 async def _leads_out(ctx: Context, leads: list[Lead]) -> list[LeadOut]:
     names = await identity.user_names(
         ctx.session,
@@ -174,13 +149,13 @@ async def _leads_out(ctx: Context, leads: list[Lead]) -> list[LeadOut]:
     }
     out: list[LeadOut] = []
     for lead in leads:
-        owner = _user(names, lead.owner_id)
+        owner = user(names, lead.owner_id)
         assert owner is not None  # noqa: S101 - owner_id is NOT NULL
         org = orgs.get(lead.organization_id) if lead.organization_id else None
         contact = contacts.get(lead.contact_id) if lead.contact_id else None
         disqualification = (
             Disqualification(
-                reason=_reference(lead.disqualification_reason),
+                reason=reference(lead.disqualification_reason),
                 note=lead.disqualification_note,
                 disqualified_at=lead.disqualified_at,
             )
@@ -195,7 +170,7 @@ async def _leads_out(ctx: Context, leads: list[Lead]) -> list[LeadOut]:
                 contact_name=lead.contact_name,
                 email=lead.email,
                 phone=lead.phone,
-                source=_reference(lead.source),
+                source=reference(lead.source),
                 status=lead.status,  # type: ignore[arg-type]
                 description=lead.description,
                 estimated_value=lead.estimated_value,
@@ -220,7 +195,7 @@ async def _leads_out(ctx: Context, leads: list[Lead]) -> list[LeadOut]:
                 disqualification=disqualification,
                 created_at=lead.created_at,
                 updated_at=lead.updated_at,
-                created_by=_user(names, lead.created_by),
+                created_by=user(names, lead.created_by),
                 archived_at=lead.archived_at,
                 version=lead.version,
             )
@@ -260,36 +235,24 @@ async def _check_links(ctx: Context, org_id: UUID | None, contact_id: UUID | Non
     if org_id is not None:
         problem = await party.check_organization_link(ctx.session, org_id)
         if problem:
-            raise _invalid("organization_id", problem)
+            raise invalid("organization_id", problem)
     if contact_id is not None:
         contact = await party.contact_link(ctx.session, contact_id)
         if contact is None:
-            raise _invalid("contact_id", "contact.not_found")
+            raise invalid("contact_id", "contact.not_found")
         if org_id is not None and contact.organization_id not in (None, org_id):
-            raise _invalid("contact_id", "contact.organization_mismatch")
+            raise invalid("contact_id", "contact.organization_mismatch")
 
 
 async def _check_source(ctx: Context, source_id: UUID | None) -> None:
     if source_id is not None and not await is_active_item(ctx.session, LeadSource, source_id):
-        raise _invalid("source_id", "reference.invalid")
-
-
-async def _check_owner_choice(ctx: Context, principal: Principal, owner_id: UUID) -> None:
-    """FR-LEAD-06: Sales Reps assign only to themselves; Managers+ to anyone active."""
-    if (
-        owner_id != principal.user_id
-        and principal.role not in MANAGER_ROLES
-        and not principal.is_integration
-    ):
-        raise AppError(ErrorCode.PERMISSION_DENIED, HTTPStatus.FORBIDDEN)
-    if not await identity.is_assignable_owner(ctx.session, owner_id):
-        raise _invalid("owner_id", "owner.invalid")
+        raise invalid("source_id", "reference.invalid")
 
 
 async def _load(ctx: Context, lead_id: UUID) -> Lead:
     lead = await repository.get_lead(ctx.session, lead_id, for_update=True)
     if lead is None:
-        raise _not_found()
+        raise not_found()
     return lead
 
 
@@ -329,7 +292,7 @@ async def _commit_change(
 async def create_lead(ctx: Context, principal: Principal, data: LeadCreate) -> LeadOut:
     """FR-LEAD-01: company name alone is enough; status starts as `new`."""
     owner_id = data.owner_id or principal.user_id
-    await _check_owner_choice(ctx, principal, owner_id)
+    await check_owner_choice(ctx, principal, owner_id)
     await _check_source(ctx, data.source_id)
     await _check_links(ctx, data.organization_id, data.contact_id)
     lead = Lead(
@@ -354,7 +317,7 @@ async def create_lead(ctx: Context, principal: Principal, data: LeadCreate) -> L
 async def get_lead(ctx: Context, lead_id: UUID) -> LeadOut:
     lead = await repository.get_lead(ctx.session, lead_id)
     if lead is None:
-        raise _not_found()
+        raise not_found()
     return (await _leads_out(ctx, [lead]))[0]
 
 
@@ -413,7 +376,7 @@ async def update_lead(
     )
     for required in ("title", "company_name"):
         if required in changes and changes[required] is None:
-            raise _invalid(required, "validation.missing")
+            raise invalid(required, "validation.missing")
     if "source_id" in changes and changes["source_id"] != lead.source_id:
         await _check_source(ctx, changes["source_id"])
     org_id = changes.get("organization_id", lead.organization_id)
@@ -485,7 +448,7 @@ async def disqualify(
 ) -> LeadOut:
     """FR-LEAD-02 AC1: needs a reason from the configurable list."""
     if not await is_active_item(ctx.session, DisqualificationReason, data.reason_id):
-        raise _invalid("reason_id", "reference.invalid")
+        raise invalid("reason_id", "reference.invalid")
     lead, before = await _transition(ctx, principal, lead_id, "disqualify", data.version)
     lead.disqualification_reason_id = data.reason_id
     lead.disqualification_note = data.note or None
@@ -507,7 +470,7 @@ async def assign(ctx: Context, principal: Principal, lead_id: UUID, data: Assign
     lead = await _load(ctx, lead_id)
     await _check_version(ctx, lead, data.version)
     _ensure_editable(lead)
-    await _check_owner_choice(ctx, principal, data.owner_id)
+    await check_owner_choice(ctx, principal, data.owner_id)
     before = _view(lead)
     lead.owner_id = data.owner_id
     return await _commit_change(ctx, principal, lead, "lead.owner_changed", before)

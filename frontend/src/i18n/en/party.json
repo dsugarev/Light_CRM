@@ -56,10 +56,8 @@
       "contacts": "Contacts",
       "addContact": "Add contact",
       "leads": "Leads",
-      "opportunities": "Opportunities",
       "timeline": "Timeline",
       "noLeads": "No leads yet.",
-      "noOpportunities": "No opportunities yet.",
       "noTimeline": "No activity yet.",
       "counts": {
         "contacts": "Contacts",

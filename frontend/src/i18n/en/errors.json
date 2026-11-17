@@ -56,7 +56,8 @@
     "registration": "9 or 13 digits.",
     "country": "Two letters, e.g. BG.",
     "use_action_endpoint": "Use the action buttons for this change.",
-    "money": "Enter an amount, e.g. 48000 or 48000.50."
+    "money": "Enter an amount, e.g. 48000 or 48000.50.",
+    "probability": "Enter a whole number from 0 to 100."
   },
   "password": {
     "too_short": "At least 12 characters.",
@@ -77,7 +78,8 @@
   "organization": {
     "registration_checksum": "The EIK check digit does not match. Please verify the number.",
     "not_found": "The organization does not exist.",
-    "archived": "The organization is archived."
+    "archived": "The organization is archived.",
+    "has_open_opportunities": "The organization has open opportunities. Close them before archiving."
   },
   "owner": {
     "invalid": "Choose an active user as owner."
@@ -91,5 +93,16 @@
   "contact": {
     "not_found": "The contact does not exist.",
     "organization_mismatch": "The contact belongs to another organization."
+  },
+  "opportunity": {
+    "closed": "This opportunity is closed. A manager can reopen it.",
+    "loss_reason_required": "Choose a loss reason.",
+    "not_closed": "This opportunity is not closed."
+  },
+  "stage": {
+    "in_use": "This stage is in use. Deactivate it instead.",
+    "required": "At least one active stage of each type (open, won, lost) must remain.",
+    "not_open": "Choose an active open stage.",
+    "order_incomplete": "The order must include every stage once."
   }
 }

@@ -25,7 +25,7 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | End-to-end | `frontend/e2e/` | Playwright (Chromium, Firefox) | Composed Docker stack over HTTPS; Admins created with `create-admin --password-stdin` | Every commit (CI `e2e` job) and locally on demand |
 | Dependency audit | CI | pip-audit (hashed lock export), `pnpm audit --audit-level high` | Lockfiles | Every commit |
 
-## 2. Requirement coverage (Phases 0–3)
+## 2. Requirement coverage (Phases 0–4a)
 
 | Requirement | Covered by (examples; see appendix for all) | Levels |
 |---|---|---|
@@ -54,6 +54,13 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | FR-LEAD-03 BANT (AC1 qualify needs BANT, AC2 score) | `test_FR_LEAD_03_AC2_score` (7 vectors incl. the spec example 63), `test_FR_LEAD_03_AC1_cannot_qualify_with_unknown_bant`; Vitest live score and disabled Qualify; E2E score 63 | Unit, API, component, E2E |
 | FR-LEAD-05 lead list | `test_FR_LEAD_05_filters_sort_and_search`; Vitest lead list with URL filters | API, component |
 | FR-LEAD-06 assignment | `test_FR_LEAD_06_rep_takes_over_a_lead_but_cannot_give_it_away`, `..._manager_assigns_to_anyone_active`; Vitest "take over" | API, component |
+| FR-OPP-01 create and edit opportunities | `test_FR_OPP_01_create_defaults_to_first_open_stage_and_its_probability`, `..._stage_contact_and_probability_override_on_create`, `..._links_are_validated`, `..._update_with_version_and_probability_reset`; Vitest create tests; E2E opportunities journey | API, component, E2E |
+| FR-OPP-02 stages (AC1 in-use stage, AC2 history) | `test_FR_OPP_02_default_pipeline_is_seeded_in_both_languages`, `test_FR_OPP_02_AC1_stage_in_use_cannot_be_deleted_only_deactivated`, `test_FR_OPP_02_AC2_move_records_history_and_resets_probability`, `test_each_stage_type_keeps_one_active_stage`; Vitest move and stage admin; E2E | API, component, E2E |
+| FR-OPP-03 board (AC1 totals, AC2 no drag without rights) | `test_FR_OPP_03_board_columns_totals_and_can_edit`; Vitest board tests (totals, move list, Won/Lost, `AC2`, Bulgarian); E2E mouse drag and move list | API, component, E2E |
+| FR-OPP-04 list | `test_FR_OPP_04_list_filters_sort_and_search`; Vitest list with URL filters | API, component |
+| FR-OPP-05 close won/lost, reopen | `test_FR_OPP_05_close_won_with_actual_close_date`, `..._lost_requires_a_loss_reason`, `..._closed_is_read_only_until_a_manager_reopens`; Vitest close and reopen; E2E lost from the board, Admin reopen, won | API, component, E2E |
+| FR-OPP-06 stale flag and setting | `test_FR_OPP_06_stale_when_idle_or_past_expected_close`; settings validation tests; Vitest "FR-OPP-06 saves the stale-opportunity threshold" | API, component |
+| FR-ADM-02 stages and loss reasons | `test_FR_ADM_02_admin_adds_renames_reorders_and_deletes_a_stage`, `test_FR_ADM_02_loss_reasons_are_seeded_and_protected_when_used` | API, component |
 | Optimistic concurrency (architecture 4.1) | `test_stale_version_returns_409_with_the_current_lead`, `test_patch_needs_a_version`, `test_unchanged_patch_keeps_the_version`; Vitest "shows the latest version after a conflict" | API, component |
 | FR-INT-03 scopes (policy only until Phase 6) | `test_FR_INT_03_*` in `tests/unit/test_policy.py` | Unit |
 | FR-INT-10 OpenAPI document | `test_FR_INT_10_openapi_document_is_public_outside_production`, `..._requires_sign_in_in_production`, `test_FR_INT_10_export_openapi_writes_document` | Unit, API |
@@ -61,7 +68,7 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | NFR-08 health, JSON logs, request IDs | `tests/api/test_health.py`; `tests/unit/test_logging.py`; `tests/unit/test_errors.py`; Vitest API status; E2E readiness through proxy | Unit, API, component, E2E |
 | NFR-12 additive migrations | `tests/migrations/test_migrations.py` | Migration |
 
-Not yet covered because not yet built: FR-LEAD-04 conversion, OPP, ACT, REP, IMP, AI, INT (except policy scopes and the sync machinery), FR-ADM-04 GDPR, FR-AUTH-07 MFA (Phase 8).
+Not yet covered because not yet built: FR-LEAD-04 conversion, ACT (Phase 4b; FR-OPP-06's "activity makes it fresh" part follows with activities), REP, IMP, AI, INT (except policy scopes and the sync machinery), FR-ADM-04 GDPR, FR-AUTH-07 MFA (Phase 8).
 
 ## 3. Phase 0 — Foundation
 
@@ -275,12 +282,62 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 - Lead export: Phase 5.
 - The local frontend and E2E runs were affected by machine load; CI is the reference run for timing.
 
+## 7. Phase 4a — Pipelines, opportunities and the board
+
+### Strategy
+
+- **Every opportunity rule through HTTP on PostgreSQL**: defaults on create (first open stage, its probability, history entry, audit), link validation (organisation, contact of another organisation, closed stage), probability override and reset, version conflicts returning the current opportunity, `use_action_endpoint`, owner and Manager+ rules, move only between open stages, close won/lost with the loss-reason rule and Sofia business date, read-only closed opportunities, reopen by managers only, assignment, archive/restore.
+- **Stage administration** with the two protective rules (`stage.in_use`, `stage.required`) and the seeded pipeline checked value by value in both languages.
+- **Board totals** with mixed owners, a won and an archived opportunity, cards without an amount, the owner filter (`me`), the date window and a viewer (`can_edit` false everywhere).
+- **Stale rule**: overdue close date, idle time (created_at moved back in the database because the test clock is frozen), the threshold setting lowered to 7 days, closed never stale; the `is_stale` filter and the response flag agree.
+- **Extension points**: organisation counts and archive guard, opportunity search across scripts, loss-reasons list protected when used, sync mode on the new list.
+- **Authorization matrix** grows by 19 routes automatically; the route catalog checks paths and access levels against spec v0.5.
+- **Frontend**: list URL filters and stale badge, create (organisation required, payload with decimal comma and null probability), move with the version, lost needs a reason, closed read-only with reopen for Admin only, conflict handling, board totals and the move list, Lost opening the reason form while Won closes, `can_edit` false hides drag and list, Bulgarian stage names, stage admin errors, stale setting validation.
+- **E2E** in both languages with a fresh Sales Rep: create from an organisation, board totals, a **real mouse drag** with dnd-kit, the move list, lost from the board with a reason, then the Admin reopens into Negotiation and closes as won.
+
+### Test cases added (summary)
+
+| Area | Cases | Files |
+|---|---|---|
+| Pipelines and stages (seed, add/rename/reorder/delete, in use, required types, validation) | 5 | `backend/tests/api/test_opportunities.py` |
+| Opportunities (create, links, update, concurrency, action-only fields, ownership, move, close, reopen, assign, archive, list, stale, board, organisation figures and archive guard, search, loss reasons, sync) | 21 | `backend/tests/api/test_opportunities.py` |
+| Settings: new field in defaults/audit, range validation | +2 (and 1 updated) | `backend/tests/api/test_me_settings_audit.py` |
+| Authorization matrix: 19 new routes | +19 | `backend/tests/api/test_authorization_matrix.py` |
+| Route catalog: new routes and access levels | +38 | `backend/tests/api/test_route_catalog.py` |
+| Opportunity list, create, detail, board, stage admin | 12 | `frontend/src/features/opportunities/opportunities.test.tsx` |
+| Stale setting; organisation 360 opportunities section | 1 new, 3 updated | `frontend/src/features/admin/admin.test.tsx`, `organizations/organizations.test.tsx` |
+| Opportunities journey (en, bg) | 1 × 2 languages × 2 browsers | `frontend/e2e/opportunities.spec.ts` |
+
+### Runs performed
+
+| Date | Where | What | Result |
+|---|---|---|---|
+| 2026-11-17 | Developer Mac, scratch PostgreSQL 18.7 | Migration 0005 up/down/up; `alembic check` | OK, no drift; 6 stages and 7 loss reasons seeded |
+| 2026-11-17 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 699 passed, 96% coverage (opportunities 96%, pipelines 99%); clean |
+| 2026-11-17 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (594 keys), pnpm audit, OpenAPI snapshot and generated types | 82 passed with default timeouts; clean |
+| 2026-11-17 | Docker Desktop, rebuilt stack | Playwright Chromium, full suite (16 tests, two workers) | 16/16 |
+
+### Defects found by testing and fixed
+
+| Found by | Defect | Fix |
+|---|---|---|
+| mypy | Open-opportunity figures query lacked an explicit `FROM` for the join and could return `NULL` | `select_from(Opportunity)`; `NULL` total treated as 0 |
+| API tests | Settings defaults changed by the new field (expected) | Defaults, audit and range tests extended |
+| Vitest | Stage selects rendered before the pipeline loaded, so they were briefly empty | Move and reopen controls appear once the stages are known |
+| Code review of the first E2E draft | A drag step was wrapped in a fallback that would have hidden a broken drag | Rewritten: the drag must succeed; the move list is tested as its own step |
+
+### Gaps and deferred
+
+- Activities, tasks, timelines and lead conversion (FR-ACT-01..03, FR-LEAD-04) and the full lead → won journey: Phase 4b. Until activities exist, `last_activity_at` is never set, so idle staleness counts from creation.
+- Opportunity export: Phase 5. Integration-client calls with scopes: Phase 6 (scopes already declared on the routes).
+- Firefox runs in CI only (it cannot start on the developer Mac).
+
 ## Appendix — test case inventory
 
 <!-- inventory:start -->
 _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 
-### Backend (pytest: unit, API, authorization matrix, migrations) — 614 test cases
+### Backend (pytest: unit, API, authorization matrix, migrations) — 699 test cases
 
 **`backend/tests/api/test_auth.py`** (27)
 
@@ -314,11 +371,11 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Login is rate limited per ip | — | 1 |
 | Rate limit response has retry after | — | 1 |
 
-**`backend/tests/api/test_authorization_matrix.py`** (59)
+**`backend/tests/api/test_authorization_matrix.py`** (78)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| Route role matrix | FR-AUTH-05 | 58 |
+| Route role matrix | FR-AUTH-05 | 77 |
 | Matrix covers every api route | — | 1 |
 
 **`backend/tests/api/test_contacts_reference_search.py`** (12)
@@ -376,7 +433,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Organization shows its open leads | FR-PARTY-03 | 1 |
 | Lead lists are seeded and protected when used | FR-ADM-02 | 1 |
 
-**`backend/tests/api/test_me_settings_audit.py`** (14)
+**`backend/tests/api/test_me_settings_audit.py`** (16)
 
 | Test | Requirement | Cases |
 |---|---|---|
@@ -387,7 +444,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Revoking another users session is not found | — | 1 |
 | System info for signed in users | — | 1 |
 | Settings defaults and update | FR-AUTH-04 | 1 |
-| Settings validation | — | 4 |
+| Settings validation | — | 6 |
 | Admin browses and filters the audit log | FR-ADM-03 | 1 |
 | Audit entries never contain secrets | — | 1 |
 | Application role cannot change audit entries | FR-ADM-03 | 1 |
@@ -401,6 +458,37 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Create admin rejects weak password and duplicates | — | 1 |
 | Housekeeping removes expired sessions | — | 1 |
 | Every limits how often a job runs | — | 1 |
+
+**`backend/tests/api/test_opportunities.py`** (26)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Default pipeline is seeded in both languages | FR-OPP-02 | 1 |
+| Admin adds renames reorders and deletes a stage | FR-ADM-02 | 1 |
+| Stage in use cannot be deleted only deactivated | FR-OPP-02 AC1 | 1 |
+| Each stage type keeps one active stage | — | 1 |
+| Stage validation | — | 1 |
+| Create defaults to first open stage and its probability | FR-OPP-01 | 1 |
+| Stage contact and probability override on create | FR-OPP-01 | 1 |
+| Links are validated | FR-OPP-01 | 1 |
+| Update with version and probability reset | FR-OPP-01 | 1 |
+| Patch refuses action only fields | — | 1 |
+| Rep cannot change another reps opportunity | FR-AUTH-05 | 1 |
+| Move records history and resets probability | FR-OPP-02 AC2 | 1 |
+| Move only between open stages | — | 1 |
+| Close won with actual close date | FR-OPP-05 | 1 |
+| Lost requires a loss reason | FR-OPP-05 | 1 |
+| Closed is read only until a manager reopens | FR-OPP-05 | 1 |
+| Opportunity assignment rules | FR-LEAD-06 | 1 |
+| Archive and restore | — | 1 |
+| List filters sort and search | FR-OPP-04 | 1 |
+| Stale when idle or past expected close | FR-OPP-06 | 1 |
+| Board columns totals and can edit | FR-OPP-03 | 1 |
+| Organization counts and opportunities | FR-PARTY-03 | 1 |
+| Organization archive blocked while open opportunities | — | 1 |
+| Search finds opportunities | FR-PARTY-04 | 1 |
+| Loss reasons are seeded and protected when used | FR-ADM-02 | 1 |
+| Opportunities support sync mode | FR-INT-05 | 1 |
 
 **`backend/tests/api/test_organizations.py`** (19)
 
@@ -426,13 +514,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Filters sorting and paging | FR-PARTY-04 | 1 |
 | Unknown sort or filter is 400 | — | 1 |
 
-**`backend/tests/api/test_route_catalog.py`** (278)
+**`backend/tests/api/test_route_catalog.py`** (316)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Catalog is parsed | — | 1 |
-| Every route is in the catalog | — | 62 |
-| Every api route declares the catalog access level | — | 60 |
+| Every route is in the catalog | — | 81 |
+| Every api route declares the catalog access level | — | 79 |
 | Every catalog entry is built or pending | — | 153 |
 | Pending list only names catalog entries | — | 1 |
 | No route is hidden from the openapi document | — | 1 |
@@ -586,7 +674,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Failing job does not stop other jobs | — | 1 |
 | Worker runs jobs until stopped | — | 1 |
 
-### Frontend (Vitest + Testing Library + MSW) — 64 test cases
+### Frontend (Vitest + Testing Library + MSW) — 77 test cases
 
 **`frontend/src/app/app.test.tsx`** (15)
 
@@ -635,31 +723,6 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | safeNext | — | 1 |
 | set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
 
-**`frontend/src/features/contacts/contacts.test.tsx`** (7)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
-| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
-| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
-
-**`frontend/src/features/admin/admin.test.tsx`** (8)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-ADM-01 user administration › lists users with translated roles and keeps filters in the URL | FR-ADM-01 | 1 |
-| FR-ADM-01 user administration › FR-AUTH-02 creates a user and shows the one-time link to hand over | FR-ADM-01, FR-AUTH-02 | 1 |
-| FR-ADM-01 user administration › validates the form and shows server field errors | FR-ADM-01 | 1 |
-| FR-ADM-01 user administration › deactivates a user after confirmation and explains the last-admin rule | FR-ADM-01 | 1 |
-| FR-ADM-01 user administration › creates a password reset link for a user | FR-ADM-01 | 1 |
-| FR-ADM-03 audit log › shows translated actions and filters by action | FR-ADM-03 | 1 |
-| FR-ADM-03 audit log › shows before and after values as text | FR-ADM-03 | 1 |
-| FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
-
 **`frontend/src/features/leads/leads.test.tsx`** (10)
 
 | Test | Requirement | Cases |
@@ -674,6 +737,49 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-LEAD-02, 03 lead detail › shows the latest version after a conflict | FR-LEAD-02 | 1 |
 | FR-LEAD-02, 03 lead detail › FR-LEAD-06 lets a rep take over another rep's lead | FR-LEAD-02, FR-LEAD-06 | 1 |
 | FR-ADM-02 lead lists administration › switches between the three lists | FR-ADM-02 | 1 |
+
+**`frontend/src/features/admin/admin.test.tsx`** (9)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-ADM-01 user administration › lists users with translated roles and keeps filters in the URL | FR-ADM-01 | 1 |
+| FR-ADM-01 user administration › FR-AUTH-02 creates a user and shows the one-time link to hand over | FR-ADM-01, FR-AUTH-02 | 1 |
+| FR-ADM-01 user administration › validates the form and shows server field errors | FR-ADM-01 | 1 |
+| FR-ADM-01 user administration › deactivates a user after confirmation and explains the last-admin rule | FR-ADM-01 | 1 |
+| FR-ADM-01 user administration › creates a password reset link for a user | FR-ADM-01 | 1 |
+| FR-ADM-03 audit log › shows translated actions and filters by action | FR-ADM-03 | 1 |
+| FR-ADM-03 audit log › shows before and after values as text | FR-ADM-03 | 1 |
+| FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
+| FR-AUTH-04 settings › FR-OPP-06 saves the stale-opportunity threshold | FR-AUTH-04, FR-OPP-06 | 1 |
+
+**`frontend/src/features/opportunities/opportunities.test.tsx`** (12)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-OPP-04 opportunity list › shows stage, amounts and the stale flag, with filters in the URL | FR-OPP-04 | 1 |
+| FR-OPP-01 create › requires an organization | FR-OPP-01 | 1 |
+| FR-OPP-01 create › creates for a preset organization; empty probability follows the stage | FR-OPP-01 | 1 |
+| FR-OPP-02, 05 opportunity detail › FR-OPP-02 moves to another open stage with the version and shows history | FR-OPP-02 | 1 |
+| FR-OPP-02, 05 opportunity detail › FR-OPP-05 closing as lost needs a loss reason | FR-OPP-02, FR-OPP-05 | 1 |
+| FR-OPP-02, 05 opportunity detail › FR-OPP-05 a closed opportunity is read-only; only a manager sees Reopen | FR-OPP-02, FR-OPP-05 | 1 |
+| FR-OPP-02, 05 opportunity detail › shows the server version after a conflict | FR-OPP-02 | 1 |
+| FR-OPP-03 pipeline board › shows open stages with totals and moves a card with the keyboard alternative | FR-OPP-03 | 1 |
+| FR-OPP-03 pipeline board › dropping on Lost asks for a loss reason; won closes directly | FR-OPP-03 | 1 |
+| FR-OPP-03 pipeline board › FR-OPP-03 AC2 cards the user may not edit cannot be moved | FR-OPP-03, FR-OPP-03 AC2 | 1 |
+| FR-OPP-03 pipeline board › FR-I18N-01 shows Bulgarian stage names | FR-OPP-03, FR-I18N-01 | 1 |
+| FR-OPP-02 / FR-ADM-02 stage administration › deactivates a stage and explains why a used stage cannot be deleted | FR-OPP-02, FR-ADM-02 | 1 |
+
+**`frontend/src/features/contacts/contacts.test.tsx`** (7)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
+| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
+| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
 
 **`frontend/src/features/organizations/organizations.test.tsx`** (9)
 
@@ -697,7 +803,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
 | profile › shows the server error for a wrong current password | — | 1 |
 
-### End-to-end (Playwright, composed stack) — 28 test cases
+### End-to-end (Playwright, composed stack) — 32 test cases
 
 **`frontend/e2e/identity.spec.ts`** (8)
 
@@ -720,6 +826,15 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Leads in bg › FR-LEAD-01..03 capture, contact, qualify with BANT; disqualify and reopen (chromium) | FR-LEAD-01 | 1 |
 | Leads in en › FR-LEAD-01..03 capture, contact, qualify with BANT; disqualify and reopen (firefox) | FR-LEAD-01 | 1 |
 | Leads in bg › FR-LEAD-01..03 capture, contact, qualify with BANT; disqualify and reopen (firefox) | FR-LEAD-01 | 1 |
+
+**`frontend/e2e/opportunities.spec.ts`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Opportunities in en › FR-OPP-01..05 create, move on the board, close lost and won, manager reopens (chromium) | FR-OPP-01 | 1 |
+| Opportunities in bg › FR-OPP-01..05 create, move on the board, close lost and won, manager reopens (chromium) | FR-OPP-01 | 1 |
+| Opportunities in en › FR-OPP-01..05 create, move on the board, close lost and won, manager reopens (firefox) | FR-OPP-01 | 1 |
+| Opportunities in bg › FR-OPP-01..05 create, move on the board, close lost and won, manager reopens (firefox) | FR-OPP-01 | 1 |
 
 **`frontend/e2e/party.spec.ts`** (6)
 

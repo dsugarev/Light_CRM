@@ -1,11 +1,12 @@
 """HTTP layer only: parse requests, call the service, shape responses."""
 
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from http import HTTPStatus
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 
 from app.core.access import AccessLevel
 from app.core.auth import CurrentPrincipal, endpoint
@@ -17,16 +18,30 @@ from app.core.principal import Principal
 from app.modules.sales import service
 from app.modules.sales.schemas import (
     AssignRequest,
+    Board,
+    CloseRequest,
     DisqualifyRequest,
     LeadCreate,
     LeadOut,
     LeadStatus,
     LeadUpdate,
+    MoveRequest,
+    OpportunityCreate,
+    OpportunityOut,
+    OpportunityUpdate,
+    PipelineOut,
+    ReopenRequest,
+    StageChange,
+    StageCreate,
+    StageType,
+    StageUpdate,
     VersionOnly,
 )
 
 leads_router = APIRouter(prefix="/leads", tags=["leads"])
 organization_leads_router = APIRouter(prefix="/organizations", tags=["organizations"])
+pipelines_router = APIRouter(prefix="/pipelines", tags=["pipelines"])
+opportunities_router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
 
 async def context(request: Request, session: DbSession) -> service.Context:
@@ -223,4 +238,278 @@ async def organization_leads(
     return await service.list_leads(ctx, query, service.LeadFilters(organization_ids=(org_id,)))
 
 
-routers = [leads_router, organization_leads_router]
+# --- Pipelines and stages (API spec 6.3) ----------------------------------------------------
+
+
+@pipelines_router.get(
+    "",
+    summary="Pipelines (one in R1) with their stages in order",
+    **endpoint(AccessLevel.SIGNED_IN, scope="reference:read"),
+)
+async def list_pipelines(ctx: Ctx) -> list[PipelineOut]:
+    return await service.list_pipelines(ctx)
+
+
+@pipelines_router.get(
+    "/{pipeline_id}",
+    summary="One pipeline with stages",
+    **endpoint(AccessLevel.SIGNED_IN, scope="reference:read"),
+)
+async def get_pipeline(pipeline_id: UUID, ctx: Ctx) -> PipelineOut:
+    return await service.get_pipeline(ctx, pipeline_id)
+
+
+@pipelines_router.post(
+    "/{pipeline_id}/stages",
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a stage: name (en/bg), default probability, type",
+    **endpoint(AccessLevel.ADMIN),
+)
+async def add_stage(
+    pipeline_id: UUID, body: StageCreate, ctx: Ctx, principal: CurrentPrincipal
+) -> PipelineOut:
+    return await service.add_stage(ctx, principal, pipeline_id, body)
+
+
+@pipelines_router.put(
+    "/{pipeline_id}/stages/order", summary="Reorder stages", **endpoint(AccessLevel.ADMIN)
+)
+async def reorder_stages(
+    pipeline_id: UUID,
+    ctx: Ctx,
+    principal: CurrentPrincipal,
+    body: Annotated[list[UUID], Body(max_length=100)],
+) -> PipelineOut:
+    return await service.reorder_stages(ctx, principal, pipeline_id, body)
+
+
+@pipelines_router.patch(
+    "/{pipeline_id}/stages/{stage_id}",
+    summary="Rename, change probability, activate or deactivate",
+    **endpoint(AccessLevel.ADMIN),
+)
+async def update_stage(
+    pipeline_id: UUID, stage_id: UUID, body: StageUpdate, ctx: Ctx, principal: CurrentPrincipal
+) -> PipelineOut:
+    return await service.update_stage(ctx, principal, pipeline_id, stage_id, body)
+
+
+@pipelines_router.delete(
+    "/{pipeline_id}/stages/{stage_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an unused stage; 409 stage.in_use otherwise",
+    **endpoint(AccessLevel.ADMIN),
+)
+async def delete_stage(
+    pipeline_id: UUID, stage_id: UUID, ctx: Ctx, principal: CurrentPrincipal
+) -> None:
+    await service.delete_stage(ctx, principal, pipeline_id, stage_id)
+
+
+# --- Opportunities (API spec 10) ------------------------------------------------------------
+
+opps = service.opportunities
+
+OpportunityList = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            "opportunities",
+            sortable=tuple(service.OPPORTUNITY_SORT),
+            default_sort="-updated_at",
+            filters=(
+                "stage_id", "stage_type", "owner_id", "organization_id",
+                "expected_close_date_from", "expected_close_date_to", "amount_from", "amount_to",
+                "is_stale",
+            ),
+        )
+    ),
+]  # fmt: skip
+
+
+@opportunities_router.get(
+    "",
+    summary="List and search opportunities",
+    **endpoint(AccessLevel.SIGNED_IN, scope="opportunities:read"),
+)
+async def list_opportunities(
+    ctx: Ctx,
+    principal: CurrentPrincipal,
+    query: OpportunityList,
+    stage_id: Annotated[list[UUID] | None, Query()] = None,
+    stage_type: Annotated[list[StageType] | None, Query()] = None,
+    owner_id: Annotated[list[str] | None, Query(max_length=50)] = None,
+    organization_id: Annotated[list[UUID] | None, Query()] = None,
+    expected_close_date_from: date | None = None,
+    expected_close_date_to: date | None = None,
+    amount_from: Decimal | None = None,
+    amount_to: Decimal | None = None,
+    is_stale: bool | None = None,
+) -> Page[OpportunityOut] | SyncPage[OpportunityOut]:
+    filters = service.OpportunityFilters(
+        stage_ids=tuple(stage_id or ()),
+        stage_types=tuple(stage_type or ()),
+        owner_ids=_owner_ids(owner_id, principal),
+        organization_ids=tuple(organization_id or ()),
+        close_from=expected_close_date_from,
+        close_to=expected_close_date_to,
+        amount_from=amount_from,
+        amount_to=amount_to,
+        is_stale=is_stale,
+    )
+    return await opps.list_opportunities(ctx, query, filters)
+
+
+@opportunities_router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create; stage defaults to the first open stage, probability to its default",
+    **endpoint(AccessLevel.CONTRIBUTOR, scope="opportunities:write"),
+)
+async def create_opportunity(
+    body: OpportunityCreate, ctx: Ctx, principal: CurrentPrincipal, response: Response
+) -> OpportunityOut:
+    created = await opps.create(ctx, principal, body)
+    response.headers["Location"] = f"/api/v1/opportunities/{created.id}"
+    return created
+
+
+@opportunities_router.get(
+    "/board",
+    summary="Kanban data: one column per active open stage with totals and cards",
+    **endpoint(AccessLevel.SIGNED_IN),
+)
+async def board(
+    ctx: Ctx,
+    principal: CurrentPrincipal,
+    pipeline_id: UUID | None = None,
+    owner_id: Annotated[list[str] | None, Query(max_length=50)] = None,
+    expected_close_date_from: date | None = None,
+    expected_close_date_to: date | None = None,
+) -> Board:
+    filters = service.OpportunityFilters(
+        pipeline_ids=(pipeline_id,) if pipeline_id else (),
+        owner_ids=_owner_ids(owner_id, principal),
+        close_from=expected_close_date_from,
+        close_to=expected_close_date_to,
+    )
+    return await opps.board(ctx, principal, filters)
+
+
+@opportunities_router.get(
+    "/{opp_id}",
+    summary="Detail with organization, contact, stage, source lead and is_stale",
+    **endpoint(AccessLevel.SIGNED_IN, scope="opportunities:read"),
+)
+async def get_opportunity(opp_id: UUID, ctx: Ctx) -> OpportunityOut:
+    return await opps.get(ctx, opp_id)
+
+
+@opportunities_router.patch(
+    "/{opp_id}",
+    summary="Update fields; requires version; 409 opportunity.closed if closed",
+    **endpoint(AccessLevel.OWNER_PLUS, scope="opportunities:write"),
+)
+async def update_opportunity(
+    opp_id: UUID, body: OpportunityUpdate, ctx: Ctx, principal: CurrentPrincipal
+) -> OpportunityOut:
+    return await opps.update(ctx, principal, opp_id, body)
+
+
+@opportunities_router.delete(
+    "/{opp_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Archive",
+    **endpoint(AccessLevel.OWNER_PLUS),
+)
+async def archive_opportunity(opp_id: UUID, ctx: Ctx, principal: CurrentPrincipal) -> None:
+    await opps.archive(ctx, principal, opp_id)
+
+
+@opportunities_router.post(
+    "/{opp_id}/restore", summary="Restore", **endpoint(AccessLevel.MANAGER_PLUS)
+)
+async def restore_opportunity(
+    opp_id: UUID, ctx: Ctx, principal: CurrentPrincipal
+) -> OpportunityOut:
+    return await opps.restore(ctx, principal, opp_id)
+
+
+@opportunities_router.post(
+    "/{opp_id}/assign",
+    summary="Change owner; a Sales Rep may only assign to themselves",
+    **endpoint(AccessLevel.CONTRIBUTOR_RULES_IN_SERVICE),
+)
+async def assign_opportunity(
+    opp_id: UUID, body: AssignRequest, ctx: Ctx, principal: CurrentPrincipal
+) -> OpportunityOut:
+    return await opps.assign(ctx, principal, opp_id, body.owner_id, body.version)
+
+
+@opportunities_router.post(
+    "/{opp_id}/move",
+    summary="Change stage within open stages; probability follows unless overridden",
+    **endpoint(AccessLevel.OWNER_PLUS, scope="opportunities:write"),
+)
+async def move_opportunity(
+    opp_id: UUID, body: MoveRequest, ctx: Ctx, principal: CurrentPrincipal
+) -> OpportunityOut:
+    return await opps.move(ctx, principal, opp_id, body)
+
+
+@opportunities_router.post(
+    "/{opp_id}/close",
+    summary="Close as won or lost; lost needs a loss reason",
+    **endpoint(AccessLevel.OWNER_PLUS, scope="opportunities:write"),
+)
+async def close_opportunity(
+    opp_id: UUID, body: CloseRequest, ctx: Ctx, principal: CurrentPrincipal
+) -> OpportunityOut:
+    return await opps.close(ctx, principal, opp_id, body)
+
+
+@opportunities_router.post(
+    "/{opp_id}/reopen",
+    summary="Reopen into a chosen open stage",
+    **endpoint(AccessLevel.MANAGER_PLUS),
+)
+async def reopen_opportunity(
+    opp_id: UUID, body: ReopenRequest, ctx: Ctx, principal: CurrentPrincipal
+) -> OpportunityOut:
+    return await opps.reopen(ctx, principal, opp_id, body)
+
+
+@opportunities_router.get(
+    "/{opp_id}/stage-history",
+    summary="Stage changes with user, time, from and to",
+    **endpoint(AccessLevel.SIGNED_IN, scope="opportunities:read"),
+)
+async def stage_history(opp_id: UUID, ctx: Ctx) -> list[StageChange]:
+    return await opps.stage_history(ctx, opp_id)
+
+
+OrganizationOpportunityList = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            "organization-opportunities",
+            sortable=tuple(service.OPPORTUNITY_SORT),
+            default_sort="-updated_at",
+        )
+    ),
+]
+
+
+@organization_leads_router.get(
+    "/{org_id}/opportunities",
+    summary="Opportunities of this organization",
+    **endpoint(AccessLevel.SIGNED_IN, scope="organizations:read"),
+)
+async def organization_opportunities(
+    org_id: UUID, ctx: Ctx, query: OrganizationOpportunityList
+) -> Page[OpportunityOut] | SyncPage[OpportunityOut]:
+    filters = service.OpportunityFilters(organization_ids=(org_id,))
+    return await opps.list_opportunities(ctx, query, filters)
+
+
+routers = [leads_router, organization_leads_router, pipelines_router, opportunities_router]

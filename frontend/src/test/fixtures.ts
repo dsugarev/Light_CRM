@@ -181,3 +181,89 @@ export function leadLists() {
     ),
   )
 }
+
+const stage = (
+  n: number,
+  name_en: string,
+  name_bg: string,
+  default_probability: number,
+  stage_type: 'open' | 'won' | 'lost',
+): Schemas['StageOut'] => ({
+  id: `01930000-0000-7000-8000-0000000005${String(n).padStart(2, '0')}`,
+  name_en,
+  name_bg,
+  position: n,
+  default_probability,
+  stage_type,
+  is_active: true,
+})
+
+export const STAGES = [
+  stage(1, 'Prospecting', 'Проучване', 10, 'open'),
+  stage(2, 'Qualification', 'Квалификация', 25, 'open'),
+  stage(3, 'Solution & Proposal', 'Решение и оферта', 50, 'open'),
+  stage(4, 'Negotiation', 'Преговори', 75, 'open'),
+  stage(5, 'Closed Won', 'Спечелена', 100, 'won'),
+  stage(6, 'Closed Lost', 'Загубена', 0, 'lost'),
+] as const
+
+export const PIPELINE: Schemas['PipelineOut'] = {
+  id: '01930000-0000-7000-8000-000000000500',
+  name: 'Sales pipeline',
+  is_default: true,
+  stages: [...STAGES],
+}
+
+export const summary = (s: Schemas['StageOut']): Schemas['StageSummary'] => ({
+  id: s.id,
+  name_en: s.name_en,
+  name_bg: s.name_bg,
+  stage_type: s.stage_type,
+  position: s.position,
+  default_probability: s.default_probability,
+})
+
+export const OPPORTUNITY: Schemas['OpportunityOut'] = {
+  id: '01930000-0000-7000-8000-0000000000e1',
+  name: 'Branch connectivity',
+  organization: { id: ORG.id, name: ORG.name },
+  primary_contact: null,
+  owner: { id: REP_ME.id, full_name: REP_ME.full_name },
+  pipeline_id: PIPELINE.id,
+  stage: summary(STAGES[1]),
+  amount: '48000.00',
+  currency: 'EUR',
+  probability: 25,
+  probability_overridden: false,
+  weighted_amount: '12000.00',
+  expected_close_date: '2027-02-28',
+  actual_close_date: null,
+  next_step: 'Send the offer',
+  description: null,
+  source_lead: null,
+  loss_reason: null,
+  competitor: null,
+  is_stale: false,
+  last_activity_at: null,
+  created_at: '2026-11-17T08:00:00Z',
+  updated_at: '2026-11-17T09:00:00Z',
+  created_by: { id: REP_ME.id, full_name: REP_ME.full_name },
+  archived_at: null,
+  version: 2,
+}
+
+export const LOSS_REASON: Schemas['ReferenceItem'] = {
+  id: '01930000-0000-7000-8000-0000000000f1',
+  code: 'price',
+  name_en: 'Price',
+  name_bg: 'Цена',
+  position: 1,
+  is_active: true,
+}
+
+export function opportunityLists() {
+  server.use(
+    http.get('*/api/v1/pipelines', () => HttpResponse.json([PIPELINE])),
+    http.get('*/api/v1/reference/loss-reasons', () => HttpResponse.json([LOSS_REASON])),
+  )
+}

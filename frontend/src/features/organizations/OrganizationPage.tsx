@@ -16,6 +16,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCanEditOwned } from '@/features/auth/useOwnership'
 import { OrganizationLeads } from '@/features/leads/OrganizationLeads'
+import { OrganizationOpportunities } from '@/features/opportunities/OrganizationOpportunities'
 import { referenceName } from '@/features/reference/useReferenceList'
 import { useErrorText } from '@/lib/errors'
 import { formatDate, formatMoney, formatNumber } from '@/lib/format'
@@ -72,10 +73,7 @@ export function OrganizationPage() {
   const editable = canEdit(org.owner.id)
   const actionError = [archive.error, restore.error].find((e) => e instanceof ApiError)
   const canAddContact = can('records.create') && !org.archived_at
-  const emptySections = [
-    ['opportunities', t('organization.detail.noOpportunities')],
-    ['timeline', t('organization.detail.noTimeline')],
-  ] as const
+  const emptySections = [['timeline', t('organization.detail.noTimeline')]] as const
 
   const details: [string, string | null | undefined][] = [
     [t('organization.fields.registrationNumber'), org.registration_number],
@@ -232,6 +230,7 @@ export function OrganizationPage() {
             </CardContent>
           </Card>
           <OrganizationLeads organizationId={org.id} canCreate={canAddContact} />
+          <OrganizationOpportunities organizationId={org.id} canCreate={canAddContact} />
           {emptySections.map(([section, empty]) => (
             <Card key={section}>
               <CardHeader>

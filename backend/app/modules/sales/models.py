@@ -1,12 +1,13 @@
 """SQLAlchemy models. Schema changes go through Alembic migrations only."""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -108,8 +109,9 @@ class Lead(BusinessTableMixin, Base):
         ForeignKey("organization.id"), nullable=True
     )
     contact_id: Mapped[UUID | None] = mapped_column(ForeignKey("contact.id"), nullable=True)
-    # Phase 4 adds the foreign key to opportunity (additive migration).
-    converted_opportunity_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    converted_opportunity_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("opportunity.id", use_alter=True), nullable=True
+    )
     converted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     search_text: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
@@ -118,3 +120,114 @@ class Lead(BusinessTableMixin, Base):
 
     source: Mapped[LeadSource | None] = relationship(lazy="joined")
     disqualification_reason: Mapped[DisqualificationReason | None] = relationship(lazy="joined")
+
+
+class LossReason(IdMixin, TimestampMixin, ReferenceItemMixin, Base):
+    """Configurable list (FR-OPP-05, FR-ADM-02)."""
+
+    __tablename__ = "loss_reason"
+
+
+class Pipeline(IdMixin, TimestampMixin, Base):
+    """One default pipeline in R1 (assumption A3); paths are pipeline-scoped for later."""
+
+    __tablename__ = "pipeline"
+
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+
+    stages: Mapped[list[PipelineStage]] = relationship(
+        lazy="selectin", order_by="PipelineStage.position", back_populates="pipeline"
+    )
+
+
+class PipelineStage(IdMixin, TimestampMixin, Base):
+    """Configurable stage (FR-OPP-02): open, won or lost, with a default probability."""
+
+    __tablename__ = "pipeline_stage"
+    __table_args__ = (
+        CheckConstraint("stage_type IN ('open', 'won', 'lost')", name="stage_type"),
+        CheckConstraint("default_probability BETWEEN 0 AND 100", name="default_probability"),
+        Index("ix_pipeline_stage_pipeline_id", "pipeline_id"),
+    )
+
+    pipeline_id: Mapped[UUID] = mapped_column(ForeignKey("pipeline.id"), nullable=False)
+    name_en: Mapped[str] = mapped_column(String(100), nullable=False)
+    name_bg: Mapped[str] = mapped_column(String(100), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    default_probability: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    stage_type: Mapped[str] = mapped_column(String(8), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+
+    pipeline: Mapped[Pipeline] = relationship(back_populates="stages")
+
+
+class Opportunity(BusinessTableMixin, Base):
+    """TMF699 salesOpportunity: a qualified potential deal (FR-OPP-01..06)."""
+
+    __tablename__ = "opportunity"
+    __table_args__ = (
+        CheckConstraint("probability BETWEEN 0 AND 100", name="probability"),
+        CheckConstraint("amount IS NULL OR amount >= 0", name="amount"),
+        Index("ix_opportunity_updated_at_id", "updated_at", "id"),
+        Index("ix_opportunity_owner_id", "owner_id"),
+        Index("ix_opportunity_stage_id", "stage_id"),
+        Index("ix_opportunity_organization_id", "organization_id"),
+        Index("ix_opportunity_expected_close_date", "expected_close_date"),
+        Index(
+            "ix_opportunity_search_text_trgm",
+            "search_text",
+            postgresql_using="gin",
+            postgresql_ops={"search_text": "gin_trgm_ops"},
+        ),
+    )
+
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organization.id"), nullable=False)
+    primary_contact_id: Mapped[UUID | None] = mapped_column(ForeignKey("contact.id"), nullable=True)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("app_user.id"), nullable=False)
+    pipeline_id: Mapped[UUID] = mapped_column(ForeignKey("pipeline.id"), nullable=False)
+    stage_id: Mapped[UUID] = mapped_column(ForeignKey("pipeline_stage.id"), nullable=False)
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, server_default="EUR")
+    probability: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    # True once a user sets the probability; moves then keep it (API spec section 10).
+    probability_overridden: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    expected_close_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    actual_close_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    next_step: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_lead_id: Mapped[UUID | None] = mapped_column(ForeignKey("lead.id"), nullable=True)
+    loss_reason_id: Mapped[UUID | None] = mapped_column(ForeignKey("loss_reason.id"), nullable=True)
+    competitor: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Maintained by the activity module (Phase 4b); drives the stale indicator.
+    last_activity_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    search_text: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+
+    stage: Mapped[PipelineStage] = relationship(lazy="joined")
+    loss_reason: Mapped[LossReason | None] = relationship(lazy="joined")
+
+
+class OpportunityStageHistory(IdMixin, Base):
+    """Every stage change with who and when (FR-OPP-02 AC2)."""
+
+    __tablename__ = "opportunity_stage_history"
+    __table_args__ = (Index("ix_opportunity_stage_history_opportunity_id", "opportunity_id"),)
+
+    opportunity_id: Mapped[UUID] = mapped_column(ForeignKey("opportunity.id"), nullable=False)
+    from_stage_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("pipeline_stage.id"), nullable=True
+    )
+    to_stage_id: Mapped[UUID] = mapped_column(ForeignKey("pipeline_stage.id"), nullable=False)
+    changed_by: Mapped[UUID | None] = mapped_column(ForeignKey("app_user.id"), nullable=True)
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    from_stage: Mapped[PipelineStage | None] = relationship(
+        foreign_keys=[from_stage_id], lazy="joined"
+    )
+    to_stage: Mapped[PipelineStage] = relationship(foreign_keys=[to_stage_id], lazy="joined")
