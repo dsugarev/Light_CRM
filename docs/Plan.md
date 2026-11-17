@@ -7,8 +7,9 @@ What has been built, phase by phase, with the key code. The specifications in `d
 | 0 — Foundation | Done, merged (PR #1) | `phase-0-foundation` |
 | 1 — Identity, access and audit | Done, merged (PR #2), CI green | `phase-1-identity` |
 | 2 — Organizations and contacts | Done, merged (PR #4) | `phase-2-party` |
-| 3 — Leads | Built, awaiting owner review | `phase-3-leads` |
-| 4 — Opportunities, pipeline and activities | Not started | — |
+| 3 — Leads | Done, merged (PR #5) | `phase-3-leads` |
+| 4a — Pipelines, opportunities and board | Built; PR open, owner review after 4b | `phase-4a-opportunities` |
+| 4b — Activities, timelines and lead conversion | Not started | — |
 
 ---
 
@@ -957,4 +958,192 @@ Party never imports sales: `GET /organizations/{id}` merges `{"open_leads": …}
 
 ### Open items
 
-1. Owner review of the Phase 3 pull request.
+1. ~~Owner review of the Phase 3 pull request.~~ Merged (PR #5).
+
+---
+
+## Phase 4a — Pipelines, opportunities and the board
+
+Requirements: FR-OPP-01..06, FR-ADM-02 (stages, loss reasons). Phase 4 is delivered in two pull requests (owner decision, 2026-11-17, "accept the recommendations"): **4a** pipelines, opportunities and the board; **4b** activities and tasks, timelines, lead conversion and the full journey. Owner review follows 4b. Accepted recommendations used here: the six default stages with Bulgarian names; the board shows open stages plus Won/Lost drop areas that call `/close` (Lost asks for a reason) while `/move` stays between open stages; the seven seeded loss reasons; stale = no activity for N days (setting `stale_opportunity_days`, default 14) or the expected close date passed; dnd-kit for drag and drop.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 4a.1 | Schema: `pipeline`, `pipeline_stage` (seeded), `loss_reason` (seeded), `opportunity`, `opportunity_stage_history`, FK `lead.converted_opportunity_id`, setting `stale_opportunity_days` | Done: migration `0005` |
+| 4a.2 | Sales service becomes a package: `common`, `leads`, `pipelines`, `opportunities` | Done |
+| 4a.3 | Stage administration with `stage.in_use` / `stage.required` | Done |
+| 4a.4 | Opportunity rules: create, update, move, close, reopen, assign, archive, history, stale, board totals | Done |
+| 4a.5 | Contributions to party/core: organisation figures, archive guard, search, loss-reasons list | Done (ADR 0018 pattern) |
+| 4a.6 | Backend tests | Done (699 total; 26 new API tests + matrix/catalog growth) |
+| 4a.7 | Screens: list, form, detail, board (dnd-kit), stage admin, settings, organisation 360 | Done, en + bg |
+| 4a.8 | E2E: create, drag, move list, close lost from the board, Admin reopens and closes won | Done (en, bg) |
+| 4a.9 | Documentation (spec v0.5, ADR 0019, snapshot, this log, test record), gate, PR | Done |
+
+### Endpoints built (19)
+
+`GET /pipelines`, `GET /pipelines/{pipeline_id}`, `POST /pipelines/{pipeline_id}/stages`, `PATCH|DELETE /pipelines/{pipeline_id}/stages/{stage_id}`, `PUT /pipelines/{pipeline_id}/stages/order`; `GET|POST /opportunities`, `GET /opportunities/board`, `GET|PATCH|DELETE /opportunities/{opp_id}`, `POST /opportunities/{opp_id}/restore|assign|move|close|reopen`, `GET /opportunities/{opp_id}/stage-history`, `GET /organizations/{org_id}/opportunities`; plus `loss-reasons` under `/reference/{list}` and opportunities in `/search`. 77 routes in total, all in the authorization matrix.
+
+### Backend
+
+#### Service package (`app/modules/sales/service/`)
+
+`service.py` became a package; the router and `app.main` import only `app.modules.sales.service` (the `__init__` re-exports the public API), so the layer contracts are unchanged.
+
+```python
+# app/modules/sales/service/__init__.py
+REFERENCE_LISTS = (*_LEAD_REFERENCE_LISTS, *opportunities.REFERENCE_LISTS)
+SEARCH_PROVIDERS = (*_LEAD_SEARCH_PROVIDERS, *opportunities.SEARCH_PROVIDERS)
+ORGANIZATION_STATS = (organization_lead_stats, organization_opportunity_stats)
+ORGANIZATION_ARCHIVE_GUARDS = (organization_archive_guard,)
+```
+
+`common.py` holds what leads and opportunities share: `Context`, `not_found`, `invalid`, `use_action_endpoint`, `version_conflict`, `check_owner_choice`, `publish`.
+
+#### Stages (`service/pipelines.py`)
+
+```python
+def _ensure_type_remains(pipeline: Pipeline, leaving: PipelineStage) -> None:
+    """Every pipeline keeps one active stage of each type (open, won, lost)."""
+    others = [s for s in pipeline.stages
+              if s.id != leaving.id and s.is_active and s.stage_type == leaving.stage_type]
+    if leaving.is_active and not others:
+        raise AppError(ErrorCode.STAGE_REQUIRED, HTTPStatus.CONFLICT,
+                       extra={"stage_type": leaving.stage_type})
+
+async def delete_stage(ctx, principal, pipeline_id, stage_id) -> None:
+    ...
+    if await repository.stage_usage(ctx.session, stage.id) > 0:   # opportunities + history
+        raise AppError(ErrorCode.STAGE_IN_USE, HTTPStatus.CONFLICT)
+```
+
+#### Opportunity rules (`service/opportunities.py`)
+
+```python
+async def move(ctx, principal, opp_id, data: MoveRequest) -> OpportunityOut:
+    opp = await _load(ctx, opp_id, data.version)          # row lock + version check
+    check_owner(principal, opp.owner_id)                  # Owner+
+    _ensure_open(opp)                                     # 409 resource.archived / opportunity.closed
+    stage = _open_stage(await _pipeline_of(ctx, opp), data.stage_id)   # 422 stage.not_open
+    ...
+    if not opp.probability_overridden:
+        opp.probability = stage.default_probability
+    _record_stage(ctx, principal, opp, from_stage)        # FR-OPP-02 AC2
+    return await _commit(ctx, principal, opp, "opportunity.stage_changed", before)
+
+async def close(ctx, principal, opp_id, data: CloseRequest) -> OpportunityOut:
+    if data.outcome == "lost":
+        if data.loss_reason_id is None:
+            raise AppError(ErrorCode.OPPORTUNITY_LOSS_REASON_REQUIRED, HTTPStatus.UNPROCESSABLE_CONTENT)
+        ...
+    stage = first_stage(await _pipeline_of(ctx, opp), data.outcome)
+    opp.probability = stage.default_probability           # 100 or 0
+    opp.actual_close_date = data.actual_close_date or today(ctx)   # business date in Sofia
+```
+
+#### Stale (FR-OPP-06) and board totals (`repository.py`)
+
+```python
+def stale_condition(stale_before: datetime, today: date) -> ColumnElement[bool]:
+    return and_(
+        PipelineStage.stage_type == "open",
+        or_(func.coalesce(Opportunity.last_activity_at, Opportunity.created_at) < stale_before,
+            Opportunity.expected_close_date < today),
+    )
+
+async def column_totals(session, statement) -> dict[UUID, tuple[int, Decimal, Decimal]]:
+    sub = statement.order_by(None).subquery()
+    weighted = func.coalesce(func.sum(sub.c.amount * sub.c.probability / 100), 0)
+    rows = await session.execute(select(sub.c.stage_id, func.count(),
+                                        func.coalesce(func.sum(sub.c.amount), 0), weighted)
+                                 .group_by(sub.c.stage_id))
+```
+
+The same Python rule (`_is_stale`) fills `is_stale` on every response, with the threshold from the runtime settings (cached 30 s, ADR 0015). Board totals are computed over all matching rows, so they stay right when the cards are capped at 500 (`truncated: true`).
+
+#### Organisation archive guard (party, ADR 0018 pattern)
+
+```python
+# party/service.py
+OrganizationArchiveGuard = Callable[[AsyncSession, UUID], Awaitable[ErrorCode | None]]
+
+async def archive_organization(ctx, principal, org_id) -> None:
+    org = await _load_org_for_change(ctx, principal, org_id)
+    if org.archived_at is None:
+        for guard in ctx.organization_archive_guards:
+            code = await guard(ctx.session, org.id)
+            if code:
+                raise AppError(code, HTTPStatus.CONFLICT)   # organization.has_open_opportunities
+```
+
+#### Migration 0005
+
+Creates the five tables with `updated_at` triggers, adds the `lead → opportunity` foreign key announced in 0004 and the setting column, and seeds:
+
+```sql
+WITH p AS (INSERT INTO pipeline (id, name, is_default)
+           VALUES (gen_random_uuid(), 'Sales pipeline', true) RETURNING id)
+INSERT INTO pipeline_stage (id, pipeline_id, name_en, name_bg, position, default_probability, stage_type)
+SELECT gen_random_uuid(), p.id, s.name_en, s.name_bg, s.position, s.probability, s.stage_type
+FROM p, (VALUES ('Prospecting', 'Проучване', 1, 10, 'open'), ...,
+                ('Closed Lost', 'Загубена', 6, 0, 'lost')) AS s (...);
+```
+
+Verified up → down → up on PostgreSQL 18.7 and with `alembic check` (no drift).
+
+### Frontend
+
+- `features/opportunities`: list (stage, status, owner, "needs attention", archived filters in the URL; amount, probability, weighted and expected-close columns), form (organisation picker on create, contacts of that organisation, decimal comma, empty probability = stage default), detail (stage move, close won/lost form, reopen for Manager+, take over / assign, archive/restore, stage history), organisation 360 section.
+- **Board** (`BoardPage.tsx`) on `@dnd-kit/core` 6.3.1 + `@dnd-kit/utilities` 3.2.2: one droppable column per open stage with count, total and weighted total; Won and Lost drop areas; the pointer sensor (5 px activation) and the keyboard sensor with translated screen-reader announcements; a "Move to…" list on every editable card as a simple keyboard alternative. Cards the user may not edit (`can_edit: false`) have neither a drag handle nor the list (FR-OPP-03 AC2).
+
+```tsx
+const apply = (card: BoardCard, from: StageSummary, target: Target) => {
+  if (target.kind === 'lost') { setLosing(card); return }          // ask for the loss reason
+  if (target.kind === 'stage' && target.stageId === from.id) return
+  change.mutate({ card, target })                                   // /move or /close (won)
+}
+```
+
+- **Stage admin** (`/admin/stages`): rename in both languages, default probability, reorder, (de)activate, delete with the server's `stage.in_use` / `stage.required` explained; settings page gains the stale-days field; "Loss reasons" joins `/admin/reference/:list`.
+- `AssignControl` moved to `features/auth` and is shared by leads and opportunities; `formatDay` formats calendar dates without a time-zone shift.
+- 594 translation keys (en = bg); 82 Vitest tests (13 new).
+
+### Verification (2026-11-17)
+
+| Gate | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| pytest (scratch PostgreSQL 18.7) | 699 passed, 96% coverage (opportunities 96%, pipelines 99%) |
+| pip-audit | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n (594 keys) | clean |
+| Vitest | 82 passed (default timeouts) |
+| pnpm audit (production) | no known vulnerabilities |
+| Contract: OpenAPI snapshot regenerated, frontend types generated from it without diff | up to date |
+| Playwright Chromium vs. rebuilt stack | 16/16 (two workers), including a real mouse drag on the board in both languages |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | Done for FR-OPP-01..06 (FR-OPP-06 activity part completes with 4b), FR-ADM-02 |
+| 2 | `docker compose up` works | Done |
+| 3 | Lint, types, suites green | Done locally |
+| 4 | Permission checks + matrix | Done for all 77 routes; owner/non-owner and Manager+ reopen cases |
+| 5 | UI text en + bg | Done |
+| 6 | Additive migrations + tests | Done (0005) |
+| 7 | Audit for create/update/delete | Done (`opportunity.*`, `pipeline_stage.*`) |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.5 |
+
+### Decisions and deviations
+
+- **`move` stays between open stages**; won/lost only through `close` (owner decision; spec v0.5 changed the `move` row, which previously allowed a lost stage with a reason). ADR 0019.
+- **Board stage summary** carries `name_en`, `name_bg` and `stage_type` instead of a single `name` (like reference values since Phase 2); the example in spec section 10 was updated before the endpoint was released.
+- **New codes**: `opportunity.not_closed` (reopen of an open opportunity), `stage.required`, `organization.has_open_opportunities`; field codes `stage.not_open`, `stage.order_incomplete`.
+- **`@dnd-kit/sortable` not used**: stage reordering uses up/down buttons like the reference lists, so only `@dnd-kit/core` and `@dnd-kit/utilities` are dependencies.
+- The board's Won target closes immediately with today's date; the detail page's "Close as won" offers the date field.
+
+### Open items
+
+1. Phase 4b: activities and tasks (`/activities`, `/me/tasks`), `last_activity_at`, timelines (ADR for `timeline_event`), lead conversion, the full lead → won journey, then owner review of 4a + 4b.
+
