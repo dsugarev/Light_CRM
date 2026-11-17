@@ -725,6 +725,12 @@ async def is_assignable_owner(session: AsyncSession, user_id: UUID) -> bool:
     return user is not None and user.is_active and user.is_human
 
 
+async def owner_id_by_email(session: AsyncSession, email: str) -> UUID | None:
+    """An active human user by email, e.g. the owner column of an import (FR-IMP-01)."""
+    user = await repository.get_user_by_email(session, email.strip())
+    return user.id if user is not None and user.is_active and user.is_human else None
+
+
 async def user_locale(session: AsyncSession, user_id: UUID) -> Literal["en", "bg"]:
     """The user's interface language (exports default to it, API spec 14)."""
     user = await repository.get_user(session, user_id)

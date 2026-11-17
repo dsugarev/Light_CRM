@@ -21,6 +21,7 @@ from app.modules.activity import router as activity_router
 from app.modules.activity import service as activity_service
 from app.modules.audit import router as audit_router
 from app.modules.audit import service as audit_service
+from app.modules.dataimport import router as dataimport_router
 from app.modules.identity import router as identity_router
 from app.modules.identity import service as identity_service
 from app.modules.party import router as party_router
@@ -107,6 +108,7 @@ def create_app(
         api_v1.include_router(router)
     api_v1.include_router(search.router)
     api_v1.include_router(reporting_router.router)
+    api_v1.include_router(dataimport_router.router)
     api_v1.include_router(audit_router.router)
     app.include_router(api_v1)
 

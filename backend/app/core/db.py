@@ -67,6 +67,14 @@ class ArchiveMixin:
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ImportedMixin:
+    """`import_batch_id` on records an import can create (FR-IMP-01 AC4): rollback finds them."""
+
+    @declared_attr
+    def import_batch_id(cls) -> Mapped[UUID | None]:  # noqa: N805
+        return mapped_column(ForeignKey("import_batch.id"), nullable=True, index=True)
+
+
 class BusinessTableMixin(IdMixin, TimestampMixin, AuthorshipMixin, ArchiveMixin):
     """Columns every business table carries (architecture 4.1)."""
 
