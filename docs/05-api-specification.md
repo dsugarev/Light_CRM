@@ -1,0 +1,730 @@
+# 05 — API Specification (Release 1)
+
+Status: Draft v0.1 · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+
+This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
+
+## 1. General conventions
+
+### 1.1 Base path and format
+
+- Versioned business API: `/api/v1`. Health endpoints: `/api/health/*` (unversioned).
+- JSON request and response bodies, UTF-8, `snake_case` field names.
+- IDs are UUID strings. Timestamps are ISO 8601 in UTC (`2026-11-17T09:30:00Z`). Dates without time are `YYYY-MM-DD`. Money is a decimal string (`"125000.00"`) with a separate `currency` field, so no precision is lost in JavaScript.
+- Breaking changes require `/api/v2`. Adding endpoints, optional request fields or response fields is non-breaking and stays in `v1`; clients must ignore unknown response fields.
+
+### 1.2 Authentication and request headers
+
+Two authentication methods exist, each for one kind of caller. A request carrying both a session cookie and an `Authorization` header is rejected with `400`.
+
+| Caller | Method | Notes |
+|---|---|---|
+| Web frontend (people) | Session cookie set by `POST /auth/login` (architecture section 7) | CSRF protection applies |
+| Integrated applications | `Authorization: Bearer <api_key>` (section 19) | No cookies; CSRF headers not required; scopes apply |
+
+- Every cookie-authenticated mutating request (`POST`, `PUT`, `PATCH`, `DELETE`) must send `X-Requested-With: XMLHttpRequest`; the server also validates `Origin`. Missing or wrong values return `403` with code `auth.csrf_failed`.
+- Integration `POST` requests that create records should send an `Idempotency-Key` header (section 19.5).
+- Optional `X-Request-ID` from the client is echoed back; otherwise the server generates one. Every response carries `X-Request-ID`.
+- `Accept-Language` is not used for API messages; the backend returns error codes and the frontend translates them.
+
+### 1.3 Lists: pagination, sorting, filtering, search
+
+| Parameter | Meaning | Example |
+|---|---|---|
+| `page` | 1-based page number, default 1 | `page=2` |
+| `page_size` | Default 25, maximum 100 | `page_size=50` |
+| `sort` | Comma-separated fields; `-` prefix for descending | `sort=-amount,name` |
+| `q` | Free-text search (full-text plus trigram, Cyrillic-aware) | `q=софия` |
+| `<field>` | Exact filter; repeat for "any of" | `status=new&status=contacted` |
+| `<field>_from`, `<field>_to` | Inclusive range filter for dates and amounts | `expected_close_date_from=2026-12-01` |
+| `owner_id=me` | Shortcut for the signed-in user | `owner_id=me` |
+| `include_archived` | Include archived records, default `false` | `include_archived=true` |
+| `updated_since` | Only records created or changed at or after this timestamp; switches the list to sync mode (below) | `updated_since=2026-11-17T00:00:00Z` |
+| `cursor` | Continuation token from `next_cursor`, sync mode only | `cursor=eyJ1IjoiMjAy...` |
+| `external_system`, `external_id` | Records linked to an ID in another system (section 19.4) | `external_system=erp&external_id=C-10023` |
+
+List response envelope:
+
+```json
+{ "items": [ ... ], "total": 137, "page": 2, "page_size": 25 }
+```
+
+**Sync mode.** When `updated_since` is given, the list is ordered by `(updated_at, id)` ascending, `sort` and `page` are ignored, archived and anonymized records are included (so consumers can mirror removals), and the envelope is `{ "items": [...], "next_cursor": "..." | null }`. Clients keep calling with `cursor` until `next_cursor` is `null`, then store the largest `updated_at` seen for the next run. Ordering is stable, so no record is skipped or repeated when data changes during paging. Page size in sync mode defaults to 100 and may be raised to 500. Sync mode is available on organizations, contacts, leads, opportunities and activities.
+
+Each list endpoint documents which fields are sortable and filterable in its OpenAPI description; unknown sort or filter fields return `400` with code `validation.failed`.
+
+### 1.4 Create, update, archive
+
+- `POST` on a collection creates and returns `201` with the full record and a `Location` header.
+- `PATCH` updates only the fields sent. Leads and opportunities require the current `version` in the body; a mismatch returns `409` with code `conflict.version_mismatch` and the current record in `current`.
+- `DELETE` on a business record **archives** it (sets `archived_at`) and returns `204`. `POST /{id}/restore` reverses it. Hard deletion is not exposed, except anonymization for GDPR.
+- Lifecycle changes that carry business rules are explicit actions (`POST /leads/{id}/qualify`, `POST /opportunities/{id}/close`) rather than free `PATCH` of a status field. `PATCH` rejects `status`, `stage_id` and `owner_id` changes with code `validation.use_action_endpoint`.
+
+### 1.5 Embedded summaries
+
+Responses embed short summaries of related records so the UI does not need extra calls, for example `"owner": { "id": "...", "full_name": "Ivan Petrov" }` and `"organization": { "id": "...", "name": "Acme EOOD" }`. Requests reference related records by ID only (`owner_id`, `organization_id`).
+
+Organizations, contacts, leads and opportunities also embed their links to other systems:
+
+```json
+"external_references": [
+  { "system": "erp", "external_id": "C-10023", "url": null, "updated_at": "2026-11-17T12:00:00Z" },
+  { "system": "billing", "external_id": "BA-778812", "url": null, "updated_at": "2026-11-17T12:05:00Z" }
+]
+```
+
+### 1.6 Errors
+
+Errors use RFC 9457 problem details with content type `application/problem+json`:
+
+```json
+{
+  "type": "https://crm.internal/errors/validation.failed",
+  "title": "Validation failed",
+  "status": 422,
+  "code": "validation.failed",
+  "detail": "One or more fields are invalid.",
+  "request_id": "0b9c...",
+  "errors": [
+    { "field": "expected_close_date", "code": "validation.date_in_past" }
+  ]
+}
+```
+
+| HTTP status | Used for |
+|---|---|
+| 200 / 201 / 202 / 204 | Success: read or action, created, accepted, no content |
+| 400 | Malformed request, unknown filter or sort field |
+| 401 | Not signed in or session expired |
+| 403 | Signed in but not permitted, or CSRF check failed |
+| 404 | Record does not exist (also used instead of 403 for records a user may not know about, none in R1 because all users may read all records) |
+| 409 | Version conflict, duplicate, or invalid state transition |
+| 413 | Upload too large |
+| 415 | Unsupported upload type |
+| 422 | Field validation failed |
+| 423 | Account locked |
+| 429 | Rate limit or AI budget exceeded; includes `Retry-After` |
+| 503 | Dependency unavailable (database not ready, LLM provider down) |
+
+Error codes (stable, used by the frontend for translation; add new codes here when introduced):
+
+| Code | Status | Meaning |
+|---|---|---|
+| `auth.invalid_credentials` | 401 | Email or password wrong (generic on purpose) |
+| `auth.session_expired` | 401 | Session missing, expired or revoked |
+| `auth.account_locked` | 423 | Too many failed attempts; `locked_until` included |
+| `auth.account_inactive` | 401 | User deactivated (returned as invalid credentials at sign-in) |
+| `auth.token_invalid` | 400 | Set or reset password token invalid, used or expired |
+| `auth.password_policy` | 422 | Password fails the policy; `errors` lists rules failed |
+| `auth.csrf_failed` | 403 | Missing header or bad origin |
+| `auth.mfa_required` | 401 | Password accepted, TOTP code needed (only if MFA enabled) |
+| `permission.denied` | 403 | Role or ownership does not allow the action |
+| `resource.not_found` | 404 | No such record |
+| `validation.failed` | 422 | Field-level errors in `errors` |
+| `validation.use_action_endpoint` | 422 | Field must be changed through an action endpoint |
+| `conflict.version_mismatch` | 409 | Record changed since it was loaded |
+| `conflict.duplicate` | 409 | Matches an existing record; `matches` lists them |
+| `lead.invalid_transition` | 409 | Status change not allowed from the current status |
+| `lead.bant_incomplete` | 409 | Cannot qualify while a BANT item is unknown |
+| `lead.not_convertible` | 409 | Lead is not Qualified or is already converted |
+| `opportunity.closed` | 409 | Change attempted on a closed opportunity |
+| `opportunity.loss_reason_required` | 422 | Lost outcome without a loss reason |
+| `stage.in_use` | 409 | Stage cannot be removed while in use |
+| `reference.in_use` | 409 | Reference value cannot be removed while in use |
+| `import.invalid_file` | 415 | Not a readable XLSX or CSV |
+| `import.too_large` | 413 | File exceeds 10 MB |
+| `import.invalid_state` | 409 | Import step called out of order |
+| `import.has_errors` | 409 | Commit in strict mode with invalid rows |
+| `export.too_many_rows` | 422 | Export exceeds the row cap; narrow the filters |
+| `rate_limit.exceeded` | 429 | Too many requests |
+| `assistant.disabled` | 503 | `AI_ENABLED` is false |
+| `assistant.budget_exceeded` | 429 | Daily token budget used up |
+| `assistant.provider_unavailable` | 503 | LLM provider error or timeout |
+| `auth.api_key_invalid` | 401 | API key missing, unknown, revoked or expired |
+| `auth.client_inactive` | 401 | Integration client deactivated |
+| `auth.ip_not_allowed` | 403 | Caller IP outside the client's allowlist |
+| `auth.mixed_credentials` | 400 | Both cookie and `Authorization` header sent |
+| `permission.scope_missing` | 403 | Integration client lacks the scope; `required_scope` included |
+| `permission.not_for_integrations` | 403 | Endpoint is not available to integration clients |
+| `idempotency.key_reused` | 422 | Same `Idempotency-Key` sent with a different request body |
+| `idempotency.in_progress` | 409 | First request with this key is still being processed |
+| `external_reference.conflict` | 409 | That external ID is already linked to another record |
+| `external_reference.system_mismatch` | 403 | Integration tried to write another system's reference |
+| `owner.required` | 422 | Integration-created record has no `owner_id` and the client has no default owner |
+| `webhook.url_not_allowed` | 422 | Webhook URL not HTTPS or host not in the allowlist |
+
+### 1.7 Access levels used in the tables
+
+| Level | Who |
+|---|---|
+| Public | No session required |
+| Signed-in | Any active user: Admin, Sales Manager, Sales Rep, Viewer |
+| Contributor | Admin, Sales Manager, Sales Rep |
+| Owner+ | Admin, Sales Manager, or the Sales Rep who owns the record |
+| Manager+ | Admin, Sales Manager |
+| Admin | Admin only |
+| Integration: `scope` | An integration client holding that scope (section 19.3) |
+
+Every endpoint below maps to exactly one access level for people. Whether an integration client may call it, and with which scope, is defined only in section 19.3; endpoints not listed there return `403 permission.not_for_integrations` to integration clients. The authorization matrix test (test strategy section 3) is generated from these tables and section 19.3.
+
+## 2. System and health
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/health/live` | Process is running; no dependencies checked | Public | NFR-08 |
+| GET | `/api/health/ready` | Database reachable and migrations at head | Public | NFR-08 |
+| GET | `/api/v1/system/info` | App version, build, supported locales, feature flags (`ai_enabled`, `mfa_available`) for the frontend | Signed-in | — |
+| GET | `/api/v1/openapi.json` | OpenAPI document (includes the bearer security scheme and the scope required by each operation) | Signed-in or any integration client; Public when `ENV` is not `production` | FR-INT-10 |
+| GET | `/api/docs` | Interactive API documentation | Only when `ENV` is not `production` | — |
+
+Health responses contain status only, never version numbers, hostnames or configuration.
+
+## 3. Authentication and sessions
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| POST | `/api/v1/auth/login` | Sign in with email and password; sets the session cookie | Public | FR-AUTH-01 |
+| POST | `/api/v1/auth/login/mfa` | Complete sign-in with a TOTP code when MFA is enabled | Public (pending-MFA cookie) | FR-AUTH-07 (S) |
+| POST | `/api/v1/auth/logout` | End the current session and clear the cookie | Signed-in | FR-AUTH-04 |
+| POST | `/api/v1/auth/password/set` | Set a password using a one-time token (new user or reset) | Public | FR-AUTH-02, 03 |
+| GET | `/api/v1/auth/password/token/{token}` | Check a token is valid before showing the form; returns email only | Public | FR-AUTH-02 |
+| POST | `/api/v1/auth/password/forgot` | Request a reset email; always returns `202` whether or not the email exists | Public | FR-AUTH-02 |
+| POST | `/api/v1/auth/password/change` | Change own password (current + new); revokes other sessions | Signed-in | FR-AUTH-04 |
+| POST | `/api/v1/auth/mfa/setup` | Start TOTP enrolment; returns secret and provisioning URI | Signed-in | FR-AUTH-07 (S) |
+| POST | `/api/v1/auth/mfa/confirm` | Confirm enrolment with a code; returns recovery codes once | Signed-in | FR-AUTH-07 (S) |
+| POST | `/api/v1/auth/mfa/disable` | Disable own MFA (requires password); not allowed where enforced | Signed-in | FR-AUTH-07 (S) |
+
+Rules: auth endpoints are rate limited per IP and per account. `forgot` returns `202` even when SMTP is not configured; the Admin reset flow in section 5 is the fallback. Login request and response:
+
+```json
+// POST /api/v1/auth/login
+{ "email": "ivan.petrov@example.bg", "password": "••••••••••••" }
+
+// 200 OK  (Set-Cookie: session=...; HttpOnly; Secure; SameSite=Strict; Path=/api)
+{ "user": { "id": "...", "full_name": "Ivan Petrov", "role": "sales_rep", "locale": "bg" } }
+```
+
+## 4. Current user
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/me` | Profile, role, locale, and a `permissions` list the UI uses for its `can()` helper. For an integration client: `principal_type: "integration"`, client name, system code and granted scopes (useful as a connection test) | Signed-in or any integration client | FR-AUTH-05, FR-INT-03 |
+| PATCH | `/api/v1/me` | Update own `full_name`, `locale` | Signed-in | FR-I18N-01 |
+| GET | `/api/v1/me/sessions` | Own active sessions (created, last seen, user agent, current flag) | Signed-in | FR-AUTH-04 |
+| DELETE | `/api/v1/me/sessions/{session_id}` | Revoke one of own sessions | Signed-in | FR-AUTH-04 |
+| GET | `/api/v1/me/tasks` | Own open tasks, overdue first; filter `include_done` | Signed-in | FR-ACT-02 |
+
+## 5. Users and roles (administration)
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/users/lookup` | Active human users as `{id, full_name, email}` for owner and assignee pickers; supports `q` and `email`. Service users of integration clients are never listed | Signed-in | FR-LEAD-06 |
+| GET | `/api/v1/users` | Full user list with role, status, last sign-in, lock state | Admin | FR-ADM-01 |
+| POST | `/api/v1/users` | Create a user; returns the user and a one-time set-password link | Admin | FR-AUTH-02, FR-ADM-01 |
+| GET | `/api/v1/users/{user_id}` | User detail | Admin | FR-ADM-01 |
+| PATCH | `/api/v1/users/{user_id}` | Change name, email, role, locale | Admin | FR-ADM-01 |
+| POST | `/api/v1/users/{user_id}/deactivate` | Deactivate and revoke all sessions; records stay | Admin | FR-ADM-01 |
+| POST | `/api/v1/users/{user_id}/activate` | Reactivate | Admin | FR-ADM-01 |
+| POST | `/api/v1/users/{user_id}/password-reset` | Issue a reset link (returned to the Admin, emailed if SMTP is set) | Admin | FR-ADM-01 |
+| POST | `/api/v1/users/{user_id}/unlock` | Clear a lockout | Admin | FR-AUTH-01 |
+| DELETE | `/api/v1/users/{user_id}/sessions` | Revoke all of a user's sessions | Admin | FR-AUTH-04 |
+| GET | `/api/v1/roles` | Roles with their permission lists (read-only in R1) | Admin | FR-AUTH-05 |
+
+An Admin cannot deactivate themselves or remove the last active Admin (`409`, code `permission.last_admin`; add to the code table when implemented).
+
+## 6. Settings and reference data
+
+### 6.1 Application settings
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/settings` | Configurable values: session timeouts, stale-opportunity days, AI rate limit and daily budget, MFA enforcement for Admins | Admin | FR-OPP-06, FR-AI-08 |
+| PATCH | `/api/v1/settings` | Update settings; audited | Admin | same |
+
+Secrets (API keys, SMTP passwords) are never readable or writable through the API; they come from the environment only.
+
+### 6.2 Reference lists
+
+One uniform set of endpoints serves every configurable list. `{list}` is one of `lead-sources`, `disqualification-reasons`, `loss-reasons`, `industries`, `external-systems`. The `external-systems` list is seeded with `conclusion`, `erp` and `billing`; its `code` is the value used in `external_system` filters, external references and integration clients. Each item has `id`, `code`, `name_en`, `name_bg`, `position`, `is_active`.
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/reference/{list}` | List values; `include_inactive=true` for administration | Signed-in | FR-ADM-02 |
+| POST | `/api/v1/reference/{list}` | Add a value | Admin | FR-ADM-02 |
+| PATCH | `/api/v1/reference/{list}/{item_id}` | Rename, activate, deactivate | Admin | FR-ADM-02 |
+| PUT | `/api/v1/reference/{list}/order` | Reorder; body is the full ordered list of IDs | Admin | FR-ADM-02 |
+| DELETE | `/api/v1/reference/{list}/{item_id}` | Delete only if never used; otherwise `409 reference.in_use` (deactivate instead) | Admin | FR-ADM-02 |
+
+New lists in later releases are added by extending the allowed `{list}` values, not by new endpoint shapes.
+
+### 6.3 Pipelines and stages
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/pipelines` | Pipelines (one in R1) with their stages in order | Signed-in | FR-OPP-02 |
+| GET | `/api/v1/pipelines/{pipeline_id}` | One pipeline with stages | Signed-in | FR-OPP-02 |
+| POST | `/api/v1/pipelines/{pipeline_id}/stages` | Add a stage: name (en/bg), default probability, type | Admin | FR-OPP-02 |
+| PATCH | `/api/v1/pipelines/{pipeline_id}/stages/{stage_id}` | Rename, change probability, activate or deactivate | Admin | FR-OPP-02 |
+| PUT | `/api/v1/pipelines/{pipeline_id}/stages/order` | Reorder stages | Admin | FR-OPP-02 |
+| DELETE | `/api/v1/pipelines/{pipeline_id}/stages/{stage_id}` | Delete an unused stage; `409 stage.in_use` otherwise | Admin | FR-OPP-02 AC1 |
+
+Creating additional pipelines is out of scope for R1; the paths are already pipeline-scoped so it can be added without change.
+
+## 7. Organizations
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/organizations` | List and search. Filters: `owner_id`, `industry_id`, `city`, `country`, `size_band`. Sort: `name`, `created_at`, `updated_at` | Signed-in | FR-PARTY-04 |
+| POST | `/api/v1/organizations` | Create. Returns `409 conflict.duplicate` with `matches` unless `"confirm_duplicate": true` is sent | Contributor | FR-PARTY-01 |
+| GET | `/api/v1/organizations/duplicate-check` | Check `name` and/or `registration_number` before saving; returns possible matches | Signed-in | FR-PARTY-01 AC1 |
+| GET | `/api/v1/organizations/{org_id}` | Detail with counts of contacts, open leads, open opportunities and open pipeline value | Signed-in | FR-PARTY-03 |
+| PATCH | `/api/v1/organizations/{org_id}` | Update fields, including `owner_id` (owner change requires Manager+) | Owner+ | FR-PARTY-01 |
+| DELETE | `/api/v1/organizations/{org_id}` | Archive; blocked with `409` while it has open opportunities | Owner+ | FR-PARTY-01 |
+| POST | `/api/v1/organizations/{org_id}/restore` | Restore from archive | Manager+ | FR-PARTY-01 |
+| GET | `/api/v1/organizations/{org_id}/contacts` | Contacts of this organization (list conventions apply) | Signed-in | FR-PARTY-03 |
+| GET | `/api/v1/organizations/{org_id}/leads` | Leads linked to this organization | Signed-in | FR-PARTY-03 |
+| GET | `/api/v1/organizations/{org_id}/opportunities` | Opportunities of this organization | Signed-in | FR-PARTY-03 |
+| GET | `/api/v1/organizations/{org_id}/timeline` | Merged timeline for the organization and its contacts, leads and opportunities | Signed-in | FR-ACT-03 |
+| GET | `/api/v1/organizations/export` | Export the filtered list (section 14) | Signed-in | FR-REP-02 |
+
+## 8. Contacts
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/contacts` | List and search. Filters: `organization_id`, `owner_id`. Sort: `last_name`, `created_at` | Signed-in | FR-PARTY-04 |
+| POST | `/api/v1/contacts` | Create; duplicate check on email | Contributor | FR-PARTY-02 |
+| GET | `/api/v1/contacts/{contact_id}` | Detail | Signed-in | FR-PARTY-02 |
+| PATCH | `/api/v1/contacts/{contact_id}` | Update | Owner+ | FR-PARTY-02 |
+| DELETE | `/api/v1/contacts/{contact_id}` | Archive | Owner+ | FR-PARTY-02 |
+| POST | `/api/v1/contacts/{contact_id}/restore` | Restore | Manager+ | FR-PARTY-02 |
+| GET | `/api/v1/contacts/{contact_id}/timeline` | Activities and events for the contact | Signed-in | FR-ACT-03 |
+| GET | `/api/v1/contacts/{contact_id}/personal-data` | GDPR export of all personal data held about the contact (JSON download); audited | Admin | FR-ADM-04 |
+| POST | `/api/v1/contacts/{contact_id}/anonymize` | Irreversibly anonymize; body must contain `"confirm": "ANONYMIZE"`; audited | Admin | FR-ADM-04 |
+| GET | `/api/v1/contacts/export` | Export the filtered list | Signed-in | FR-REP-02 |
+
+Ownership of a contact follows its organization; a contact without an organization is owned by its creator.
+
+## 9. Leads
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/leads` | List and search. Filters: `status`, `owner_id`, `source_id`, `created_at_from/to`, `fits_target_profile`. Sort: `created_at`, `estimated_value`, `qualification_score`, `company_name` | Signed-in | FR-LEAD-05 |
+| POST | `/api/v1/leads` | Capture a lead; status starts as `new`; owner defaults to the caller | Contributor | FR-LEAD-01 |
+| GET | `/api/v1/leads/{lead_id}` | Detail including BANT, score, links to organization, contact and converted opportunity | Signed-in | FR-LEAD-01, 03 |
+| PATCH | `/api/v1/leads/{lead_id}` | Update fields and BANT items; requires `version`; rejected on converted or disqualified leads | Owner+ | FR-LEAD-01, 03 |
+| DELETE | `/api/v1/leads/{lead_id}` | Archive | Owner+ | — |
+| POST | `/api/v1/leads/{lead_id}/restore` | Restore | Manager+ | — |
+| POST | `/api/v1/leads/{lead_id}/assign` | Change owner. Body `{ "owner_id", "version" }`. A Sales Rep may only assign to themselves | Contributor (rules in service) | FR-LEAD-06 |
+| POST | `/api/v1/leads/{lead_id}/mark-contacted` | `new` → `contacted` | Owner+ | FR-LEAD-02 |
+| POST | `/api/v1/leads/{lead_id}/qualify` | → `qualified`; `409 lead.bant_incomplete` if any BANT item is unknown | Owner+ | FR-LEAD-02, 03 AC1 |
+| POST | `/api/v1/leads/{lead_id}/disqualify` | → `disqualified`. Body `{ "reason_id", "note", "version" }` | Owner+ | FR-LEAD-02 AC1 |
+| POST | `/api/v1/leads/{lead_id}/reopen` | `disqualified` → `contacted` | Manager+ | FR-LEAD-02 AC2 |
+| GET | `/api/v1/leads/{lead_id}/conversion-preview` | Suggested organization and contact matches (duplicate check) to show before converting | Owner+ | FR-LEAD-04 |
+| POST | `/api/v1/leads/{lead_id}/convert` | Convert in one transaction (see below) | Owner+ | FR-LEAD-04 |
+| GET | `/api/v1/leads/{lead_id}/timeline` | Activities and system events for the lead | Signed-in | FR-ACT-03 |
+| GET | `/api/v1/leads/export` | Export the filtered list | Signed-in | FR-REP-02 |
+
+Allowed status transitions (anything else returns `409 lead.invalid_transition`):
+
+```
+new ──> contacted ──> qualified ──> converted
+ │          │             │
+ └──────────┴─────────────┴──> disqualified ──(reopen, Manager+)──> contacted
+```
+
+Lead resource (response):
+
+```json
+{
+  "id": "0193...",
+  "title": "Fibre connectivity for 3 branches",
+  "company_name": "Acme EOOD",
+  "contact_name": "Maria Ivanova",
+  "email": "m.ivanova@acme.example",
+  "phone": "+359 2 000 0000",
+  "source": { "id": "...", "code": "inbound", "name": "Inbound inquiry" },
+  "status": "contacted",
+  "description": "...",
+  "estimated_value": "48000.00",
+  "currency": "EUR",
+  "owner": { "id": "...", "full_name": "Ivan Petrov" },
+  "qualification": {
+    "budget":    { "status": "yes",     "note": "Approved for 2027" },
+    "authority": { "status": "partial", "note": "IT director, CFO signs" },
+    "need":      { "status": "yes",     "note": "" },
+    "timeline":  { "status": "unknown", "note": "" },
+    "fits_target_profile": true,
+    "score": 63
+  },
+  "organization": null,
+  "contact": null,
+  "converted_opportunity": null,
+  "disqualification": null,
+  "created_at": "2026-11-17T09:30:00Z",
+  "updated_at": "2026-11-17T10:02:11Z",
+  "created_by": { "id": "...", "full_name": "Ivan Petrov" },
+  "archived_at": null,
+  "version": 4
+}
+```
+
+Conversion request and response:
+
+```json
+// POST /api/v1/leads/{lead_id}/convert
+{
+  "version": 7,
+  "organization": { "existing_id": null, "new": { "name": "Acme EOOD", "registration_number": "123456789" } },
+  "contact": { "existing_id": null, "new": { "first_name": "Maria", "last_name": "Ivanova", "email": "m.ivanova@acme.example" } },
+  "opportunity": {
+    "name": "Acme – branch connectivity",
+    "amount": "48000.00",
+    "expected_close_date": "2027-02-28",
+    "stage_id": "...",
+    "owner_id": "..."
+  }
+}
+
+// 201 Created
+{ "lead": { ...status "converted"... }, "organization": { ... }, "contact": { ... }, "opportunity": { ... } }
+```
+
+Exactly one of `existing_id` and `new` is set for organization; `contact` may be `null`. Any failure rolls back the whole conversion.
+
+## 10. Opportunities and pipeline board
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/opportunities` | List and search. Filters: `stage_id`, `stage_type` (`open`/`won`/`lost`), `owner_id`, `organization_id`, `expected_close_date_from/to`, `amount_from/to`, `is_stale`. Sort: `amount`, `expected_close_date`, `updated_at`, `name` | Signed-in | FR-OPP-04 |
+| POST | `/api/v1/opportunities` | Create directly (without a lead); stage defaults to the first open stage, probability to the stage default | Contributor | FR-OPP-01 |
+| GET | `/api/v1/opportunities/{opp_id}` | Detail with organization, primary contact, stage, source lead, `is_stale` | Signed-in | FR-OPP-01 |
+| PATCH | `/api/v1/opportunities/{opp_id}` | Update fields (amount, close date, probability override, next step, contact, competitor…); requires `version`; `409 opportunity.closed` if closed | Owner+ | FR-OPP-01 |
+| DELETE | `/api/v1/opportunities/{opp_id}` | Archive | Owner+ | — |
+| POST | `/api/v1/opportunities/{opp_id}/restore` | Restore | Manager+ | — |
+| POST | `/api/v1/opportunities/{opp_id}/assign` | Change owner; same rules as leads | Contributor (rules in service) | FR-LEAD-06 |
+| POST | `/api/v1/opportunities/{opp_id}/move` | Change stage within open stages. Body `{ "stage_id", "version" }`. Probability resets to the stage default unless it was overridden. Moving to a `lost` stage requires `loss_reason_id` | Owner+ | FR-OPP-02, 03 |
+| POST | `/api/v1/opportunities/{opp_id}/close` | Close. Body `{ "outcome": "won" \| "lost", "loss_reason_id", "competitor", "actual_close_date", "version" }` | Owner+ | FR-OPP-05 |
+| POST | `/api/v1/opportunities/{opp_id}/reopen` | Reopen into a chosen open stage | Manager+ | FR-OPP-05 |
+| GET | `/api/v1/opportunities/{opp_id}/stage-history` | Stage changes with user, time, from and to | Signed-in | FR-OPP-02 AC2 |
+| GET | `/api/v1/opportunities/{opp_id}/timeline` | Activities, stage changes and events, including those from the source lead | Signed-in | FR-ACT-03, FR-LEAD-04 AC3 |
+| GET | `/api/v1/opportunities/board` | Kanban data: one column per active open stage with `count`, `total_amount`, `weighted_amount` and cards. Filters: `pipeline_id`, `owner_id`, `expected_close_date_from/to`. Up to 500 cards; `truncated: true` if more | Signed-in | FR-OPP-03 |
+| GET | `/api/v1/opportunities/export` | Export the filtered list | Signed-in | FR-REP-02 |
+
+Board response shape:
+
+```json
+{
+  "pipeline_id": "...",
+  "currency": "EUR",
+  "columns": [
+    {
+      "stage": { "id": "...", "name": "Qualification", "position": 2, "default_probability": 25 },
+      "count": 14, "total_amount": "612000.00", "weighted_amount": "153000.00",
+      "cards": [
+        { "id": "...", "name": "Acme – branch connectivity", "organization": { "id": "...", "name": "Acme EOOD" },
+          "amount": "48000.00", "expected_close_date": "2027-02-28",
+          "owner": { "id": "...", "full_name": "Ivan Petrov" }, "is_stale": false, "can_edit": true, "version": 3 }
+      ]
+    }
+  ],
+  "truncated": false
+}
+```
+
+`can_edit` lets the UI disable dragging (FR-OPP-03 AC2); the server still enforces it on `move`.
+
+## 11. Activities and tasks
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/activities` | List. Filters: `type`, `lead_id`, `opportunity_id`, `organization_id`, `contact_id`, `owner_id`, `assignee_id`, `is_done`, `due_at_from/to`, `occurred_at_from/to` | Signed-in | FR-ACT-01 |
+| POST | `/api/v1/activities` | Log a note, call, meeting, email or task linked to at least one of lead, opportunity, organization or contact | Contributor | FR-ACT-01, 02 |
+| GET | `/api/v1/activities/{activity_id}` | Detail | Signed-in | FR-ACT-01 |
+| PATCH | `/api/v1/activities/{activity_id}` | Update | Owner+ (owner = activity owner; assignee may update a task) | FR-ACT-01 |
+| DELETE | `/api/v1/activities/{activity_id}` | Archive | Owner+ | FR-ACT-01 |
+| POST | `/api/v1/activities/{activity_id}/complete` | Mark a task done | Owner+ or assignee | FR-ACT-02 |
+| POST | `/api/v1/activities/{activity_id}/reopen` | Mark a task not done | Owner+ or assignee | FR-ACT-02 |
+
+Timeline items (returned by every `/timeline` endpoint) share one shape so the UI renders them uniformly:
+
+```json
+{ "items": [
+  { "kind": "activity", "occurred_at": "...", "actor": { ... }, "activity": { ... } },
+  { "kind": "event", "occurred_at": "...", "actor": { ... },
+    "event": { "type": "stage_changed", "entity_type": "opportunity", "entity_id": "...",
+               "data": { "from_stage": "Qualification", "to_stage": "Solution & Proposal" } } }
+], "total": 42, "page": 1, "page_size": 25 }
+```
+
+Event types in R1: `created`, `updated`, `owner_changed`, `status_changed`, `stage_changed`, `converted`, `closed_won`, `closed_lost`, `reopened`, `archived`, `restored`. Later modules add their own types.
+
+## 12. Search
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/search` | Global quick search across organizations, contacts, leads and opportunities. `q` required (min 2 chars), `types` optional, up to 5 results per type | Signed-in | FR-PARTY-04 |
+
+## 13. Reports and dashboard
+
+All report endpoints accept `owner_id` (`me`, a user ID, or omitted for all) and, where relevant, `from` and `to` dates. Amounts are in EUR.
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/reports/dashboard` | Everything the dashboard shows in one call: pipeline by stage, 6-month forecast, conversion rate, win rate, my open tasks count | Signed-in | FR-REP-01 |
+| GET | `/api/v1/reports/pipeline-by-stage` | Count, total and weighted amount per open stage | Signed-in | FR-REP-01 |
+| GET | `/api/v1/reports/forecast` | Weighted forecast by expected close month. `months` (default 6, max 12) | Signed-in | FR-REP-01 AC1 |
+| GET | `/api/v1/reports/lead-conversion` | Leads created, qualified, converted, disqualified and conversion rate in the period; group by `source` or `owner` | Signed-in | FR-REP-01 |
+| GET | `/api/v1/reports/win-loss` | Won and lost counts and amounts, win rate; group by `loss_reason`, `owner` or `month` | Signed-in | FR-REP-01, FR-REP-03 |
+| GET | `/api/v1/reports/{report}/export` | XLSX or CSV export of any report above | Signed-in | FR-REP-02 |
+
+Forecast definition (tested against independently computed values): for each month, the sum of `amount × probability / 100` over open, non-archived opportunities whose `expected_close_date` falls in that month.
+
+## 14. Exports
+
+Every list endpoint has an `/export` sibling (`/organizations/export`, `/contacts/export`, `/leads/export`, `/opportunities/export`, `/activities/export`) that accepts the same filters and sort as the list, plus:
+
+| Parameter | Meaning |
+|---|---|
+| `format` | `xlsx` (default) or `csv` (UTF-8 with BOM so Excel shows Cyrillic correctly) |
+| `columns` | Optional comma-separated list of columns; default is the list view's columns |
+| `locale` | `en` or `bg` for column headers and reference value names; default the user's locale |
+
+Responses are file downloads with `Content-Disposition: attachment`. Exports are synchronous, capped at 50,000 rows (`422 export.too_many_rows` above the cap), audited, and protected against spreadsheet formula injection (architecture section 7).
+
+## 15. Data import
+
+Import is a step-by-step flow over an import batch resource. Allowed `entity_type`: `organizations`, `contacts`, `leads`, `opportunities`.
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/imports/templates/{entity_type}` | Download the XLSX template with headers and an instructions sheet; `locale` parameter | Manager+ | FR-IMP-01 |
+| POST | `/api/v1/imports` | Upload a file (`multipart/form-data`: `file`, `entity_type`). Returns the batch with detected columns and a suggested mapping. Status `uploaded` | Manager+ | FR-IMP-01 |
+| GET | `/api/v1/imports` | List batches with status and counts | Manager+ | FR-IMP-01 |
+| GET | `/api/v1/imports/{batch_id}` | Batch detail | Manager+ | FR-IMP-01 |
+| PUT | `/api/v1/imports/{batch_id}/mapping` | Set column-to-field mapping and duplicate handling (`skip` or `update`) | Manager+ | FR-IMP-01 AC1, AC3 |
+| POST | `/api/v1/imports/{batch_id}/validate` | Validate all rows. Status `validated`; returns counts of valid, invalid and duplicate rows | Manager+ | FR-IMP-01 AC1 |
+| GET | `/api/v1/imports/{batch_id}/rows` | Paginated preview; filter `outcome` (`valid`, `invalid`, `duplicate`); each row lists field errors | Manager+ | FR-IMP-01 AC1 |
+| POST | `/api/v1/imports/{batch_id}/commit` | Write records. Body `{ "mode": "strict" \| "skip_invalid" }`; strict fails with `409 import.has_errors` if any row is invalid. Status `committed` | Manager+ | FR-IMP-01 AC2 |
+| POST | `/api/v1/imports/{batch_id}/rollback` | Archive every record created by the batch and revert updates it made; blocked for records changed since import (reported per record). Status `rolled_back` | Admin | FR-IMP-01 AC4 |
+| DELETE | `/api/v1/imports/{batch_id}` | Discard a batch that was not committed, including its uploaded data | Manager+ | FR-IMP-01 |
+
+Batch states: `uploaded → mapped → validated → committed → rolled_back`; steps out of order return `409 import.invalid_state`. Uploaded file contents are stored only until commit or discard, and at most 7 days.
+
+## 16. Audit log
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/audit-log` | Browse entries. Filters: `actor_id`, `entity_type`, `entity_id`, `action`, `occurred_at_from/to`. Sort: `-occurred_at` only | Admin | FR-ADM-03 |
+| GET | `/api/v1/audit-log/{entry_id}` | One entry with full before and after values | Admin | FR-ADM-03 |
+| GET | `/api/v1/audit-log/export` | Export the filtered log | Admin | FR-ADM-03 |
+
+There are no write endpoints for the audit log. Values of secret fields (password hashes, tokens, MFA secrets) are never stored in audit entries.
+
+## 17. AI assistant
+
+All assistant endpoints return `503 assistant.disabled` when `AI_ENABLED` is false, except `status`.
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/assistant/status` | Whether the assistant is enabled, and the caller's remaining daily token budget | Signed-in | FR-AI-07, 08 |
+| GET | `/api/v1/assistant/conversations` | Own conversations, newest first | Signed-in | FR-AI-01 |
+| POST | `/api/v1/assistant/conversations` | Start a conversation, optionally with record context `{ "context": { "entity_type": "opportunity", "entity_id": "..." } }` | Signed-in | FR-AI-01, 03 |
+| GET | `/api/v1/assistant/conversations/{conversation_id}` | Conversation with its messages (tool messages summarized, not raw) | Signed-in (own only) | FR-AI-01 |
+| PATCH | `/api/v1/assistant/conversations/{conversation_id}` | Rename | Signed-in (own only) | FR-AI-01 |
+| DELETE | `/api/v1/assistant/conversations/{conversation_id}` | Delete permanently with its messages | Signed-in (own only) | FR-AI-01 |
+| POST | `/api/v1/assistant/conversations/{conversation_id}/messages` | Send a message; the response is a Server-Sent Events stream (below). Body `{ "content": "...", "context": {...optional} }`, max 4,000 characters | Signed-in (own only) | FR-AI-01, 02, 06 |
+| POST | `/api/v1/assistant/conversations/{conversation_id}/messages/{message_id}/stop` | Stop a running generation | Signed-in (own only) | FR-AI-01 |
+| POST | `/api/v1/assistant/messages/{message_id}/save-as-note` | Save an assistant draft as a note activity on a record. Body `{ "entity_type", "entity_id", "content" }` (content may be edited by the user). Normal activity permissions apply | Contributor | FR-AI-04 |
+
+Another user's conversation returns `404`, not `403`.
+
+Stream format (`Content-Type: text/event-stream`):
+
+| Event | Data | Meaning |
+|---|---|---|
+| `message_start` | `{ "message_id", "conversation_id" }` | Assistant message created |
+| `tool_call` | `{ "tool": "search_opportunities", "status": "running" \| "done" }` | Progress indicator; no arguments or results are sent to the browser |
+| `delta` | `{ "text": "..." }` | Next piece of the answer (Markdown) |
+| `record_ref` | `{ "entity_type", "entity_id", "label" }` | A record cited in the answer, for linking |
+| `message_end` | `{ "prompt_tokens", "completion_tokens", "remaining_budget" }` | Answer complete and stored |
+| `error` | `{ "code" }` | `assistant.provider_unavailable`, `assistant.budget_exceeded`, `rate_limit.exceeded`; the stream then closes |
+
+The internal tools the model may call (`search_leads`, `search_opportunities`, `search_organizations`, `get_record`, `list_activities`, `pipeline_summary`, `forecast_summary`, `my_tasks`) are **not** HTTP endpoints. They call the same service functions as the endpoints above with the caller's permissions (architecture section 8.3).
+
+## 18. Rate limits
+
+Defaults, configurable through settings or environment; exceeded limits return `429` with `Retry-After`.
+
+| Scope | Limit |
+|---|---|
+| `POST /auth/login`, `/auth/login/mfa` | 10 per minute per IP; account lockout after 5 failures (FR-AUTH-01) |
+| `POST /auth/password/*` | 5 per 15 minutes per IP |
+| Assistant messages | 20 per 10 minutes per user, plus the daily token budget |
+| Exports | 10 per minute per user |
+| Imports (upload) | 10 per hour per user |
+| All other authenticated endpoints | 600 per minute per user |
+| Each integration client, all endpoints | 1,200 per minute (configurable per client) |
+
+## 19. Integration API (Conclusion, ERP, Billing)
+
+### 19.1 Principles
+
+- Integrated applications use **the same `/api/v1` endpoints, payloads and business rules** as the web frontend. There is no separate integration API to keep in sync.
+- Each application is an **integration client**: a registered, non-human principal backed by a service user (`app_user.user_type = 'service'`) that cannot sign in interactively, cannot own records and is shown as the actor in audit logs and timelines (for example "ERP (integration)").
+- Access is **least privilege**: an integration client can call only the endpoints its scopes allow (19.3). Write scopes are granted only after the data flow for that system is agreed (19.9).
+- Communication is server to server over HTTPS on the company network. There is no CORS for integrations.
+- The CRM pushes changes through **webhooks** (19.6); integrations can also pull changes with **sync mode** lists (section 1.3). Both may be used together; webhooks for timeliness, a periodic sync as the safety net.
+
+### 19.2 Authentication with API keys
+
+- Key format: `crm_<env>_<key_id>_<secret>`, for example `crm_prod_k7Q2…_…`, with at least 256 bits of randomness in the secret. Only a SHA-256 hash of the secret is stored; the full key is shown once, at creation.
+- Sent as `Authorization: Bearer <api_key>`. Keys in query strings are rejected.
+- Each key has an expiry (default 12 months, maximum 24) and records `last_used_at` and `last_used_ip`. A client may have two active keys at once so keys can be rotated without downtime. Revocation takes effect on the next request.
+- Optional per-client IP allowlist (CIDR list); requests from other addresses return `403 auth.ip_not_allowed`.
+- Keys never appear in logs, audit entries, error messages or API responses after creation.
+
+### 19.3 Scopes and the endpoints they open
+
+| Scope | Endpoints allowed |
+|---|---|
+| `organizations:read` | `GET /organizations`, `/organizations/{id}`, `/organizations/{id}/contacts`, `/organizations/{id}/opportunities`, `/organizations/{id}/timeline`, `/organizations/duplicate-check`, `/search` (organization results only) |
+| `organizations:write` | `POST /organizations`, `PATCH /organizations/{id}` (not `owner_id`) |
+| `contacts:read` | `GET /contacts`, `/contacts/{id}`, `/contacts/{id}/timeline` |
+| `contacts:write` | `POST /contacts`, `PATCH /contacts/{id}` |
+| `leads:read` | `GET /leads`, `/leads/{id}`, `/leads/{id}/timeline` |
+| `leads:write` | `POST /leads`, `PATCH /leads/{id}`, `POST /leads/{id}/mark-contacted`, `/qualify`, `/disqualify` |
+| `opportunities:read` | `GET /opportunities`, `/opportunities/{id}`, `/opportunities/{id}/stage-history`, `/opportunities/{id}/timeline` |
+| `opportunities:write` | `POST /opportunities`, `PATCH /opportunities/{id}`, `POST /opportunities/{id}/move`, `/close` |
+| `activities:read` | `GET /activities`, `/activities/{id}` |
+| `activities:write` | `POST /activities`, `PATCH /activities/{id}` (only activities the client created) |
+| `reference:read` | `GET /reference/{list}`, `/pipelines`, `/pipelines/{id}`, `GET /users/lookup` |
+| `reports:read` | `GET /reports/*` (not the export variants) |
+| `external-references:write` | `PUT` and `DELETE` on external references for **the client's own system only** (19.4) |
+
+Every client may call `GET /me` and `GET /openapi.json` without a scope. Reading external references needs only the read scope of the record type.
+
+Never available to integration clients, whatever their scopes: authentication and password endpoints, `/me/sessions`, `/me/tasks`, user administration, settings, writes to reference data and pipelines, archive and restore, assign, lead convert and reopen, opportunity reopen, imports, exports, the audit log, GDPR endpoints, the AI assistant, and integration administration (19.7).
+
+Records created by an integration must have a human owner: the request's `owner_id` (for example found with `GET /users/lookup?email=`) or, if omitted, the client's configured `default_owner_id`; otherwise `422 owner.required`.
+
+### 19.4 External references (cross-system IDs)
+
+Links a CRM record to its identifier in another system: an ERP customer number, a Billing account ID, a Conclusion record ID. One reference per record per system; an external ID is unique per system and record type.
+
+`{resource}` is one of `organizations`, `contacts`, `leads`, `opportunities`; `{system}` is a code from the `external-systems` list.
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/external-references` | Resolve an external ID. Required: `system`, `external_id`; optional `entity_type`. Returns `{ entity_type, entity_id, ... }` or `404` | Signed-in; Integration: read scope of the resolved type | FR-INT-04 |
+| GET | `/api/v1/{resource}/{id}/external-references` | All references of one record | Signed-in; Integration: read scope of `{resource}` | FR-INT-04 |
+| PUT | `/api/v1/{resource}/{id}/external-references/{system}` | Create or replace the reference. Body `{ "external_id": "C-10023", "url": "https://erp.internal/customers/C-10023" }` (url optional, HTTPS only, shown as a link in the UI) | Admin; Integration: `external-references:write` and `{system}` equals the client's system | FR-INT-04 |
+| DELETE | `/api/v1/{resource}/{id}/external-references/{system}` | Remove the reference | Admin; Integration: as for `PUT` | FR-INT-04 |
+
+Lists accept `external_system` and `external_id` filters, and `external_system` with `has_external_reference=false` to find records not yet linked (for example won opportunities ERP has not picked up). Setting or removing a reference is audited and emits `external_reference.updated`.
+
+### 19.5 Idempotency
+
+- Integration `POST` requests that create records (and the lead and opportunity action endpoints) accept an `Idempotency-Key` header (1–255 characters, typically a UUID or the source system's own record ID).
+- The first response for a key is stored for 24 hours per client. A retry with the same key and the same body returns the stored response with header `Idempotent-Replayed: true`. The same key with a different body returns `422 idempotency.key_reused`; a retry while the first is still running returns `409 idempotency.in_progress`.
+- Clients should still check for an existing external reference before creating a record.
+
+### 19.6 Webhooks (CRM → integrated applications)
+
+**Delivery model.** Every relevant change writes an event to an **outbox table in the same database transaction** as the change, so no event is lost and no event is sent for a change that was rolled back. A background worker delivers events to subscribed endpoints. Delivery is at least once; consumers must deduplicate on `id` and use `data.version` or `occurred_at` to ignore out-of-date events, because ordering is guaranteed only per record, not globally.
+
+**Event types (R1):** `organization.created`, `organization.updated`, `organization.archived`, `contact.created`, `contact.updated`, `contact.archived`, `contact.anonymized`, `lead.created`, `lead.updated`, `lead.status_changed`, `lead.converted`, `opportunity.created`, `opportunity.updated`, `opportunity.stage_changed`, `opportunity.closed_won`, `opportunity.closed_lost`, `opportunity.reopened`, `external_reference.updated`, and `ping` (test).
+
+A subscription receives only events whose record type the client may read (for example `opportunity.*` requires `opportunities:read`). Events caused by a client's own API calls are delivered to it as well, flagged by `actor`, so it can ignore its own changes.
+
+**Request sent to the subscriber:**
+
+```
+POST https://erp.internal/hooks/crm
+Content-Type: application/json
+X-CRM-Event-Id: evt_0193f1c2...
+X-CRM-Event-Type: opportunity.closed_won
+X-CRM-Delivery-Attempt: 1
+X-CRM-Signature: t=1763380000,v1=5f2b...e9
+```
+
+```json
+{
+  "id": "evt_0193f1c2...",
+  "type": "opportunity.closed_won",
+  "api_version": "v1",
+  "occurred_at": "2026-11-17T14:03:12Z",
+  "actor": { "type": "user", "id": "...", "name": "Ivan Petrov" },
+  "data": {
+    "entity_type": "opportunity",
+    "entity_id": "0193...",
+    "version": 9,
+    "changes": ["stage_id", "actual_close_date"],
+    "object": { "...": "the full resource exactly as GET /api/v1/opportunities/{id} returns it" }
+  }
+}
+```
+
+Contact events for an anonymized contact carry the anonymized object. The `object` snapshot is taken when the event is delivered, never containing fields the client's scopes do not cover.
+
+**Signature.** `v1` is the hex HMAC-SHA256 of `"{t}.{raw_body}"` with the subscription's secret. Receivers must recompute it with a constant-time comparison and reject timestamps older than 5 minutes. Secrets can be rotated; for 24 hours after rotation both old and new signatures are sent (`v1=old,v1=new`).
+
+**Retries.** A delivery succeeds on any `2xx` within 10 seconds. Otherwise it is retried with exponential backoff and jitter (about 1 min, 5 min, 30 min, 2 h, 6 h, then every 6 h) for up to 72 hours, then marked `failed` and shown to Admins. Redirects are not followed. A subscription failing continuously for 72 hours is suspended automatically and Admins are alerted.
+
+**URL rules.** HTTPS only (HTTP allowed only when `ENV` is not `production`), host must match the `WEBHOOK_ALLOWED_HOSTS` allowlist, no credentials in the URL. This prevents the CRM being used to reach arbitrary internal addresses.
+
+### 19.7 Integration administration (Admin)
+
+| Method | Path | Purpose | Access | Req. |
+|---|---|---|---|---|
+| GET | `/api/v1/integration-clients` | List clients with system, scopes, status, last used, request and error counts for the last 24 hours, failing deliveries | Admin | FR-INT-01, 08 |
+| POST | `/api/v1/integration-clients` | Register a client: `name`, `system` (from `external-systems`), `scopes`, `default_owner_id`, `ip_allowlist`, `technical_contact`, `rate_limit_per_minute`. Creates the service user | Admin | FR-INT-01 |
+| GET | `/api/v1/integration-clients/{client_id}` | Detail | Admin | FR-INT-01 |
+| PATCH | `/api/v1/integration-clients/{client_id}` | Change scopes, owner default, allowlist, contact, rate limit | Admin | FR-INT-01, 03 |
+| POST | `/api/v1/integration-clients/{client_id}/deactivate` | Block all access and pause its webhooks | Admin | FR-INT-01 |
+| POST | `/api/v1/integration-clients/{client_id}/activate` | Re-enable | Admin | FR-INT-01 |
+| GET | `/api/v1/integration-clients/{client_id}/api-keys` | Keys with prefix, created, expiry, last used (never the secret) | Admin | FR-INT-02 |
+| POST | `/api/v1/integration-clients/{client_id}/api-keys` | Create a key; body `{ "label", "expires_at" }`; the full key is in this response only | Admin | FR-INT-02 |
+| DELETE | `/api/v1/integration-clients/{client_id}/api-keys/{key_id}` | Revoke a key immediately | Admin | FR-INT-02 |
+| GET | `/api/v1/integration-clients/{client_id}/webhook-subscriptions` | Subscriptions of a client | Admin | FR-INT-07 |
+| POST | `/api/v1/integration-clients/{client_id}/webhook-subscriptions` | Create: `url`, `event_types` (list, wildcards like `opportunity.*` allowed), `is_active`. Returns the signing secret once | Admin | FR-INT-07 |
+| PATCH | `/api/v1/webhook-subscriptions/{subscription_id}` | Change URL, event types, active flag | Admin | FR-INT-07 |
+| DELETE | `/api/v1/webhook-subscriptions/{subscription_id}` | Remove | Admin | FR-INT-07 |
+| POST | `/api/v1/webhook-subscriptions/{subscription_id}/rotate-secret` | New secret, returned once; old one valid for 24 hours | Admin | FR-INT-07 |
+| POST | `/api/v1/webhook-subscriptions/{subscription_id}/test` | Send a `ping` event and return the receiver's status code and timing | Admin | FR-INT-07 |
+| GET | `/api/v1/webhook-deliveries` | Delivery log. Filters: `subscription_id`, `client_id`, `event_type`, `status` (`pending`, `succeeded`, `retrying`, `failed`), `created_at_from/to` | Admin | FR-INT-07, 08 |
+| GET | `/api/v1/webhook-deliveries/{delivery_id}` | Attempts with status codes, timings and truncated response bodies | Admin | FR-INT-07 |
+| POST | `/api/v1/webhook-deliveries/{delivery_id}/redeliver` | Queue the event again | Admin | FR-INT-07 |
+
+Delivery log entries are kept 30 days. Creating, changing, deactivating clients, keys and subscriptions is audited.
+
+### 19.8 Versioning and change policy for integrators
+
+- Integrators build against `/api/v1` and the published OpenAPI document. Non-breaking additions (new endpoints, new optional request fields, new response fields, new event types, new values in reference lists) may appear at any release; clients must ignore unknown fields and event types.
+- Breaking changes go to `/api/v2`; `v1` then stays available for at least 6 months, with deprecation announced through the `Deprecation` and `Sunset` response headers and release notes.
+- Each release's notes list API changes in a dedicated section.
+
+### 19.9 Initial integration profiles (to be confirmed)
+
+The data flows below are working assumptions so the build can proceed; they start read-only plus write-back of each system's own IDs. Grant any write scope only after the owner confirms the flow (requirements open question 7).
+
+| Client | Assumed purpose | Initial scopes | Initial webhook events |
+|---|---|---|---|
+| ERP (`erp`) | Create the customer in ERP when a deal is won; write the ERP customer number back to the organization | `organizations:read`, `contacts:read`, `opportunities:read`, `reference:read`, `external-references:write` | `opportunity.closed_won`, `organization.updated`, `contact.updated` |
+| Billing (`billing`) | Set up the billing account and services for a won deal; write the billing account ID back to the organization and opportunity | `organizations:read`, `contacts:read`, `opportunities:read`, `reference:read`, `external-references:write` | `opportunity.closed_won`, `organization.updated` |
+| Conclusion (`conclusion`) | Purpose to be confirmed | `organizations:read`, `opportunities:read`, `reference:read`, `external-references:write` | None until the purpose is confirmed |
+
+Typical ERP flow under these assumptions: receive `opportunity.closed_won` → read the organization and contacts → create the customer in ERP → `PUT /organizations/{id}/external-references/erp` with the customer number. Nightly, call `GET /opportunities?stage_type=won&external_system=erp&has_external_reference=false` and a sync-mode `GET /organizations?updated_since=...` to catch anything missed.
+
+### 19.10 Integration guide deliverable
+
+Phase 6 produces `docs/integration-guide.md` for the Conclusion, ERP and Billing teams: how to obtain a key, authentication, scopes, sync mode, external references, idempotency, webhook verification with code samples (Python, C#, Java), error codes, rate limits, the versioning policy, and a ready-to-import Postman or Bruno collection in `docs/integration/`.
+
+## 20. Future extensions (not in R1)
+
+These are recorded so R1 does not block them; do not build them now.
+
+- **OAuth 2.0 client credentials** as an alternative to API keys, if an integrated application or company policy requires it; the integration client model already fits it.
+- **Further integrated applications** (for example a website contact form creating leads) are added as new integration clients and `external-systems` values, with no code change.
+- **TM Forum facade**: a separate `/tmf-api/...` adapter exposing TMF699 Sales Management and TMF632 Party Management shapes, mapped onto the R1 services.
+- **R2–R4 resources**: `/product-offerings`, `/product-offering-qualifications`, `/solution-configurations`, `/site-surveys`, `/quotes`, `/proposals`, `/agreements`, `/partners`, each nested or linked by `opportunity_id` and `organization_id` in the same style as this document, with matching scopes and webhook events.
+- **Assistant actions**: `POST /assistant/messages/{id}/actions/{action_id}/confirm` for user-approved changes proposed by the assistant (R1.1).
