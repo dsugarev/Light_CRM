@@ -1428,7 +1428,7 @@ export async function download(path: string, query: string): Promise<void> {
 |---|---|---|
 | 1 | AC tests with requirement IDs | Done for FR-REP-01 (AC1 independently computed), FR-REP-02, FR-REP-03 |
 | 2 | `docker compose up` works | Done |
-| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 3 | Lint, types, suites green | Done locally and in CI (PR #12) |
 | 4 | Permission checks + matrix | Done for all 103 routes; exports and reports for every role, audit export Admin only |
 | 5 | UI text en + bg | Done (headers of exported files too) |
 | 6 | Additive migrations + tests | No migration in 5a |
@@ -1717,6 +1717,7 @@ A pure ASGI middleware in front of the request context middleware. For an integr
 | `pnpm audit --audit-level high` | passes (one advisory ignored, ADR 0022; one new moderate dev-only minimatch advisory below the threshold); `--prod` clean |
 | OpenAPI snapshot and generated types | up to date |
 | Playwright Chromium vs. rebuilt stack | 28/28 (Firefox could not launch locally; runs in CI) |
+| GitHub Actions (PR #12, run 44172903654) | all four jobs green, including Playwright on Chromium and Firefox |
 
 ### Definition of done
 
