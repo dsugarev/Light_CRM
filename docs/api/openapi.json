@@ -750,6 +750,49 @@
         "title": "BantItemUpdate",
         "type": "object"
       },
+      "BatchCounts": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "duplicate": {
+            "title": "Duplicate",
+            "type": "integer"
+          },
+          "invalid": {
+            "title": "Invalid",
+            "type": "integer"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rows",
+          "valid",
+          "invalid",
+          "duplicate",
+          "created",
+          "updated",
+          "skipped"
+        ],
+        "title": "BatchCounts",
+        "type": "object"
+      },
       "Board": {
         "properties": {
           "columns": {
@@ -885,6 +928,32 @@
         "title": "BoardColumn",
         "type": "object"
       },
+      "Body_upload_api_v1_imports_post": {
+        "properties": {
+          "entity_type": {
+            "enum": [
+              "organizations",
+              "contacts",
+              "leads",
+              "opportunities"
+            ],
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "XLSX or CSV, at most 10 MB",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "entity_type"
+        ],
+        "title": "Body_upload_api_v1_imports_post",
+        "type": "object"
+      },
       "CloseRequest": {
         "additionalProperties": false,
         "properties": {
@@ -943,6 +1012,22 @@
           "version"
         ],
         "title": "CloseRequest",
+        "type": "object"
+      },
+      "CommitRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "default": "strict",
+            "enum": [
+              "strict",
+              "skip_invalid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "title": "CommitRequest",
         "type": "object"
       },
       "ContactChoice": {
@@ -1840,6 +1925,34 @@
         "title": "FieldError",
         "type": "object"
       },
+      "FieldInfo": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name_bg": {
+            "title": "Name Bg",
+            "type": "string"
+          },
+          "name_en": {
+            "title": "Name En",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "name_en",
+          "name_bg",
+          "required"
+        ],
+        "title": "FieldInfo",
+        "type": "object"
+      },
       "ForecastMonth": {
         "properties": {
           "count": {
@@ -1963,6 +2076,255 @@
           "status"
         ],
         "title": "HealthStatus",
+        "type": "object"
+      },
+      "ImportBatchOut": {
+        "properties": {
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "committed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Committed At"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/BatchCounts"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "duplicate_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "skip",
+                  "update"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicate Mode"
+          },
+          "entity_type": {
+            "enum": [
+              "organizations",
+              "contacts",
+              "leads",
+              "opportunities"
+            ],
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldInfo"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mapping": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "Column → field; on upload, the suggested mapping",
+            "title": "Mapping",
+            "type": "object"
+          },
+          "rolled_back_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolled Back At"
+          },
+          "status": {
+            "enum": [
+              "uploaded",
+              "mapped",
+              "validated",
+              "committed",
+              "rolled_back"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "entity_type",
+          "file_name",
+          "status",
+          "columns",
+          "mapping",
+          "duplicate_mode",
+          "fields",
+          "counts",
+          "created_by",
+          "created_at",
+          "committed_at",
+          "rolled_back_at",
+          "expires_at"
+        ],
+        "title": "ImportBatchOut",
+        "type": "object"
+      },
+      "ImportRowOut": {
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "enum": [
+                  "created",
+                  "updated",
+                  "skipped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/RowError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "match": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LinkSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "valid",
+                  "invalid",
+                  "duplicate"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "rollback_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollback Result"
+          },
+          "row_number": {
+            "title": "Row Number",
+            "type": "integer"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "row_number",
+          "outcome",
+          "values",
+          "errors",
+          "match",
+          "action",
+          "record_id",
+          "rollback_result"
+        ],
+        "title": "ImportRowOut",
         "type": "object"
       },
       "LeadConversionReport": {
@@ -2586,6 +2948,40 @@
           "user"
         ],
         "title": "LoginResponse",
+        "type": "object"
+      },
+      "MappingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "duplicates": {
+            "default": "skip",
+            "enum": [
+              "skip",
+              "update"
+            ],
+            "title": "Duplicates",
+            "type": "string"
+          },
+          "mapping": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "Column → field key, or null to ignore",
+            "title": "Mapping",
+            "type": "object"
+          }
+        },
+        "required": [
+          "mapping"
+        ],
+        "title": "MappingRequest",
         "type": "object"
       },
       "Match": {
@@ -4096,6 +4492,68 @@
         "title": "Page[ContactOut]",
         "type": "object"
       },
+      "Page_ImportBatchOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImportBatchOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "Page[ImportBatchOut]",
+        "type": "object"
+      },
+      "Page_ImportRowOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "Page[ImportRowOut]",
+        "type": "object"
+      },
       "Page_LeadOut_": {
         "properties": {
           "items": {
@@ -4662,6 +5120,55 @@
           "permissions"
         ],
         "title": "RoleOut",
+        "type": "object"
+      },
+      "RollbackReport": {
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "integer"
+          },
+          "batch": {
+            "$ref": "#/components/schemas/ImportBatchOut"
+          },
+          "kept": {
+            "description": "Rows whose record was not rolled back, with the reason in rollback_result",
+            "items": {
+              "$ref": "#/components/schemas/ImportRowOut"
+            },
+            "title": "Kept",
+            "type": "array"
+          },
+          "reverted": {
+            "title": "Reverted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch",
+          "archived",
+          "reverted",
+          "kept"
+        ],
+        "title": "RollbackReport",
+        "type": "object"
+      },
+      "RowError": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "code"
+        ],
+        "title": "RowError",
         "type": "object"
       },
       "RuntimeSettings": {
@@ -8538,6 +9045,619 @@
         ],
         "x-access-level": "Signed-in",
         "x-required-scope": "contacts:read"
+      }
+    },
+    "/api/v1/imports": {
+      "get": {
+        "operationId": "list_batches_api_v1_imports_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Page Size"
+            }
+          },
+          {
+            "description": "Sortable: created_at; prefix - for descending",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sortable: created_at; prefix - for descending",
+              "title": "Sort"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "updated_since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Updated Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 1000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ImportBatchOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List batches with status and counts",
+        "tags": [
+          "imports"
+        ],
+        "x-access-level": "Manager+"
+      },
+      "post": {
+        "operationId": "upload_api_v1_imports_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_api_v1_imports_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload a file; returns the batch with detected columns and a suggested mapping",
+        "tags": [
+          "imports"
+        ],
+        "x-access-level": "Manager+"
+      }
+    },
+    "/api/v1/imports/templates/{entity_type}": {
+      "get": {
+        "operationId": "download_template_api_v1_imports_templates__entity_type__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "organizations",
+                "contacts",
+                "leads",
+                "opportunities"
+              ],
+              "title": "Entity Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "en",
+                    "bg"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download the XLSX template with headers and an instructions sheet",
+        "tags": [
+          "imports"
+        ],
+        "x-access-level": "Manager+"
+      }
+    },
+    "/api/v1/imports/{batch_id}": {
+      "delete": {
+        "operationId": "discard_api_v1_imports__batch_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard a batch that was not committed, including its uploaded data",
+        "tags": [
+          "imports"
+        ],
+        "x-access-level": "Manager+"
+      },
+      "get": {
+        "operationId": "get_batch_api_v1_imports__batch_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Batch detail",
+        "tags": [
+          "imports"
+        ],
+        "x-access-level": "Manager+"
+      }
+    },
+    "/api/v1/imports/{batch_id}/commit": {
+      "post": {
+        "operationId": "commit_api_v1_imports__batch_id__commit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write records; strict fails with 409 import.has_errors if any row is invalid",
+        "tags": [
+          "imports"
+        ],
+        "x-access-level": "Manager+"
+      }
+    },
+    "/api/v1/imports/{batch_id}/mapping": {
+      "put": {
+        "operationId": "set_mapping_api_v1_imports__batch_id__mapping_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MappingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set column-to-field mapping and duplicate handling (skip or update)",
+        "tags": [
+          "imports"
+        ],
+        "x-access-level": "Manager+"
+      }
+    },
+    "/api/v1/imports/{batch_id}/rollback": {
+      "post": {
+        "operationId": "rollback_api_v1_imports__batch_id__rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RollbackReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive records created by the batch and revert its updates",
+        "tags": [
+          "imports"
+        ],
+        "x-access-level": "Admin"
+      }
+    },
+    "/api/v1/imports/{batch_id}/rows": {
+      "get": {
+        "operationId": "list_rows_api_v1_imports__batch_id__rows_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "valid",
+                      "invalid",
+                      "duplicate"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ImportRowOut_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Paginated preview; filter outcome; each row lists field errors",
+        "tags": [
+          "imports"
+        ],
+        "x-access-level": "Manager+"
+      }
+    },
+    "/api/v1/imports/{batch_id}/validate": {
+      "post": {
+        "operationId": "validate_api_v1_imports__batch_id__validate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate all rows; counts of valid, invalid and duplicate rows",
+        "tags": [
+          "imports"
+        ],
+        "x-access-level": "Manager+"
       }
     },
     "/api/v1/leads": {

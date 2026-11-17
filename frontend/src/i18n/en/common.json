@@ -35,7 +35,8 @@
     "board": "Board",
     "stages": "Stages",
     "tasks": "My tasks",
-    "reports": "Reports"
+    "reports": "Reports",
+    "imports": "Import"
   },
   "roles": {
     "admin": "Admin",

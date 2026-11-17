@@ -58,7 +58,14 @@
     "use_action_endpoint": "Use the action buttons for this change.",
     "money": "Enter an amount, e.g. 48000 or 48000.50.",
     "probability": "Enter a whole number from 0 to 100.",
-    "period": "The start must not be after the end."
+    "period": "The start must not be after the end.",
+    "decimal_parsing": "Enter a number, e.g. 48000.50.",
+    "date_parsing": "Enter a date as YYYY-MM-DD or DD.MM.YYYY.",
+    "date_from_datetime_parsing": "Enter a date as YYYY-MM-DD or DD.MM.YYYY.",
+    "string_pattern_mismatch": "Invalid format.",
+    "int_from_float": "Enter a whole number.",
+    "decimal_max_places": "At most two decimal places.",
+    "url_parsing": "Enter a web address starting with http:// or https://"
   },
   "password": {
     "too_short": "At least 12 characters.",
@@ -80,7 +87,8 @@
     "registration_checksum": "The EIK check digit does not match. Please verify the number.",
     "not_found": "The organization does not exist.",
     "archived": "The organization is archived.",
-    "has_open_opportunities": "The organization has open opportunities. Close them before archiving."
+    "has_open_opportunities": "The organization has open opportunities. Close them before archiving.",
+    "ambiguous": "More than one organization matches; use the registration number."
   },
   "owner": {
     "invalid": "Choose an active user as owner."
@@ -123,5 +131,16 @@
   "export": {
     "too_many_rows": "The export has more than 50,000 rows. Narrow the filters.",
     "unknown_column": "Unknown column."
+  },
+  "import": {
+    "invalid_file": "This is not a readable XLSX or CSV file.",
+    "too_large": "The file is too large (at most 10 MB and 20,000 rows).",
+    "invalid_state": "This step is not possible now.",
+    "has_errors": "Some rows are invalid. Fix the file or import without them.",
+    "unknown_column": "Unknown column.",
+    "unknown_field": "Unknown field.",
+    "field_mapped_twice": "This field is chosen for two columns.",
+    "required_field": "A required field has no column.",
+    "duplicate_in_file": "Repeats an earlier row of the file."
   }
 }
