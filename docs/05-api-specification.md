@@ -1,8 +1,30 @@
 # 05 — API Specification (Release 1)
 
-Status: Draft v0.1 · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+Status: Draft v0.2 (updated after Phase 1, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
 
 This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
+
+**Machine-readable contract.** A snapshot of the generated OpenAPI 3.1 document is committed at [`api/openapi.json`](api/openapi.json) and checked by CI to match the code. Each operation carries `x-access-level` (the access level wording of this document) and, for integration-accessible operations from Phase 6, `x-required-scope`. The live document is `GET /api/v1/openapi.json`; interactive docs at `/api/docs` outside production.
+
+### Implementation status
+
+| Section | Phase | Status |
+|---|---|---|
+| 1 Conventions: problem details, request IDs, CSRF, access levels | 0–1 | Built |
+| 1.3 Lists: page/page_size/q and filters | 1 (users, audit log) | Built for those lists; sorting, `include_archived` and sync mode arrive with Phase 2 |
+| 2 System and health | 0–1 | Built |
+| 3 Authentication and sessions | 1 | Built, except MFA endpoints (FR-AUTH-07, Phase 8) |
+| 4 Current user | 1 | Built, except `/me/tasks` (Phase 4) |
+| 5 Users and roles | 1 | Built |
+| 6.1 Application settings | 1 | Built with session timeouts; further settings added by their phases |
+| 6.2–6.3 Reference lists, pipelines | 2–4 | Pending |
+| 7–15 Business resources, search, reports, exports, import | 2–5 | Pending |
+| 16 Audit log | 1 | Built, except `/audit-log/export` (Phase 5) |
+| 17 AI assistant | 7 | Pending |
+| 18 Rate limits | 1 | Built for sign-in, password endpoints and per user; others with their features |
+| 19 Integration API | 6 | Pending (policy already scope-aware) |
+
+`backend/tests/api/catalog_pending.py` lists every endpoint not yet built; the route catalog test fails if this document and the code disagree.
 
 ## 1. General conventions
 
@@ -22,7 +44,8 @@ Two authentication methods exist, each for one kind of caller. A request carryin
 | Web frontend (people) | Session cookie set by `POST /auth/login` (architecture section 7) | CSRF protection applies |
 | Integrated applications | `Authorization: Bearer <api_key>` (section 19) | No cookies; CSRF headers not required; scopes apply |
 
-- Every cookie-authenticated mutating request (`POST`, `PUT`, `PATCH`, `DELETE`) must send `X-Requested-With: XMLHttpRequest`; the server also validates `Origin`. Missing or wrong values return `403` with code `auth.csrf_failed`.
+- Every cookie-authenticated mutating request (`POST`, `PUT`, `PATCH`, `DELETE`) must send `X-Requested-With: XMLHttpRequest`; the server also validates `Origin`. Missing or wrong values return `403` with code `auth.csrf_failed`. This applies to every mutating request without an `Authorization` header, including sign-in. Trusted origins: `PUBLIC_URL` plus `CSRF_TRUSTED_ORIGINS` (e.g. the Vite dev server).
+- The session cookie is named `session` (`HttpOnly; Secure; SameSite=Strict; Path=/api`, `Max-Age` = remaining absolute lifetime). An unknown, expired or revoked session is treated as anonymous: protected endpoints return `401 auth.session_expired`.
 - Integration `POST` requests that create records should send an `Idempotency-Key` header (section 19.5).
 - Optional `X-Request-ID` from the client is echoed back; otherwise the server generates one. Every response carries `X-Request-ID`.
 - `Accept-Language` is not used for API messages; the backend returns error codes and the frontend translates them.
@@ -125,7 +148,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `resource.not_found` | 404 | No such record (also returned for unknown paths) |
 | `request.method_not_allowed` | 405 | HTTP method not supported on this path |
 | `server.internal_error` | 500 | Unexpected error; details are only in the server log, under the `request_id` |
-| `validation.failed` | 422 | Field-level errors in `errors`. Also used with `400` for a malformed body (field `body`, code `validation.json_invalid`) and unknown sort or filter fields |
+| `validation.failed` | 422 | Field-level errors in `errors` (field codes below). Also used with `400` for a malformed body (field `body`, code `validation.json_invalid`) and unknown sort or filter fields |
 | `validation.use_action_endpoint` | 422 | Field must be changed through an action endpoint |
 | `conflict.version_mismatch` | 409 | Record changed since it was loaded |
 | `conflict.duplicate` | 409 | Matches an existing record; `matches` lists them |
@@ -157,6 +180,8 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `external_reference.system_mismatch` | 403 | Integration tried to write another system's reference |
 | `owner.required` | 422 | Integration-created record has no `owner_id` and the client has no default owner |
 | `webhook.url_not_allowed` | 422 | Webhook URL not HTTPS or host not in the allowlist |
+
+**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`. Field names are the request body or query field names.
 
 ### 1.7 Access levels used in the tables
 
@@ -199,7 +224,16 @@ Health responses contain status only, never version numbers, hostnames or config
 | POST | `/api/v1/auth/mfa/confirm` | Confirm enrolment with a code; returns recovery codes once | Signed-in | FR-AUTH-07 (S) |
 | POST | `/api/v1/auth/mfa/disable` | Disable own MFA (requires password); not allowed where enforced | Signed-in | FR-AUTH-07 (S) |
 
-Rules: auth endpoints are rate limited per IP and per account. `forgot` returns `202` even when SMTP is not configured; the Admin reset flow in section 5 is the fallback. Login request and response:
+Rules:
+
+- Auth endpoints are rate limited per IP (section 18); the account itself is locked after 5 consecutive failed passwords for 15 minutes (`LOGIN_MAX_FAILED_ATTEMPTS`, `LOGIN_LOCKOUT_MINUTES`). While locked, sign-in returns `423 auth.account_locked` with `locked_until`, even with the right password. Unknown emails, wrong passwords, deactivated users and service users all return the same `401 auth.invalid_credentials`. Every attempt is audited (`auth.login_succeeded`, `auth.login_failed` with a reason, `auth.account_locked`).
+- **One-time links** have the form `{PUBLIC_URL}/set-password#token=<token>`. The token travels in the URL fragment, which browsers do not send to servers; the SPA reads it and calls `GET /auth/password/token/{token}` (response `{ "email", "purpose": "set" | "reset" }`) and `POST /auth/password/set` (`{ "token", "password" }` → `204`). Links for new users last 72 hours, reset links 2 hours (`PASSWORD_SET_TOKEN_HOURS`, `PASSWORD_RESET_TOKEN_HOURS`); a token works once and a new link voids older unused ones. Setting a password clears any lockout and ends all of the user's sessions. Invalid, used or expired tokens return `400 auth.token_invalid`.
+- `forgot` (`{ "email" }`) always returns `202`. It sends a reset email only when SMTP is configured and the email belongs to an active local user; without SMTP it does nothing, and the Admin reset flow in section 5 is the fallback.
+- `password/change` (`{ "current_password", "new_password" }` → `204`): a wrong current password returns `422 validation.failed` with field `current_password` / code `password.current_incorrect`; all other sessions of the user end, the current one stays.
+- Password policy failures return `422 auth.password_policy` with field codes `password.too_short` (< 12), `password.too_long` (> 128), `password.too_common` (in the bundled common-password list, case-insensitive).
+- `logout` returns `204` and clears the cookie.
+
+Login request and response:
 
 ```json
 // POST /api/v1/auth/login
@@ -219,6 +253,15 @@ Rules: auth endpoints are rate limited per IP and per account. `forgot` returns 
 | DELETE | `/api/v1/me/sessions/{session_id}` | Revoke one of own sessions | Signed-in | FR-AUTH-04 |
 | GET | `/api/v1/me/tasks` | Own open tasks, overdue first; filter `include_done` | Signed-in | FR-ACT-02 |
 
+```json
+// GET /api/v1/me  (user)
+{ "principal_type": "user", "id": "...", "email": "ivan.petrov@example.bg", "full_name": "Ivan Petrov",
+  "role": "sales_rep", "locale": "bg",
+  "permissions": ["data.export", "records.create", "records.edit_own", "records.read"] }
+```
+
+Permission codes (derived from the role; the UI uses them only to hide controls): `records.read`, `records.create`, `records.edit_own`, `records.edit_any`, `records.reassign`, `records.restore`, `data.export`, `data.import`, `users.manage`, `settings.manage`, `audit.read`. `PATCH /me` accepts only `full_name` and `locale` (`en` | `bg`); other fields return `422`. `GET /me/sessions` returns `[{ "id", "created_at", "last_seen_at", "expires_at", "ip", "user_agent", "current" }]`; revoking a session that is not the caller's returns `404`.
+
 ## 5. Users and roles (administration)
 
 | Method | Path | Purpose | Access | Req. |
@@ -237,14 +280,44 @@ Rules: auth endpoints are rate limited per IP and per account. `forgot` returns 
 
 An Admin cannot deactivate themselves (`403 permission.denied`) or remove the last active Admin, by deactivation or role change (`409 permission.last_admin`).
 
+Payloads:
+
+```json
+// POST /api/v1/users   (role: admin | sales_manager | sales_rep | viewer; locale defaults to "en")
+{ "email": "maria.ivanova@example.bg", "full_name": "Maria Ivanova", "role": "sales_rep", "locale": "bg" }
+
+// 201 Created, Location: /api/v1/users/{id}
+{ "user": { "id": "...", "email": "maria.ivanova@example.bg", "full_name": "Maria Ivanova",
+            "role": "sales_rep", "locale": "bg", "user_type": "human", "is_active": true,
+            "is_locked": false, "locked_until": null, "last_login_at": null,
+            "created_at": "...", "updated_at": "..." },
+  "set_password": { "url": "https://crm.internal/set-password#token=...",
+                    "expires_at": "2026-11-20T09:00:00Z", "emailed": false } }
+```
+
+- Emails are unique case-insensitively and stored in lower case; a duplicate returns `409 conflict.duplicate` with field `email` / code `user.email_taken` and `matches`.
+- `GET /users` filters: `q` (name or email), `role`, `is_active`, `page`, `page_size`; ordered by name. Service users are never listed.
+- `POST /users/{id}/password-reset` returns `{ "url", "expires_at", "emailed" }` (a set link if the user never had a password); for a deactivated user it returns `422` with field `user_id` / code `user.inactive`.
+- `PATCH /users/{id}` with a changed role is audited as `user.role_changed`, other changes as `user.updated`, both with before and after values.
+- `GET /roles` returns `[{ "code", "name", "permissions": [...] }]` for the four human roles.
+
 ## 6. Settings and reference data
 
 ### 6.1 Application settings
 
 | Method | Path | Purpose | Access | Req. |
 |---|---|---|---|---|
-| GET | `/api/v1/settings` | Configurable values: session timeouts, stale-opportunity days, AI rate limit and daily budget, MFA enforcement for Admins | Admin | FR-OPP-06, FR-AI-08 |
+| GET | `/api/v1/settings` | Configurable values: session timeouts, stale-opportunity days, AI rate limit and daily budget, MFA enforcement for Admins | Admin | FR-AUTH-04, FR-OPP-06, FR-AI-08 |
 | PATCH | `/api/v1/settings` | Update settings; audited | Admin | same |
+
+Settings present so far (later phases add theirs; unknown fields return `422`):
+
+| Field | Default | Range | Phase |
+|---|---|---|---|
+| `session_idle_timeout_minutes` | 480 (8 h) | 15–1440, not above the absolute timeout | 1 |
+| `session_absolute_timeout_minutes` | 10080 (7 days) | 60–43200 | 1 |
+
+Changes take effect within 30 seconds on every backend process and are audited as `settings.updated` with before and after values.
 
 Secrets (API keys, SMTP passwords) are never readable or writable through the API; they come from the environment only.
 
@@ -523,7 +596,19 @@ Batch states: `uploaded → mapped → validated → committed → rolled_back`;
 | GET | `/api/v1/audit-log/{entry_id}` | One entry with full before and after values | Admin | FR-ADM-03 |
 | GET | `/api/v1/audit-log/export` | Export the filtered log | Admin | FR-ADM-03 |
 
-There are no write endpoints for the audit log. Values of secret fields (password hashes, tokens, MFA secrets) are never stored in audit entries.
+There are no write endpoints for the audit log, and the application's database role cannot update or delete entries. Values of secret fields (password hashes, tokens, MFA secrets) are never stored in audit entries.
+
+```json
+// GET /api/v1/audit-log/{entry_id}
+{ "id": "...", "occurred_at": "2026-11-17T09:05:00Z",
+  "actor": { "type": "user", "id": "...", "name": "Ada Admin" },     // type: user | integration | anonymous | system
+  "action": "user.role_changed", "entity_type": "user", "entity_id": "...",
+  "ip": "10.0.0.5", "request_id": "0b9c...",
+  "before": { "role": "sales_rep", ... }, "after": { "role": "sales_manager", ... },
+  "details": null }
+```
+
+The list returns the same fields without `before`, `after`, `details` and `request_id`, newest first; `action` may be repeated. The actor's name is stored as it was at the time of the action. Actions recorded in R1 so far: `auth.login_succeeded`, `auth.login_failed`, `auth.account_locked`, `auth.logout`, `auth.password_set`, `auth.password_changed`, `auth.password_reset_requested`, `user.created`, `user.updated`, `user.role_changed`, `user.deactivated`, `user.activated`, `user.password_reset_issued`, `user.unlocked`, `user.sessions_revoked`, `session.revoked`, `settings.updated`.
 
 ## 17. AI assistant
 
@@ -558,7 +643,7 @@ The internal tools the model may call (`search_leads`, `search_opportunities`, `
 
 ## 18. Rate limits
 
-Defaults, configurable through settings or environment; exceeded limits return `429` with `Retry-After`.
+Defaults, configurable through settings or environment; exceeded limits return `429 rate_limit.exceeded` with `Retry-After` (seconds). Counters are fixed windows stored in PostgreSQL. Environment variables: `RATE_LIMIT_LOGIN_PER_MINUTE`, `RATE_LIMIT_PASSWORD_PER_15_MINUTES` (covers `GET /auth/password/token/{token}` and every `POST /auth/password/*`), `RATE_LIMIT_USER_PER_MINUTE`.
 
 | Scope | Limit |
 |---|---|

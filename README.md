@@ -15,6 +15,8 @@ Status: **Phase 1 (identity, access and audit)**. Users sign in, Admins manage u
 | [`docs/05-api-specification.md`](docs/05-api-specification.md) | Every REST endpoint, error codes, integration API |
 | [`docs/adr/`](docs/adr/README.md) | Architecture decision records |
 | [`docs/Plan.md`](docs/Plan.md) | Implementation log: what was built, with code excerpts |
+| [`docs/Test_strategy.md`](docs/Test_strategy.md) | Test record: strategy per phase, test cases performed and results |
+| [`docs/api/`](docs/api/README.md) | OpenAPI snapshot and how to open the interactive API docs |
 
 ## Run it
 

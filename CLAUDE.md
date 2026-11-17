@@ -17,6 +17,8 @@ A light B2B CRM for a telecom Commercial team (about 20 internal users, on-premi
 | `docs/05-api-specification.md` | Every REST endpoint: path, purpose, access level, requirement IDs, error codes, payload shapes; section 19 is the integration API (scopes, external references, sync, idempotency, webhooks) |
 | `docs/adr/` | Decisions already made; add one for each new significant decision |
 | `docs/Plan.md` | Implementation log: what each phase built, with code excerpts, deviations and open items. Update it with every implemented task |
+| `docs/Test_strategy.md` | Test record: per phase, the test strategy applied, test cases added, runs performed with results, defects found; generated inventory (`python3 scripts/test_inventory.py`) |
+| `docs/api/` | OpenAPI snapshot (`openapi.json`, checked by CI) and how to view the API documentation |
 
 These documents are the source of truth. If code and documents disagree, raise it; do not silently pick one.
 
@@ -68,7 +70,7 @@ uv sync
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 uv run python -m app.worker                                   # webhook delivery and housekeeping
-uv run python -m app.cli export-openapi --output openapi.json # OpenAPI document for the frontend
+uv run python -m app.cli export-openapi --output ../docs/api/openapi.json  # API doc snapshot (CI-checked)
 uv run python -m app.cli create-admin --email … --full-name …  # first Admin; prints a one-time link
                                                               # (--password-stdin for automation)
 uv run python -m app.cli create-integration-client            # Phase 6
@@ -87,6 +89,8 @@ pnpm generate:api [file|url]  # regenerate src/api/schema.d.ts from the backend 
 pnpm e2e                      # Playwright against https://localhost (E2E_BASE_URL to override);
                               # needs E2E_ADMIN_EMAIL_EN/_BG + E2E_ADMIN_PASSWORD (e2e/support.ts)
 ```
+
+Documentation is part of done (owner instruction): before a phase closes and before the next starts, update `docs/Plan.md`, `docs/05-api-specification.md` (payloads, rules, status table), `docs/api/openapi.json`, `docs/Test_strategy.md` (strategy, cases, runs; regenerate the inventory with `python3 scripts/test_inventory.py`), README and ADRs.
 
 Adding an endpoint: add it to `docs/05-api-specification.md`, declare `**endpoint(AccessLevel.X, scope=...)` on the route (ADR 0013), remove it from `backend/tests/api/catalog_pending.py`, make sure the authorization matrix knows its level, publish domain events for changes (ADR 0014), regenerate the frontend types (ADR 0012).
 
