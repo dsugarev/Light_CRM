@@ -23,8 +23,8 @@ Goal (implementation plan): an empty but production-shaped skeleton. Exit: the s
 | 0.4 | ruff, mypy strict, import-linter contracts, route-catalog test | Done |
 | 0.5 | Frontend: Vite, React, TS strict, router, layout, TanStack Query, Tailwind + shadcn/ui, i18next en/bg, sign-in placeholder, generated typed client | Done |
 | 0.6 | ESLint/Prettier, Vitest + MSW, i18n parity script, contract-drift check, Playwright smoke | Done |
-| 0.7 | Dockerfiles, Compose (prod-like + dev), Caddyfile, `.env.example`, backups, start/stop scripts | Done; **not yet run under Docker** (Docker not installed on the dev machine at the time) |
-| 0.8 | GitHub Actions CI with all gates | Written; **not yet run on GitHub** (branch not pushed) |
+| 0.7 | Dockerfiles, Compose (prod-like + dev), Caddyfile, `.env.example`, backups, start/stop scripts | Done; verified under Docker Desktop (see Verification) |
+| 0.8 | GitHub Actions CI with all gates | Written; pushed to `dsugarev/Light_CRM`; first run on the Phase 0 pull request |
 | 0.9 | Seed ADRs | Done: `docs/adr/0001`–`0012` |
 | 0.10 | Quality gate, docs, this log | Done; see "Verification" |
 
@@ -369,16 +369,19 @@ Docker was not installed, so the stack was checked locally with equivalent piece
 | Playwright, Firefox | 2 passed (HTTP-only tests); 3 browser tests **could not run**: Firefox 159 fails to start on this Mac ("Could not find profile folder"), also outside the sandbox. A local machine issue, not a test failure; CI on Ubuntu runs them |
 | Proxy headers | HSTS, CSP, nosniff, Referrer-Policy, Permissions-Policy present; `X-Request-ID` passes through |
 | Production mode | `/api/v1/openapi.json` returns 404 |
-| `docker compose up` | **not run yet** (Docker not installed) |
-| GitHub Actions | **not run yet** (branch not pushed; `origin` still points at the old Prelegal repository) |
+| `scripts/start-mac.sh` (Docker Desktop 29.9, Compose 5.7) | stack up first time: db healthy, migrate exited 0, backend healthy (runs as uid 10001), worker started, proxy on 80/443; database owned by `crm_migrator` with `pg_trgm` |
+| Playwright vs. composed stack | Chromium 5 passed; Firefox same local launch issue as above |
+| Backup | `backup.sh --now` wrote a custom-format dump; scheduler waits for 02:00 Europe/Sofia |
+| Dev override | backend on `http://localhost:8000`, ready `ok`, OpenAPI published (200) |
+| GitHub Actions | pending: runs on the Phase 0 pull request |
 
 ### Phase 0 definition of done
 
 | # | Item | State |
 |---|---|---|
 | 1 | Acceptance criteria as tests named with requirement IDs | Done for the Phase 0 scope (NFR-04, NFR-08, NFR-12, FR-I18N-01, FR-INT-10) |
-| 2 | `docker compose up` from a clean checkout works | **Pending: needs Docker** |
-| 3 | Lint, types, all suites green | Done locally; CI pending a push |
+| 2 | `docker compose up` from a clean checkout works | Done (`scripts/start-mac.sh`) |
+| 3 | Lint, types, all suites green | Done locally; CI result on the pull request |
 | 4 | New endpoints have permission checks and are in the authorization test | Health endpoints are Public and checked by the route-catalog test; the role matrix starts in Phase 1 |
 | 5 | UI text in English and Bulgarian | Done; Bulgarian wording should be reviewed by a native speaker |
 | 6 | Additive migrations passing migration tests | Done |
@@ -398,9 +401,10 @@ Docker was not installed, so the stack was checked locally with equivalent piece
 
 ### Open items
 
-1. Install Docker, then run `scripts/start-mac.sh` and `cd frontend && pnpm e2e` to confirm the composed stack (definition of done #2).
-2. Point `origin` at the CRM repository on GitHub and push `phase-0-foundation` to run CI.
-3. Review the Bulgarian UI texts (`frontend/src/i18n/bg/*.json`).
+1. Open the pull request `phase-0-foundation` → `main` on `dsugarev/Light_CRM` and check the first CI run (including the Firefox tests).
+2. Bulgarian UI texts accepted for now by the owner (2026-11-17); revisit if needed.
+
+Repository history: the GitHub repository starts from a clean root (the specifications commit). The Prelegal history is kept only locally, on branches `prelegal-archive` and `phase-0-foundation-prelegal-based`.
 
 Carried to later phases (spec observations, not blocking):
 - **Phase 2:** `contact` has no `owner_id`, but the API filters contacts by owner (ownership follows the organization); `organization` lacks `notes` and spells out no address columns.
