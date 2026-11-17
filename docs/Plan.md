@@ -9,7 +9,7 @@ What has been built, phase by phase, with the key code. The specifications in `d
 | 2 — Organizations and contacts | Done, merged (PR #4) | `phase-2-party` |
 | 3 — Leads | Done, merged (PR #5) | `phase-3-leads` |
 | 4a — Pipelines, opportunities and board | Built; PR #6 open, CI green; owner review with 4b | `phase-4a-opportunities` |
-| 4b — Activities, timelines and lead conversion | Built; PR open (stacked on 4a), awaiting owner review | `phase-4b-activities` |
+| 4b — Activities, timelines and lead conversion | Built; PR #7 (stacked on 4a), CI green; awaiting owner review | `phase-4b-activities` |
 
 ---
 
@@ -1280,6 +1280,7 @@ mutationCache: new MutationCache({
 | pnpm audit (production) | no known vulnerabilities |
 | OpenAPI snapshot and generated types | up to date |
 | Playwright Chromium vs. rebuilt stack | 18/18 in two consecutive runs, including the full journey in both languages |
+| GitHub Actions (PR #7, run 44130293284) | all four jobs green, including Playwright on Chromium and Firefox |
 
 ### Definition of done
 
@@ -1287,7 +1288,7 @@ mutationCache: new MutationCache({
 |---|---|---|
 | 1 | AC tests with requirement IDs | Done for FR-ACT-01..03, FR-LEAD-04 AC1–AC3, FR-OPP-06 |
 | 2 | `docker compose up` works | Done |
-| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 3 | Lint, types, suites green | Done locally and in CI (PR #7) |
 | 4 | Permission checks + matrix | Done for all 91 routes; owner, assignee and stranger cases |
 | 5 | UI text en + bg | Done |
 | 6 | Additive migrations + tests | Done (0006) |

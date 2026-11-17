@@ -371,6 +371,7 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 | 2026-11-17 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 773 passed, 96% coverage (activity service 96%); clean |
 | 2026-11-17 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (679 keys), pnpm audit, OpenAPI snapshot and generated types | 91 passed; clean |
 | 2026-11-17 | Docker Desktop, rebuilt stack | Playwright Chromium, full suite (18 tests, two workers) | First run: the new journey failed twice (see defects); after the fixes and a rebuild 18/18 in two consecutive runs |
+| 2026-11-17 | GitHub Actions, PR #7 run 44130293284 | All four jobs | Green; Playwright on Chromium and Firefox |
 
 ### Defects found by testing and fixed
 
