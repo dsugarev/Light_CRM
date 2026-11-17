@@ -17,3 +17,5 @@ One file per decision: `NNNN-title.md` with context, decision and consequences. 
 - [0013 Principal resolution and the single permission policy](0013-principal-and-permission-policy.md)
 - [0014 Audit log through in-process domain events](0014-audit-log-through-domain-events.md)
 - [0015 Runtime settings and rate limits as core infrastructure](0015-runtime-settings-and-rate-limits-in-core.md)
+- [0016 Industries owned by party; search and duplicates across scripts](0016-party-owns-industries-and-search-normalisation.md)
+- [0017 Shared list machinery and sync mode with signed cursors](0017-list-machinery-and-sync-mode.md)
