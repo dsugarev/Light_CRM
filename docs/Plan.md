@@ -796,7 +796,7 @@ const duplicates = useQuery({
 | Contract drift, OpenAPI snapshot | up to date |
 | Docker stack via `scripts/start-mac.sh` | migration 0003 applied; `APP_SECRET_KEY` appended to `.env` |
 | Playwright Chromium vs. stack | 12/12 in three consecutive runs (after fixing a test-data collision) |
-| GitHub Actions | on the Phase 2 pull request |
+| GitHub Actions (PR #4, run 44102245986) | all four jobs green: backend 1 min 15 s, frontend 46 s, contract 36 s, e2e 2 min 7 s (Playwright on Chromium and Firefox) |
 
 ### Definition of done
 
@@ -804,7 +804,7 @@ const duplicates = useQuery({
 |---|---|---|
 | 1 | AC tests with requirement IDs | Done for FR-PARTY-01..04, FR-ADM-02, FR-I18N-04, FR-INT-05 (machinery) |
 | 2 | `docker compose up` works | Done (start script) |
-| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 3 | Lint, types, suites green | Done locally and in CI |
 | 4 | Permission checks + matrix | Done for all 46 routes; owner/non-owner cases for organizations and contacts |
 | 5 | UI text en + bg | Done |
 | 6 | Additive migrations + tests | Done (0003) |

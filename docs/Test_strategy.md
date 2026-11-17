@@ -195,7 +195,7 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 | 2026-11-17 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 517 passed, 95.7% coverage (party service 93%, listing 98%, reference 98%); clean |
 | 2026-11-17 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (357 keys), pnpm audit, contract, OpenAPI snapshot | 59 passed; clean (same moderate dev-only advisory) |
 | 2026-11-17 | Docker Desktop, `scripts/start-mac.sh` (also appended `APP_SECRET_KEY` to the existing `.env`) | Playwright Chromium, full suite | First run: 1 failure (test data collision, below); after the fix 12/12 in three consecutive runs |
-| 2026-11-17 | GitHub Actions | Phase 2 pull request | See `Plan.md` |
+| 2026-11-17 | GitHub Actions, PR #4 run 44102245986 | All four jobs | Green; Playwright journeys passed on Chromium and Firefox |
 
 ### Defects found by testing and fixed
 
