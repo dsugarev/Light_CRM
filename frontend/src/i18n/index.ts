@@ -5,12 +5,14 @@ import bgAdmin from './bg/admin.json'
 import bgAuth from './bg/auth.json'
 import bgCommon from './bg/common.json'
 import bgErrors from './bg/errors.json'
+import bgLeads from './bg/leads.json'
 import bgParty from './bg/party.json'
 import bgProfile from './bg/profile.json'
 import enAdmin from './en/admin.json'
 import enAuth from './en/auth.json'
 import enCommon from './en/common.json'
 import enErrors from './en/errors.json'
+import enLeads from './en/leads.json'
 import enParty from './en/party.json'
 import enProfile from './en/profile.json'
 
@@ -29,6 +31,7 @@ export const resources = {
     profile: enProfile,
     admin: enAdmin,
     party: enParty,
+    leads: enLeads,
   },
   bg: {
     common: bgCommon,
@@ -37,6 +40,7 @@ export const resources = {
     profile: bgProfile,
     admin: bgAdmin,
     party: bgParty,
+    leads: bgLeads,
   },
 } as const
 

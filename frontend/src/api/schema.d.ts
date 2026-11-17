@@ -225,6 +225,145 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List and search leads */
+        get: operations["list_leads_api_v1_leads_get"];
+        put?: never;
+        /** Capture a lead; status starts as new; owner defaults to the caller */
+        post: operations["create_lead_api_v1_leads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leads/{lead_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail including BANT, score and links */
+        get: operations["get_lead_api_v1_leads__lead_id__get"];
+        put?: never;
+        post?: never;
+        /** Archive */
+        delete: operations["archive_lead_api_v1_leads__lead_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update fields and BANT items; requires version */
+        patch: operations["update_lead_api_v1_leads__lead_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/leads/{lead_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change owner; a Sales Rep may only assign to themselves */
+        post: operations["assign_lead_api_v1_leads__lead_id__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leads/{lead_id}/disqualify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** -> disqualified with a reason */
+        post: operations["disqualify_api_v1_leads__lead_id__disqualify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leads/{lead_id}/mark-contacted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** new -> contacted */
+        post: operations["mark_contacted_api_v1_leads__lead_id__mark_contacted_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leads/{lead_id}/qualify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** -> qualified; 409 lead.bant_incomplete if any BANT item is unknown */
+        post: operations["qualify_api_v1_leads__lead_id__qualify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leads/{lead_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** disqualified -> contacted */
+        post: operations["reopen_api_v1_leads__lead_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leads/{lead_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore */
+        post: operations["restore_lead_api_v1_leads__lead_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -348,6 +487,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{org_id}/leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Leads linked to this organization */
+        get: operations["organization_leads_api_v1_organizations__org_id__leads_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{org_id}/restore": {
         parameters: {
             query?: never;
@@ -442,7 +598,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Quick search across organizations and contacts, up to 5 per type */
+        /** Quick search across organizations, contacts, leads, opportunities; 5 per type */
         get: operations["search_api_v1_search_get"];
         put?: never;
         post?: never;
@@ -629,6 +785,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AssignRequest */
+        AssignRequest: {
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Version */
+            version: number;
+        };
         /** AuditActor */
         AuditActor: {
             /** Id */
@@ -709,6 +875,23 @@ export interface components {
             page_size: number;
             /** Total */
             total: number;
+        };
+        /** BantItem */
+        BantItem: {
+            /** Note */
+            note: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unknown" | "no" | "partial" | "yes";
+        };
+        /** BantItemUpdate */
+        BantItemUpdate: {
+            /** Note */
+            note?: string | null;
+            /** Status */
+            status?: ("unknown" | "no" | "partial" | "yes") | null;
         };
         /** ContactCreate */
         ContactCreate: {
@@ -799,6 +982,26 @@ export interface components {
             /** Preferred Locale */
             preferred_locale?: ("en" | "bg") | null;
         };
+        /** Disqualification */
+        Disqualification: {
+            /** Disqualified At */
+            disqualified_at: string | null;
+            /** Note */
+            note: string | null;
+            reason: components["schemas"]["app__modules__sales__schemas__ReferenceSummary"] | null;
+        };
+        /** DisqualifyRequest */
+        DisqualifyRequest: {
+            /** Note */
+            note?: string | null;
+            /**
+             * Reason Id
+             * Format: uuid
+             */
+            reason_id: string;
+            /** Version */
+            version: number;
+        };
         /** DuplicateCheck */
         DuplicateCheck: {
             /** Matches */
@@ -830,6 +1033,134 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "unavailable";
+        };
+        /** LeadCreate */
+        LeadCreate: {
+            /** Company Name */
+            company_name: string;
+            /** Contact Id */
+            contact_id?: string | null;
+            /** Contact Name */
+            contact_name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Estimated Value */
+            estimated_value?: number | string | null;
+            /** Organization Id */
+            organization_id?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Phone */
+            phone?: string | null;
+            qualification?: components["schemas"]["QualificationUpdate"] | null;
+            /** Source Id */
+            source_id?: string | null;
+            /** Title */
+            title: string;
+        };
+        /** LeadOut */
+        LeadOut: {
+            /** Archived At */
+            archived_at: string | null;
+            /** Company Name */
+            company_name: string;
+            contact: components["schemas"]["LinkSummary"] | null;
+            /** Contact Name */
+            contact_name: string | null;
+            /** Converted At */
+            converted_at: string | null;
+            converted_opportunity: components["schemas"]["LinkSummary"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            created_by: components["schemas"]["UserSummary"] | null;
+            /** Currency */
+            currency: string;
+            /** Description */
+            description: string | null;
+            disqualification: components["schemas"]["Disqualification"] | null;
+            /** Email */
+            email: string | null;
+            /** Estimated Value */
+            estimated_value: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            organization: components["schemas"]["LinkSummary"] | null;
+            owner: components["schemas"]["UserSummary"];
+            /** Phone */
+            phone: string | null;
+            qualification: components["schemas"]["Qualification"];
+            source: components["schemas"]["app__modules__sales__schemas__ReferenceSummary"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "contacted" | "qualified" | "converted" | "disqualified";
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /** LeadUpdate */
+        LeadUpdate: {
+            /** Company Name */
+            company_name?: string | null;
+            /** Contact Id */
+            contact_id?: string | null;
+            /** Contact Name */
+            contact_name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Estimated Value */
+            estimated_value?: number | string | null;
+            /** Organization Id */
+            organization_id?: string | null;
+            /**
+             * Owner Id
+             * @description Not changeable here; use POST /assign
+             */
+            owner_id?: unknown;
+            /** Phone */
+            phone?: string | null;
+            qualification?: components["schemas"]["QualificationUpdate"] | null;
+            /** Source Id */
+            source_id?: string | null;
+            /**
+             * Status
+             * @description Not changeable here; use the action endpoints
+             */
+            status?: unknown;
+            /** Title */
+            title?: string | null;
+            /**
+             * Version
+             * @description The version you loaded; a stale one returns 409
+             */
+            version: number;
+        };
+        /** LinkSummary */
+        LinkSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -974,7 +1305,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            industry: components["schemas"]["ReferenceSummary"] | null;
+            industry: components["schemas"]["app__modules__party__schemas__ReferenceSummary"] | null;
             /** Name */
             name: string;
             /** Notes */
@@ -1022,7 +1353,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            industry: components["schemas"]["ReferenceSummary"] | null;
+            industry: components["schemas"]["app__modules__party__schemas__ReferenceSummary"] | null;
             /** Name */
             name: string;
             /** Notes */
@@ -1102,6 +1433,17 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[LeadOut] */
+        Page_LeadOut_: {
+            /** Items */
+            items: components["schemas"]["LeadOut"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
         /** Page[OrganizationOut] */
         Page_OrganizationOut_: {
             /** Items */
@@ -1157,6 +1499,26 @@ export interface components {
              */
             purpose: "set" | "reset";
         };
+        /** Qualification */
+        Qualification: {
+            authority: components["schemas"]["BantItem"];
+            budget: components["schemas"]["BantItem"];
+            /** Fits Target Profile */
+            fits_target_profile: boolean;
+            need: components["schemas"]["BantItem"];
+            /** Score */
+            score: number;
+            timeline: components["schemas"]["BantItem"];
+        };
+        /** QualificationUpdate */
+        QualificationUpdate: {
+            authority?: components["schemas"]["BantItemUpdate"] | null;
+            budget?: components["schemas"]["BantItemUpdate"] | null;
+            /** Fits Target Profile */
+            fits_target_profile?: boolean | null;
+            need?: components["schemas"]["BantItemUpdate"] | null;
+            timeline?: components["schemas"]["BantItemUpdate"] | null;
+        };
         /** ReferenceItem */
         ReferenceItem: {
             /** Code */
@@ -1197,23 +1559,6 @@ export interface components {
             name_bg?: string | null;
             /** Name En */
             name_en?: string | null;
-        };
-        /**
-         * ReferenceSummary
-         * @description Reference value with both names; the UI picks the user's language.
-         */
-        ReferenceSummary: {
-            /** Code */
-            code: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name Bg */
-            name_bg: string;
-            /** Name En */
-            name_en: string;
         };
         /**
          * RoleCode
@@ -1257,7 +1602,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "organization" | "contact";
+            type: "organization" | "contact" | "lead" | "opportunity";
         };
         /** SearchResults */
         SearchResults: {
@@ -1313,6 +1658,13 @@ export interface components {
         SyncPage_ContactOut_: {
             /** Items */
             items: components["schemas"]["ContactOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** SyncPage[LeadOut] */
+        SyncPage_LeadOut_: {
+            /** Items */
+            items: components["schemas"]["LeadOut"][];
             /** Next Cursor */
             next_cursor: string | null;
         };
@@ -1464,6 +1816,42 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VersionOnly */
+        VersionOnly: {
+            /** Version */
+            version: number;
+        };
+        /**
+         * ReferenceSummary
+         * @description Reference value with both names; the UI picks the user's language.
+         */
+        app__modules__party__schemas__ReferenceSummary: {
+            /** Code */
+            code: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name Bg */
+            name_bg: string;
+            /** Name En */
+            name_en: string;
+        };
+        /** ReferenceSummary */
+        app__modules__sales__schemas__ReferenceSummary: {
+            /** Code */
+            code: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name Bg */
+            name_bg: string;
+            /** Name En */
+            name_en: string;
         };
     };
     responses: never;
@@ -1968,6 +2356,384 @@ export interface operations {
             };
         };
     };
+    list_leads_api_v1_leads_get: {
+        parameters: {
+            query?: {
+                status?: ("new" | "contacted" | "qualified" | "converted" | "disqualified")[] | null;
+                owner_id?: string[] | null;
+                source_id?: string[] | null;
+                created_at_from?: string | null;
+                created_at_to?: string | null;
+                fits_target_profile?: boolean | null;
+                page?: number;
+                page_size?: number | null;
+                /** @description Sortable: created_at, estimated_value, qualification_score, company_name; prefix - for descending */
+                sort?: string | null;
+                q?: string | null;
+                include_archived?: boolean;
+                updated_since?: string | null;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_LeadOut_"] | components["schemas"]["SyncPage_LeadOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_lead_api_v1_leads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeadCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_lead_api_v1_leads__lead_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lead_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_lead_api_v1_leads__lead_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lead_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_lead_api_v1_leads__lead_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lead_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeadUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_lead_api_v1_leads__lead_id__assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lead_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disqualify_api_v1_leads__lead_id__disqualify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lead_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisqualifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_contacted_api_v1_leads__lead_id__mark_contacted_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lead_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionOnly"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    qualify_api_v1_leads__lead_id__qualify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lead_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionOnly"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_api_v1_leads__lead_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lead_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionOnly"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_lead_api_v1_leads__lead_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lead_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_me_api_v1_me_get: {
         parameters: {
             query?: never;
@@ -2313,6 +3079,46 @@ export interface operations {
             };
         };
     };
+    organization_leads_api_v1_organizations__org_id__leads_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number | null;
+                /** @description Sortable: created_at, estimated_value, qualification_score, company_name; prefix - for descending */
+                sort?: string | null;
+                q?: string | null;
+                include_archived?: boolean;
+                updated_since?: string | null;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_LeadOut_"] | components["schemas"]["SyncPage_LeadOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     restore_organization_api_v1_organizations__org_id__restore_post: {
         parameters: {
             query?: never;
@@ -2537,7 +3343,7 @@ export interface operations {
         parameters: {
             query: {
                 q: string;
-                types?: string[] | null;
+                types?: ("organization" | "contact" | "lead" | "opportunity")[] | null;
             };
             header?: never;
             path?: never;

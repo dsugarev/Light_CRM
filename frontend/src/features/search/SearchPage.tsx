@@ -8,6 +8,13 @@ import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 
+const HIT_PATHS = {
+  organization: '/organizations',
+  contact: '/contacts',
+  lead: '/leads',
+  opportunity: '/opportunities',
+} as const
+
 /** Global quick search (API spec section 12) across organizations and contacts. */
 export function SearchPage() {
   const { t } = useTranslation('party')
@@ -33,9 +40,7 @@ export function SearchPage() {
               <li key={`${hit.type}-${hit.id}`} className="flex items-center gap-3 px-4 py-2">
                 <Badge variant="secondary">{t(`search.${hit.type}`)}</Badge>
                 <Link
-                  to={
-                    hit.type === 'organization' ? `/organizations/${hit.id}` : `/contacts/${hit.id}`
-                  }
+                  to={`${HIT_PATHS[hit.type]}/${hit.id}`}
                   className="font-medium hover:underline"
                 >
                   {hit.label}

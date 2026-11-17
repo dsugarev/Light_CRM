@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { NavLink, Navigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
@@ -24,10 +25,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useReferenceList, type ReferenceItem } from '@/features/reference/useReferenceList'
+import {
+  REFERENCE_LISTS,
+  useReferenceList,
+  type ReferenceItem,
+  type ReferenceListName,
+} from '@/features/reference/useReferenceList'
 import { applyServerErrors } from '@/lib/errors'
 
-const LIST = 'industries' as const
 const schema = z.object({
   code: z
     .string()
@@ -48,6 +53,14 @@ type Values = z.infer<typeof schema>
 
 /** FR-ADM-02: Admins add, rename, reorder, (de)activate and delete list values. */
 export function ReferenceListPage() {
+  const { list = '' } = useParams()
+  if (!(REFERENCE_LISTS as readonly string[]).includes(list)) {
+    return <Navigate to="/admin/reference/industries" replace />
+  }
+  return <ReferenceListEditor key={list} list={list as ReferenceListName} />
+}
+
+function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
   const { t } = useTranslation('admin')
   const items = useReferenceList(LIST, true)
   const queryClient = useQueryClient()
@@ -95,7 +108,20 @@ export function ReferenceListPage() {
 
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6">
-      <PageHeader title={`${t('reference.title')}: ${t('reference.industries')}`} />
+      <PageHeader title={t('reference.title')} />
+      <nav aria-label={t('reference.title')} className="flex flex-wrap gap-2">
+        {REFERENCE_LISTS.map((name) => (
+          <NavLink
+            key={name}
+            to={`/admin/reference/${name}`}
+            className={({ isActive }) =>
+              `rounded-md px-3 py-1 text-sm ${isActive ? 'bg-secondary font-medium' : 'hover:bg-muted'}`
+            }
+          >
+            {t(`reference.lists.${name}`)}
+          </NavLink>
+        ))}
+      </nav>
       <FormMessage error={error instanceof ApiError ? error.code : null} />
       {items.isError ? <ErrorState error={items.error} /> : null}
       {items.data ? (
@@ -172,12 +198,18 @@ export function ReferenceListPage() {
       ) : (
         <Loading />
       )}
-      <AddValue onAdded={refresh} />
+      <AddValue list={LIST} onAdded={refresh} />
     </section>
   )
 }
 
-function AddValue({ onAdded }: { onAdded: () => Promise<unknown> }) {
+function AddValue({
+  list: LIST,
+  onAdded,
+}: {
+  list: ReferenceListName
+  onAdded: () => Promise<unknown>
+}) {
   const { t } = useTranslation('admin')
   const form = useForm<Values>({
     resolver: zodResolver(schema),

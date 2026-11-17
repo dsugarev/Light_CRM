@@ -1,0 +1,113 @@
+{
+  "list": {
+    "title": "Leads",
+    "new": "New lead",
+    "search": "Search by title, company, contact, email or phone",
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "source": "Source",
+    "allSources": "All sources",
+    "fit": "Fits target profile",
+    "owner": "Owner",
+    "everyone": "Everyone",
+    "mine": "Mine",
+    "archived": "Show archived",
+    "columns": {
+      "title": "Lead",
+      "company": "Company",
+      "status": "Status",
+      "score": "Score",
+      "value": "Estimated value",
+      "owner": "Owner",
+      "created": "Created"
+    }
+  },
+  "status": {
+    "new": "New",
+    "contacted": "Contacted",
+    "qualified": "Qualified",
+    "converted": "Converted",
+    "disqualified": "Disqualified"
+  },
+  "fields": {
+    "title": "Title",
+    "companyName": "Company",
+    "contactName": "Contact person",
+    "email": "Email",
+    "phone": "Phone",
+    "source": "Source",
+    "estimatedValue": "Estimated value (EUR)",
+    "description": "Description",
+    "organization": "Existing organization",
+    "contact": "Existing contact",
+    "owner": "Owner",
+    "none": "Not set"
+  },
+  "hints": {
+    "companyName": "A company name is enough to save the lead.",
+    "organization": "Optional: link the lead to an organization that already exists."
+  },
+  "createTitle": "New lead",
+  "editTitle": "Edit lead",
+  "create": "Create lead",
+  "bant": {
+    "title": "Qualification (BANT)",
+    "budget": "Budget",
+    "authority": "Authority",
+    "need": "Need",
+    "timeline": "Timeline",
+    "note": "Note",
+    "fits": "Fits our target profile",
+    "score": "Score",
+    "save": "Save qualification",
+    "status": {
+      "unknown": "Unknown",
+      "no": "No",
+      "partial": "Partial",
+      "yes": "Yes"
+    },
+    "incomplete": "To qualify, every BANT item must be known."
+  },
+  "actions": {
+    "title": "Actions",
+    "markContacted": "Mark as contacted",
+    "qualify": "Qualify",
+    "disqualify": "Disqualify",
+    "reopen": "Reopen",
+    "edit": "Edit",
+    "archive": "Archive",
+    "restore": "Restore",
+    "takeOver": "Take over",
+    "assign": "Assign",
+    "assignTo": "New owner",
+    "confirmArchive": "Archive the lead “{{title}}”?"
+  },
+  "disqualify": {
+    "title": "Disqualify lead",
+    "reason": "Reason",
+    "chooseReason": "Choose a reason",
+    "note": "Note",
+    "confirm": "Disqualify",
+    "info": "Disqualified on {{date}}: {{reason}}"
+  },
+  "detail": {
+    "details": "Details",
+    "createdBy": "Created by {{name}} on {{date}}",
+    "readOnly": "This lead is {{status}} and can no longer be edited.",
+    "conversionLater": "Conversion to an opportunity becomes available when opportunities are introduced."
+  },
+  "toasts": {
+    "created": "Lead created.",
+    "saved": "Lead saved.",
+    "statusChanged": "Status changed to {{status}}.",
+    "assigned": "Owner changed.",
+    "archived": "Lead archived.",
+    "restored": "Lead restored.",
+    "conflict": "Someone else changed this lead. The latest version is shown; please repeat your change."
+  },
+  "organization": {
+    "title": "Leads",
+    "new": "New lead",
+    "none": "No leads yet."
+  }
+}

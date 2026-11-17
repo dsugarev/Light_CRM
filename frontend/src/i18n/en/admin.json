@@ -140,6 +140,11 @@
     "save": "Save names",
     "added": "Value added.",
     "saved": "Saved.",
-    "deleted": "Value deleted."
+    "deleted": "Value deleted.",
+    "lists": {
+      "industries": "Industries",
+      "lead-sources": "Lead sources",
+      "disqualification-reasons": "Disqualification reasons"
+    }
   }
 }

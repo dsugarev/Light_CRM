@@ -114,3 +114,70 @@ export const page = <T>(items: T[]) => ({ items, total: items.length, page: 1, p
 export function referenceLists() {
   server.use(http.get('*/api/v1/reference/industries', () => HttpResponse.json([TELECOM])))
 }
+
+export const LEAD: Schemas['LeadOut'] = {
+  id: '01930000-0000-7000-8000-0000000000d1',
+  title: 'Fibre for 3 branches',
+  company_name: 'Акме ЕООД',
+  contact_name: 'Мария Иванова',
+  email: 'maria@example.test',
+  phone: null,
+  source: {
+    id: 'src-1',
+    code: 'inbound',
+    name_en: 'Inbound inquiry',
+    name_bg: 'Входящо запитване',
+  },
+  status: 'contacted',
+  description: null,
+  estimated_value: '48000.00',
+  currency: 'EUR',
+  owner: { id: REP_ME.id, full_name: REP_ME.full_name },
+  qualification: {
+    budget: { status: 'yes', note: 'Approved' },
+    authority: { status: 'partial', note: '' },
+    need: { status: 'yes', note: '' },
+    timeline: { status: 'unknown', note: '' },
+    fits_target_profile: true,
+    score: 63,
+  },
+  organization: null,
+  contact: null,
+  converted_opportunity: null,
+  converted_at: null,
+  disqualification: null,
+  created_at: '2026-11-17T08:00:00Z',
+  updated_at: '2026-11-17T09:00:00Z',
+  created_by: { id: REP_ME.id, full_name: REP_ME.full_name },
+  archived_at: null,
+  version: 3,
+}
+
+export function leadLists() {
+  server.use(
+    http.get('*/api/v1/reference/lead-sources', () =>
+      HttpResponse.json([
+        {
+          id: 'src-1',
+          code: 'inbound',
+          name_en: 'Inbound inquiry',
+          name_bg: 'Входящо запитване',
+          position: 1,
+          is_active: true,
+        },
+      ]),
+    ),
+    http.get('*/api/v1/reference/disqualification-reasons', () =>
+      HttpResponse.json([
+        {
+          id: 'r-1',
+          code: 'no_budget',
+          name_en: 'No budget',
+          name_bg: 'Няма бюджет',
+          position: 1,
+          is_active: true,
+        },
+      ]),
+    ),
+  )
+}

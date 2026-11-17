@@ -58,6 +58,9 @@ export function AppLayout() {
               <NavLink to="/contacts" className={linkClass}>
                 {t('nav.contacts')}
               </NavLink>
+              <NavLink to="/leads" className={linkClass}>
+                {t('nav.leads')}
+              </NavLink>
               {show.users ? (
                 <NavLink to="/admin/users" className={linkClass}>
                   {t('nav.users')}
