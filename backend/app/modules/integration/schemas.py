@@ -84,7 +84,9 @@ class IntegrationClientCreate(_Request):
     ip_allowlist: Annotated[list[Cidr], Field(max_length=50)] = []
     technical_contact: Annotated[str, Field(max_length=300)] | None = None
     rate_limit_per_minute: Annotated[int, Field(ge=1, le=100_000)] = 300
-    is_active: bool = True
+    is_active: bool = Field(
+        default=False, description="Clients start inactive until the data flow is confirmed"
+    )
 
 
 class IntegrationClientUpdate(_Request):

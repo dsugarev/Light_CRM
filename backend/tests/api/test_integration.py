@@ -42,8 +42,9 @@ async def test_FR_INT_01_admin_registers_a_client_backed_by_a_service_user(
     assert client["system"]["code"] == "erp"
     assert client["scopes"] == ["external-references:write", "organizations:read"]
     assert client["default_owner"]["id"] == str(owner.id)
+    # Clients start inactive until the data flow is confirmed (API spec 19.9).
     assert (client["is_active"], client["active_keys"], client["usage"]) == (
-        True,
+        False,
         0,
         {"requests_24h": 0, "errors_24h": 0},
     )

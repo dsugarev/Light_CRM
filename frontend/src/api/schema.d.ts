@@ -2579,7 +2579,8 @@ export interface components {
             ip_allowlist: string[];
             /**
              * Is Active
-             * @default true
+             * @description Clients start inactive until the data flow is confirmed
+             * @default false
              */
             is_active: boolean;
             /** Name */

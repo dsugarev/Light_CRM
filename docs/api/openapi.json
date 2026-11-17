@@ -2651,7 +2651,8 @@
             "type": "array"
           },
           "is_active": {
-            "default": true,
+            "default": false,
+            "description": "Clients start inactive until the data flow is confirmed",
             "title": "Is Active",
             "type": "boolean"
           },

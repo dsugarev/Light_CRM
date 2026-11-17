@@ -213,6 +213,7 @@ async def _register_integration(
                     "default_owner_id": default_owner_id,
                     "rate_limit_per_minute": rate_limit_per_minute,
                     "ip_allowlist": list(ip_allowlist),
+                    "is_active": True,
                 }
             ),
         )
