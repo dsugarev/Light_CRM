@@ -98,12 +98,14 @@ Errors use RFC 9457 problem details with content type `application/problem+json`
 | 401 | Not signed in or session expired |
 | 403 | Signed in but not permitted, or CSRF check failed |
 | 404 | Record does not exist (also used instead of 403 for records a user may not know about, none in R1 because all users may read all records) |
+| 405 | HTTP method not supported on this path |
 | 409 | Version conflict, duplicate, or invalid state transition |
 | 413 | Upload too large |
 | 415 | Unsupported upload type |
 | 422 | Field validation failed |
 | 423 | Account locked |
 | 429 | Rate limit or AI budget exceeded; includes `Retry-After` |
+| 500 | Unexpected server error; the body never contains internal details |
 | 503 | Dependency unavailable (database not ready, LLM provider down) |
 
 Error codes (stable, used by the frontend for translation; add new codes here when introduced):
@@ -119,8 +121,10 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `auth.csrf_failed` | 403 | Missing header or bad origin |
 | `auth.mfa_required` | 401 | Password accepted, TOTP code needed (only if MFA enabled) |
 | `permission.denied` | 403 | Role or ownership does not allow the action |
-| `resource.not_found` | 404 | No such record |
-| `validation.failed` | 422 | Field-level errors in `errors` |
+| `resource.not_found` | 404 | No such record (also returned for unknown paths) |
+| `request.method_not_allowed` | 405 | HTTP method not supported on this path |
+| `server.internal_error` | 500 | Unexpected error; details are only in the server log, under the `request_id` |
+| `validation.failed` | 422 | Field-level errors in `errors`. Also used with `400` for a malformed body (field `body`, code `validation.json_invalid`) and unknown sort or filter fields |
 | `validation.use_action_endpoint` | 422 | Field must be changed through an action endpoint |
 | `conflict.version_mismatch` | 409 | Record changed since it was loaded |
 | `conflict.duplicate` | 409 | Matches an existing record; `matches` lists them |

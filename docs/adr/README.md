@@ -1,0 +1,16 @@
+# Architecture decision records
+
+One file per decision: `NNNN-title.md` with context, decision and consequences. Add a new ADR for each significant decision; supersede rather than edit accepted ones.
+
+- [0001 Modular monolith](0001-modular-monolith.md)
+- [0002 FastAPI and React stack](0002-fastapi-and-react-stack.md)
+- [0003 Server-side cookie sessions instead of JWT](0003-cookie-sessions-over-jwt.md)
+- [0004 PostgreSQL for sessions, rate limits, idempotency and jobs](0004-postgresql-for-sessions-rate-limits-and-jobs.md)
+- [0005 Additive-only migrations and separate database roles](0005-additive-only-migrations-and-database-roles.md)
+- [0006 AI assistant is read-only in R1](0006-read-only-ai-assistant.md)
+- [0007 LLM access via LiteLLM, OpenRouter and Cerebras](0007-llm-via-litellm-openrouter-cerebras.md)
+- [0008 One API for the frontend and integrations, with scoped API keys](0008-one-api-with-scoped-api-keys.md)
+- [0009 Transactional outbox in PostgreSQL for webhooks](0009-transactional-outbox-for-webhooks.md)
+- [0010 External references table for cross-system IDs](0010-external-references-table.md)
+- [0011 Local HTTPS through Caddy; development ports only in the dev override](0011-local-https-and-development-ports.md)
+- [0012 Enforcing the endpoint catalog and access levels](0012-route-catalog-enforcement.md)

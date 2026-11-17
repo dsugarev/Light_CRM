@@ -1,0 +1,105 @@
+# Production-like stack: `docker compose up --build -d` (or scripts/start-*).
+# Configuration comes from .env (see .env.example). Only the proxy publishes
+# ports; the backend and database stay inside the Compose network.
+name: light-crm
+
+x-backend-env: &backend-env
+  ENV: ${ENV:-production}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATABASE_URL: postgresql+asyncpg://crm_app:${CRM_APP_PASSWORD:?set CRM_APP_PASSWORD in .env}@db:5432/crm
+  MIGRATION_DATABASE_URL: postgresql+asyncpg://crm_migrator:${CRM_MIGRATOR_PASSWORD:?set CRM_MIGRATOR_PASSWORD in .env}@db:5432/crm
+
+services:
+  db:
+    image: postgres:18.7-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      CRM_DB_NAME: crm
+      CRM_EXTRA_DATABASES: ${CRM_EXTRA_DATABASES:-}
+      CRM_MIGRATOR_PASSWORD: ${CRM_MIGRATOR_PASSWORD}
+      CRM_APP_PASSWORD: ${CRM_APP_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql
+      - ./deploy/postgres/init-roles.sh:/docker-entrypoint-initdb.d/10-init-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crm"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: ./backend
+    image: light-crm-backend:${CRM_VERSION:-local}
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    image: light-crm-backend:${CRM_VERSION:-local}
+    restart: unless-stopped
+    environment: *backend-env
+    read_only: true
+    tmpfs: [/tmp]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    image: light-crm-backend:${CRM_VERSION:-local}
+    command: ["python", "-m", "app.worker"]
+    restart: unless-stopped
+    environment: *backend-env
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  proxy:
+    build: ./frontend
+    image: light-crm-proxy:${CRM_VERSION:-local}
+    restart: unless-stopped
+    environment:
+      CRM_SITE_ADDRESS: ${CRM_SITE_ADDRESS:-localhost}
+      CRM_TLS: ${CRM_TLS:-internal}
+    ports:
+      - "${CRM_HTTP_PORT:-80}:80"
+      - "${CRM_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  backup:
+    image: postgres:18.7-trixie
+    restart: unless-stopped
+    entrypoint: ["bash", "/usr/local/bin/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: crm_migrator
+      PGPASSWORD: ${CRM_MIGRATOR_PASSWORD}
+      PGDATABASE: crm
+      BACKUP_TIME: ${BACKUP_TIME:-02:00}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      TZ: Europe/Sofia
+    volumes:
+      - ./deploy/backup/backup.sh:/usr/local/bin/backup.sh:ro
+      - ${CRM_BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

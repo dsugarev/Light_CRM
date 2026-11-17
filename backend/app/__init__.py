@@ -1,0 +1,1 @@
+"""Light CRM backend."""

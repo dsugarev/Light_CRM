@@ -1,0 +1,34 @@
+# Development overrides:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# - ENV=development: OpenAPI document and /api/docs are published
+# - backend on http://localhost:8000 with hot reload of backend/app
+# - PostgreSQL on localhost:5432, with an extra crm_test database for pytest
+#   (CRM_EXTRA_DATABASES only applies when the db volume is first created)
+# - the SPA dev server runs on the host: `cd frontend && pnpm dev` (port 5173)
+services:
+  db:
+    environment:
+      CRM_EXTRA_DATABASES: crm_test
+    ports:
+      - "5432:5432"
+
+  migrate:
+    environment:
+      ENV: development
+
+  backend:
+    environment:
+      ENV: development
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000",
+              "--reload", "--reload-dir", "app", "--no-access-log"]
+    volumes:
+      - ./backend/app:/srv/backend/app:ro
+      - ./backend/alembic:/srv/backend/alembic:ro
+    ports:
+      - "8000:8000"
+
+  worker:
+    environment:
+      ENV: development
+    volumes:
+      - ./backend/app:/srv/backend/app:ro
