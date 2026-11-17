@@ -23,13 +23,11 @@ from app.modules.party.schemas import (
     OrganizationDetail,
     OrganizationOut,
     OrganizationUpdate,
-    SearchResults,
     SizeBand,
 )
 
 organizations_router = APIRouter(prefix="/organizations", tags=["organizations"])
 contacts_router = APIRouter(prefix="/contacts", tags=["contacts"])
-search_router = APIRouter(prefix="/search", tags=["search"])
 
 
 async def context(request: Request, session: DbSession) -> service.Context:
@@ -39,6 +37,7 @@ async def context(request: Request, session: DbSession) -> service.Context:
         events=request.app.state.event_bus,
         settings=request.app.state.settings,
         now=clock.now(),
+        organization_stats=request.app.state.organization_stats,
     )
 
 
@@ -274,21 +273,4 @@ async def restore_contact(contact_id: UUID, ctx: Ctx, principal: CurrentPrincipa
     return await service.restore_contact(ctx, principal, contact_id)
 
 
-# --- Search (API spec section 12) -----------------------------------------------------
-
-
-@search_router.get(
-    "",
-    summary="Quick search across organizations and contacts, up to 5 per type",
-    **endpoint(AccessLevel.SIGNED_IN, scope="organizations:read"),
-)
-async def search(
-    ctx: Ctx,
-    q: Annotated[str, Query(min_length=2, max_length=200)],
-    types: Annotated[list[str] | None, Query(max_length=4)] = None,
-) -> SearchResults:
-    wanted = set(types or ["organization", "contact"]) & {"organization", "contact"}
-    return await service.search(ctx, q, wanted)
-
-
-routers = [organizations_router, contacts_router, search_router]
+routers = [organizations_router, contacts_router]

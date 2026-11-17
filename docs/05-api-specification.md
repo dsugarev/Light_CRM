@@ -169,6 +169,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `lead.invalid_transition` | 409 | Status change not allowed from the current status |
 | `lead.bant_incomplete` | 409 | Cannot qualify while a BANT item is unknown |
 | `lead.not_convertible` | 409 | Lead is not Qualified or is already converted |
+| `lead.read_only` | 409 | Lead is converted or disqualified; only reopen (disqualified, Manager+) is possible |
 | `opportunity.closed` | 409 | Change attempted on a closed opportunity |
 | `opportunity.loss_reason_required` | 422 | Lost outcome without a loss reason |
 | `stage.in_use` | 409 | Stage cannot be removed while in use |

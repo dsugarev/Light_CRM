@@ -203,17 +203,3 @@ class ContactOut(BaseModel):
     created_by: UserSummary | None
     archived_at: datetime | None
     anonymized_at: datetime | None
-
-
-# --- Search -----------------------------------------------------------------------------
-
-
-class SearchHit(BaseModel):
-    type: Literal["organization", "contact"]
-    id: UUID
-    label: str
-    detail: str | None
-
-
-class SearchResults(BaseModel):
-    items: list[SearchHit]
