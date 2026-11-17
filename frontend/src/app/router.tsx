@@ -27,6 +27,14 @@ import { ProfilePage } from '@/features/profile/ProfilePage'
 import { SearchPage } from '@/features/search/SearchPage'
 import { LeadPage } from '@/features/leads/LeadPage'
 import { LeadEditPage, LeadNewPage, LeadsPage } from '@/features/leads/LeadPages'
+import { BoardPage } from '@/features/opportunities/BoardPage'
+import {
+  OpportunitiesPage,
+  OpportunityEditPage,
+  OpportunityNewPage,
+} from '@/features/opportunities/OpportunityPages'
+import { OpportunityPage } from '@/features/opportunities/OpportunityPage'
+import { StagesPage } from '@/features/opportunities/StagesPage'
 
 import { AppLayout } from './AppLayout'
 import { HomePage } from './HomePage'
@@ -56,12 +64,16 @@ export const routes: RouteObject[] = [
               { path: 'contacts/:contactId', element: <ContactPage /> },
               { path: 'leads', element: <LeadsPage /> },
               { path: 'leads/:leadId', element: <LeadPage /> },
+              { path: 'opportunities', element: <OpportunitiesPage /> },
+              { path: 'opportunities/board', element: <BoardPage /> },
+              { path: 'opportunities/:opportunityId', element: <OpportunityPage /> },
               {
                 element: <RequirePermission permission="records.create" />,
                 children: [
                   { path: 'organizations/new', element: <OrganizationNewPage /> },
                   { path: 'contacts/new', element: <ContactNewPage /> },
                   { path: 'leads/new', element: <LeadNewPage /> },
+                  { path: 'opportunities/new', element: <OpportunityNewPage /> },
                 ],
               },
               {
@@ -70,6 +82,7 @@ export const routes: RouteObject[] = [
                   { path: 'organizations/:orgId/edit', element: <OrganizationEditPage /> },
                   { path: 'contacts/:contactId/edit', element: <ContactEditPage /> },
                   { path: 'leads/:leadId/edit', element: <LeadEditPage /> },
+                  { path: 'opportunities/:opportunityId/edit', element: <OpportunityEditPage /> },
                 ],
               },
               {
@@ -95,6 +108,7 @@ export const routes: RouteObject[] = [
                     children: [
                       { path: 'settings', element: <SettingsPage /> },
                       { path: 'reference/:list', element: <ReferenceListPage /> },
+                      { path: 'stages', element: <StagesPage /> },
                     ],
                   },
                 ],

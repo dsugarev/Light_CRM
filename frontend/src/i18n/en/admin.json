@@ -119,7 +119,10 @@
     "idle": "Sign out after inactivity (minutes)",
     "absolute": "Maximum session length (minutes)",
     "idleHint": "Default 480 (8 hours); 15 to 1440.",
-    "absoluteHint": "Default 10080 (7 days); 60 to 43200."
+    "absoluteHint": "Default 10080 (7 days); 60 to 43200.",
+    "opportunities": "Opportunities",
+    "staleDays": "Days without activity before an opportunity needs attention",
+    "staleDaysHint": "Default 14; 1 to 365."
   },
   "reference": {
     "title": "Lists",
@@ -144,7 +147,8 @@
     "lists": {
       "industries": "Industries",
       "lead-sources": "Lead sources",
-      "disqualification-reasons": "Disqualification reasons"
+      "disqualification-reasons": "Disqualification reasons",
+      "loss-reasons": "Loss reasons"
     }
   }
 }

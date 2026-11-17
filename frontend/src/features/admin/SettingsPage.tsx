@@ -25,6 +25,7 @@ const schema = z
   .object({
     session_idle_timeout_minutes: minutes(15, 1440),
     session_absolute_timeout_minutes: minutes(60, 43200),
+    stale_opportunity_days: minutes(1, 365),
   })
   .refine((v) => v.session_idle_timeout_minutes <= v.session_absolute_timeout_minutes, {
     path: ['session_idle_timeout_minutes'],
@@ -32,9 +33,13 @@ const schema = z
   })
 type Input_ = z.input<typeof schema>
 type Values = z.output<typeof schema>
-const FIELDS = ['session_idle_timeout_minutes', 'session_absolute_timeout_minutes'] as const
+const FIELDS = [
+  'session_idle_timeout_minutes',
+  'session_absolute_timeout_minutes',
+  'stale_opportunity_days',
+] as const
 
-/** FR-AUTH-04: session timeouts are configurable by an Admin. */
+/** FR-AUTH-04, FR-OPP-06: session timeouts and the stale threshold are set by an Admin. */
 export function SettingsPage() {
   const { t } = useTranslation('admin')
   const settings = useQuery({
@@ -58,6 +63,7 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
     defaultValues: {
       session_idle_timeout_minutes: String(current.session_idle_timeout_minutes),
       session_absolute_timeout_minutes: String(current.session_absolute_timeout_minutes),
+      stale_opportunity_days: String(current.stale_opportunity_days),
     },
   })
   const save = useMutation({
@@ -107,6 +113,20 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
                 {...control}
                 inputMode="numeric"
                 {...form.register('session_absolute_timeout_minutes')}
+              />
+            )}
+          </FormField>
+          <h3 className="pt-2 font-medium">{t('settings.opportunities')}</h3>
+          <FormField
+            label={t('settings.staleDays')}
+            error={errors.stale_opportunity_days?.message}
+            hint={t('settings.staleDaysHint')}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                inputMode="numeric"
+                {...form.register('stale_opportunity_days')}
               />
             )}
           </FormField>

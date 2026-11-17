@@ -15,9 +15,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { AssignControl } from '@/features/auth/AssignControl'
 import { useMe } from '@/features/auth/useMe'
 import { useCanEditOwned } from '@/features/auth/useOwnership'
-import { useUserLookup } from '@/features/auth/useUserLookup'
 import { referenceName, useReferenceList } from '@/features/reference/useReferenceList'
 import { formatDate, formatMoney } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
@@ -253,6 +253,8 @@ function LeadActions({ lead }: { lead: Lead }) {
           <AssignControl
             current={lead.owner.id}
             pending={assign.isPending}
+            label={t('actions.assignTo')}
+            buttonLabel={t('actions.assign')}
             onAssign={(id) => {
               assign.mutate(id)
             }}
@@ -281,48 +283,6 @@ function LeadActions({ lead }: { lead: Lead }) {
           </Button>
         ) : null}
       </div>
-    </div>
-  )
-}
-
-function AssignControl({
-  current,
-  pending,
-  onAssign,
-}: {
-  current: string
-  pending: boolean
-  onAssign: (id: string) => void
-}) {
-  const { t } = useTranslation('leads')
-  const users = useUserLookup(true)
-  const [owner, setOwner] = useState(current)
-  return (
-    <div className="flex items-center gap-2">
-      <NativeSelect
-        aria-label={t('actions.assignTo')}
-        value={owner}
-        onChange={(e) => {
-          setOwner(e.target.value)
-        }}
-        className="w-48"
-      >
-        {(users.data?.items ?? []).map((user) => (
-          <option key={user.id} value={user.id}>
-            {user.full_name}
-          </option>
-        ))}
-      </NativeSelect>
-      <Button
-        type="button"
-        variant="outline"
-        disabled={pending || owner === current}
-        onClick={() => {
-          onAssign(owner)
-        }}
-      >
-        {t('actions.assign')}
-      </Button>
     </div>
   )
 }

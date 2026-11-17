@@ -30,7 +30,10 @@
     "contacts": "Contacts",
     "reference": "Lists",
     "search": "Search",
-    "leads": "Leads"
+    "leads": "Leads",
+    "opportunities": "Opportunities",
+    "board": "Board",
+    "stages": "Stages"
   },
   "roles": {
     "admin": "Admin",
@@ -61,6 +64,6 @@
   },
   "home": {
     "title": "Welcome, {{name}}",
-    "intro": "Leads, opportunities and the dashboard will appear here in the coming releases."
+    "intro": "Use the pipeline board to see where every opportunity stands. Leads, organizations and contacts are in the menu above."
   }
 }

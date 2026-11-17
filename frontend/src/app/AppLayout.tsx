@@ -61,6 +61,12 @@ export function AppLayout() {
               <NavLink to="/leads" className={linkClass}>
                 {t('nav.leads')}
               </NavLink>
+              <NavLink to="/opportunities" end className={linkClass}>
+                {t('nav.opportunities')}
+              </NavLink>
+              <NavLink to="/opportunities/board" className={linkClass}>
+                {t('nav.board')}
+              </NavLink>
               {show.users ? (
                 <NavLink to="/admin/users" className={linkClass}>
                   {t('nav.users')}
@@ -79,6 +85,11 @@ export function AppLayout() {
               {show.settings ? (
                 <NavLink to="/admin/reference/industries" className={linkClass}>
                   {t('nav.reference')}
+                </NavLink>
+              ) : null}
+              {show.settings ? (
+                <NavLink to="/admin/stages" className={linkClass}>
+                  {t('nav.stages')}
                 </NavLink>
               ) : null}
             </nav>

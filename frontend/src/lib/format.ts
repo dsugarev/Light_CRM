@@ -27,3 +27,13 @@ export function formatNumber(value: number, locale: Locale): string {
 export function formatMoney(amount: string, locale: Locale, currency = 'EUR'): string {
   return new Intl.NumberFormat(TAGS[locale], { style: 'currency', currency }).format(Number(amount))
 }
+
+/**
+ * A calendar date without a time (`YYYY-MM-DD`, e.g. an expected close date),
+ * formatted as is: no time-zone shift applies to a day.
+ */
+export function formatDay(day: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(TAGS[locale], { dateStyle: 'medium', timeZone: 'UTC' }).format(
+    new Date(`${day}T00:00:00Z`),
+  )
+}
