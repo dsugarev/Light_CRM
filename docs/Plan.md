@@ -1446,4 +1446,5 @@ export async function download(path: string, query: string): Promise<void> {
 ### Open items
 
 1. Phase 5b: import, seed data and the performance check; then owner review of 5a + 5b.
+2. Remove the ignored advisory GHSA-fc5q-39xc-vjpf from `frontend/pnpm-workspace.yaml` once picomatch ships a fix (ADR 0022). The first CI run of PR #9 (44158425076) failed on it in the frontend dependency audit; everything else was green.
 

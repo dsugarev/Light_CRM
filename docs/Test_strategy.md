@@ -420,6 +420,7 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 | 2026-11-17 | Developer Mac, scratch PostgreSQL 18.7 | ruff, mypy, import-linter, pytest, pip-audit | 825 passed, 97% coverage; clean |
 | 2026-11-17 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (719 keys), pnpm audit, OpenAPI snapshot and generated types | 96 passed; clean |
 | 2026-11-17 | Docker Desktop, rebuilt stack | Playwright Chromium, full suite (20 tests, two workers) | First run: the new journey's last assertion failed (test defect, see below); after the fix 20/20 in two consecutive runs |
+| 2026-11-17 | GitHub Actions, PR #9 run 44158425076 | All four jobs | Backend and contract green; frontend failed in `pnpm audit --audit-level high` on a newly published dev-only advisory (GHSA-fc5q-39xc-vjpf, no fix); E2E skipped. Owner decision: ignore this advisory only (ADR 0022) |
 
 ### Defects found by testing and fixed
 
