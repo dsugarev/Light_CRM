@@ -36,7 +36,8 @@
     "stages": "Етапи",
     "tasks": "Моите задачи",
     "reports": "Отчети",
-    "imports": "Импорт"
+    "imports": "Импорт",
+    "integrations": "Интеграции"
   },
   "roles": {
     "admin": "Администратор",

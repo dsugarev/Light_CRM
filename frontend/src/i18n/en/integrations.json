@@ -1,0 +1,83 @@
+{
+  "title": "Integrations",
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "list": {
+    "name": "Client",
+    "system": "System",
+    "status": "Status",
+    "keys": "Active keys",
+    "usage": "Last 24 hours",
+    "usageValue": "{{requests}} requests, {{errors}} errors",
+    "lastUsed": "Last used",
+    "never": "Never",
+    "none": "No integration clients yet."
+  },
+  "new": {
+    "title": "New integration client",
+    "create": "Create client"
+  },
+  "fields": {
+    "name": "Name",
+    "system": "System",
+    "chooseSystem": "Choose a system",
+    "scopes": "Scopes",
+    "defaultOwner": "Default owner",
+    "noOwner": "None",
+    "rateLimit": "Requests per minute",
+    "contact": "Technical contact",
+    "allowlist": "Allowed addresses"
+  },
+  "hints": {
+    "defaultOwner": "Owner of records the client creates without naming one.",
+    "allowlist": "One address range (CIDR) per line, e.g. 10.1.2.0/24; empty: any address."
+  },
+  "detail": {
+    "settings": "Settings",
+    "save": "Save",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "confirmDeactivate": "Deactivate {{name}}? All its requests will be refused.",
+    "usage": "Last 24 hours: {{requests}} requests, {{errors}} errors. Last used: {{lastUsed}}."
+  },
+  "keys": {
+    "title": "API keys",
+    "label": "Label",
+    "prefix": "Key prefix",
+    "expires": "Expires",
+    "lastUsed": "Last used",
+    "state": "State",
+    "active": "Active",
+    "revoked": "Revoked",
+    "expired": "Expired",
+    "revoke": "Revoke",
+    "confirmRevoke": "Revoke the key “{{label}}”? Requests with it will be refused immediately.",
+    "create": "Create key",
+    "onceTitle": "Copy the key now",
+    "onceText": "This is the only time the full key is shown. Give it to the system's technical contact through a secure channel.",
+    "newKey": "New API key"
+  },
+  "references": {
+    "title": "IDs in other systems",
+    "none": "No IDs in other systems.",
+    "system": "System",
+    "externalId": "ID",
+    "url": "Link (https)",
+    "save": "Save",
+    "add": "Add an ID in another system",
+    "remove": "Remove",
+    "confirmRemove": "Remove the ID {{id}}?",
+    "saved": "ID saved.",
+    "removed": "ID removed."
+  },
+  "toasts": {
+    "created": "Client created.",
+    "saved": "Client saved.",
+    "activated": "Client activated.",
+    "deactivated": "Client deactivated.",
+    "keyCreated": "Key created.",
+    "keyRevoked": "Key revoked."
+  }
+}

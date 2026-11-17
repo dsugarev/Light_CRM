@@ -10,6 +10,7 @@ export const REFERENCE_LISTS = [
   'lead-sources',
   'disqualification-reasons',
   'loss-reasons',
+  'external-systems',
 ] as const
 export type ReferenceListName = (typeof REFERENCE_LISTS)[number]
 

@@ -16,6 +16,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCanEditOwned } from '@/features/auth/useOwnership'
 import { RecordTimeline } from '@/features/activities/RecordTimeline'
+import { ExternalReferences } from '@/features/integrations/ExternalReferences'
 import { OrganizationLeads } from '@/features/leads/OrganizationLeads'
 import { OrganizationOpportunities } from '@/features/opportunities/OrganizationOpportunities'
 import { referenceName } from '@/features/reference/useReferenceList'
@@ -231,6 +232,7 @@ export function OrganizationPage() {
           </Card>
           <OrganizationLeads organizationId={org.id} canCreate={canAddContact} />
           <OrganizationOpportunities organizationId={org.id} canCreate={canAddContact} />
+          <ExternalReferences resource="organizations" id={org.id} />
           <RecordTimeline record={{ kind: 'organization', id: org.id }} canLog={!org.archived_at} />
         </div>
       </div>

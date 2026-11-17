@@ -36,7 +36,8 @@
     "stages": "Stages",
     "tasks": "My tasks",
     "reports": "Reports",
-    "imports": "Import"
+    "imports": "Import",
+    "integrations": "Integrations"
   },
   "roles": {
     "admin": "Admin",

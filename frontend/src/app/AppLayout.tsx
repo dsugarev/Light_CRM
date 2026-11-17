@@ -84,6 +84,11 @@ export function AppLayout() {
                   {t('nav.imports')}
                 </NavLink>
               ) : null}
+              {show.users ? (
+                <NavLink to="/admin/integrations" className={linkClass}>
+                  {t('nav.integrations')}
+                </NavLink>
+              ) : null}
               {show.audit ? (
                 <NavLink to="/admin/audit-log" className={linkClass}>
                   {t('nav.auditLog')}
