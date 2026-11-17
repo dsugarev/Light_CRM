@@ -1,1 +1,294 @@
 """HTTP layer only: parse requests, call the service, shape responses."""
+
+from http import HTTPStatus
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query, Request, Response, status
+
+from app.core.access import AccessLevel
+from app.core.auth import CurrentPrincipal, endpoint
+from app.core.clock import Clock
+from app.core.db import DbSession
+from app.core.errors import AppError, ErrorCode, FieldError
+from app.core.listing import ListQuery, Page, SyncPage, list_query
+from app.core.principal import Principal
+from app.modules.party import service
+from app.modules.party.schemas import (
+    ContactCreate,
+    ContactOut,
+    ContactUpdate,
+    DuplicateCheck,
+    OrganizationCreate,
+    OrganizationDetail,
+    OrganizationOut,
+    OrganizationUpdate,
+    SearchResults,
+    SizeBand,
+)
+
+organizations_router = APIRouter(prefix="/organizations", tags=["organizations"])
+contacts_router = APIRouter(prefix="/contacts", tags=["contacts"])
+search_router = APIRouter(prefix="/search", tags=["search"])
+
+
+async def context(request: Request, session: DbSession) -> service.Context:
+    clock: Clock = request.app.state.clock
+    return service.Context(
+        session=session,
+        events=request.app.state.event_bus,
+        settings=request.app.state.settings,
+        now=clock.now(),
+    )
+
+
+Ctx = Annotated[service.Context, Depends(context)]
+Repeated = Annotated[list[str] | None, Query(max_length=50)]
+
+
+def _owner_ids(values: list[str] | None, principal: Principal) -> tuple[UUID, ...]:
+    """`owner_id` filter values: user IDs or `me` (API spec 1.3)."""
+    ids: list[UUID] = []
+    for value in values or []:
+        if value == "me":
+            ids.append(principal.user_id)
+            continue
+        try:
+            ids.append(UUID(value))
+        except ValueError as error:
+            raise AppError(
+                ErrorCode.VALIDATION_FAILED,
+                HTTPStatus.BAD_REQUEST,
+                errors=[FieldError("owner_id", "validation.uuid_parsing")],
+            ) from error
+    return tuple(ids)
+
+
+# --- Organisations (API spec section 7) -------------------------------------------------
+
+OrganizationList = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            "organizations",
+            sortable=tuple(service.ORGANIZATION_SORT),
+            default_sort="name",
+            filters=("owner_id", "industry_id", "city", "country", "size_band"),
+        )
+    ),
+]
+
+
+@organizations_router.get(
+    "",
+    summary="List and search organizations",
+    **endpoint(AccessLevel.SIGNED_IN, scope="organizations:read"),
+)
+async def list_organizations(
+    ctx: Ctx,
+    principal: CurrentPrincipal,
+    query: OrganizationList,
+    owner_id: Repeated = None,
+    industry_id: Annotated[list[UUID] | None, Query()] = None,
+    city: Repeated = None,
+    country: Repeated = None,
+    size_band: Annotated[list[SizeBand] | None, Query()] = None,
+) -> Page[OrganizationOut] | SyncPage[OrganizationOut]:
+    filters = service.OrganizationFilters(
+        owner_ids=_owner_ids(owner_id, principal),
+        industry_ids=tuple(industry_id or ()),
+        cities=tuple(city or ()),
+        countries=tuple(country or ()),
+        size_bands=tuple(size_band or ()),
+    )
+    return await service.list_organizations(ctx, query, filters)
+
+
+@organizations_router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create; 409 conflict.duplicate with matches unless confirm_duplicate",
+    **endpoint(AccessLevel.CONTRIBUTOR, scope="organizations:write"),
+)
+async def create_organization(
+    body: OrganizationCreate, ctx: Ctx, principal: CurrentPrincipal, response: Response
+) -> OrganizationOut:
+    created = await service.create_organization(ctx, principal, body)
+    response.headers["Location"] = f"/api/v1/organizations/{created.id}"
+    return created
+
+
+@organizations_router.get(
+    "/duplicate-check",
+    summary="Possible duplicates by name and/or registration number",
+    **endpoint(AccessLevel.SIGNED_IN, scope="organizations:read"),
+)
+async def duplicate_check(
+    ctx: Ctx,
+    name: Annotated[str | None, Query(max_length=200)] = None,
+    registration_number: Annotated[str | None, Query(max_length=20)] = None,
+) -> DuplicateCheck:
+    reg = "".join((registration_number or "").split()) or None
+    return await service.duplicate_check(ctx, name=name, registration_number=reg)
+
+
+@organizations_router.get(
+    "/{org_id}",
+    summary="Detail with counts of contacts, open leads, open opportunities and pipeline value",
+    **endpoint(AccessLevel.SIGNED_IN, scope="organizations:read"),
+)
+async def get_organization(org_id: UUID, ctx: Ctx) -> OrganizationDetail:
+    return await service.get_organization(ctx, org_id)
+
+
+@organizations_router.patch(
+    "/{org_id}",
+    summary="Update fields, including owner_id (owner change requires Manager+)",
+    **endpoint(AccessLevel.OWNER_PLUS, scope="organizations:write"),
+)
+async def update_organization(
+    org_id: UUID, body: OrganizationUpdate, ctx: Ctx, principal: CurrentPrincipal
+) -> OrganizationOut:
+    return await service.update_organization(ctx, principal, org_id, body)
+
+
+@organizations_router.delete(
+    "/{org_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Archive",
+    **endpoint(AccessLevel.OWNER_PLUS),
+)
+async def archive_organization(org_id: UUID, ctx: Ctx, principal: CurrentPrincipal) -> None:
+    await service.archive_organization(ctx, principal, org_id)
+
+
+@organizations_router.post(
+    "/{org_id}/restore",
+    summary="Restore from archive",
+    **endpoint(AccessLevel.MANAGER_PLUS),
+)
+async def restore_organization(
+    org_id: UUID, ctx: Ctx, principal: CurrentPrincipal
+) -> OrganizationOut:
+    return await service.restore_organization(ctx, principal, org_id)
+
+
+OrganizationContactList = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            "organization-contacts", sortable=tuple(service.CONTACT_SORT), default_sort="last_name"
+        )
+    ),
+]
+
+
+@organizations_router.get(
+    "/{org_id}/contacts",
+    summary="Contacts of this organization",
+    **endpoint(AccessLevel.SIGNED_IN, scope="organizations:read"),
+)
+async def organization_contacts(
+    org_id: UUID, ctx: Ctx, query: OrganizationContactList
+) -> Page[ContactOut] | SyncPage[ContactOut]:
+    return await service.organization_contacts(ctx, org_id, query)
+
+
+# --- Contacts (API spec section 8) -----------------------------------------------------
+
+ContactList = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            "contacts",
+            sortable=tuple(service.CONTACT_SORT),
+            default_sort="last_name",
+            filters=("organization_id", "owner_id"),
+        )
+    ),
+]
+
+
+@contacts_router.get(
+    "",
+    summary="List and search contacts",
+    **endpoint(AccessLevel.SIGNED_IN, scope="contacts:read"),
+)
+async def list_contacts(
+    ctx: Ctx,
+    principal: CurrentPrincipal,
+    query: ContactList,
+    organization_id: Annotated[list[UUID] | None, Query()] = None,
+    owner_id: Repeated = None,
+) -> Page[ContactOut] | SyncPage[ContactOut]:
+    filters = service.ContactFilters(
+        organization_ids=tuple(organization_id or ()), owner_ids=_owner_ids(owner_id, principal)
+    )
+    return await service.list_contacts(ctx, query, filters)
+
+
+@contacts_router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create; duplicate check on email",
+    **endpoint(AccessLevel.CONTRIBUTOR, scope="contacts:write"),
+)
+async def create_contact(
+    body: ContactCreate, ctx: Ctx, principal: CurrentPrincipal, response: Response
+) -> ContactOut:
+    created = await service.create_contact(ctx, principal, body)
+    response.headers["Location"] = f"/api/v1/contacts/{created.id}"
+    return created
+
+
+@contacts_router.get(
+    "/{contact_id}", summary="Detail", **endpoint(AccessLevel.SIGNED_IN, scope="contacts:read")
+)
+async def get_contact(contact_id: UUID, ctx: Ctx) -> ContactOut:
+    return await service.get_contact(ctx, contact_id)
+
+
+@contacts_router.patch(
+    "/{contact_id}", summary="Update", **endpoint(AccessLevel.OWNER_PLUS, scope="contacts:write")
+)
+async def update_contact(
+    contact_id: UUID, body: ContactUpdate, ctx: Ctx, principal: CurrentPrincipal
+) -> ContactOut:
+    return await service.update_contact(ctx, principal, contact_id, body)
+
+
+@contacts_router.delete(
+    "/{contact_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Archive",
+    **endpoint(AccessLevel.OWNER_PLUS),
+)
+async def archive_contact(contact_id: UUID, ctx: Ctx, principal: CurrentPrincipal) -> None:
+    await service.archive_contact(ctx, principal, contact_id)
+
+
+@contacts_router.post(
+    "/{contact_id}/restore", summary="Restore", **endpoint(AccessLevel.MANAGER_PLUS)
+)
+async def restore_contact(contact_id: UUID, ctx: Ctx, principal: CurrentPrincipal) -> ContactOut:
+    return await service.restore_contact(ctx, principal, contact_id)
+
+
+# --- Search (API spec section 12) -----------------------------------------------------
+
+
+@search_router.get(
+    "",
+    summary="Quick search across organizations and contacts, up to 5 per type",
+    **endpoint(AccessLevel.SIGNED_IN, scope="organizations:read"),
+)
+async def search(
+    ctx: Ctx,
+    q: Annotated[str, Query(min_length=2, max_length=200)],
+    types: Annotated[list[str] | None, Query(max_length=4)] = None,
+) -> SearchResults:
+    wanted = set(types or ["organization", "contact"]) & {"organization", "contact"}
+    return await service.search(ctx, q, wanted)
+
+
+routers = [organizations_router, contacts_router, search_router]

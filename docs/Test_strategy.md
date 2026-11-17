@@ -25,7 +25,7 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | End-to-end | `frontend/e2e/` | Playwright (Chromium, Firefox) | Composed Docker stack over HTTPS; Admins created with `create-admin --password-stdin` | Every commit (CI `e2e` job) and locally on demand |
 | Dependency audit | CI | pip-audit (hashed lock export), `pnpm audit --audit-level high` | Lockfiles | Every commit |
 
-## 2. Requirement coverage (Phases 0–1)
+## 2. Requirement coverage (Phases 0–2)
 
 | Requirement | Covered by (examples; see appendix for all) | Levels |
 |---|---|---|
@@ -42,13 +42,20 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | FR-I18N-01 en/bg, per-user preference, browser default | `test_FR_I18N_01_language_preference_is_saved_on_the_profile`; Vitest locale and language tests; E2E smoke and journey 1 in Bulgarian | API, component, E2E |
 | FR-I18N-02 no hard-coded strings, key parity | `pnpm check:i18n`; ESLint `i18next/no-literal-string` (probe verified) | Static |
 | FR-I18N-03 UTC stored, Europe/Sofia displayed, locale formats | Vitest `lib/format.test.ts`; "AC3 ... in Sofia time" | Component |
+| FR-PARTY-01 organizations, AC1 duplicate warning | `tests/api/test_organizations.py` (create, validation, EIK warning, `AC1` name across scripts, registration number, duplicate-check with similar names, rename into duplicate, update audit, archive/restore); `tests/unit/test_text.py`, `test_eik.py`; Vitest "AC1 warns about possible duplicates", "offers Create anyway"; E2E party journey (Latin name flagged against Cyrillic one) | Unit, API, component, E2E |
+| FR-PARTY-02 contacts | `tests/api/test_contacts_reference_search.py` (create, ownership via organization, email duplicates, archive/restore, search); Vitest contact tests; E2E party journey | API, component, E2E |
+| FR-PARTY-03 organization 360 | `test_FR_PARTY_03_detail_with_counts`; Vitest "shows details, counts, contacts and empty later-phase sections"; E2E party journey | API, component, E2E |
+| FR-PARTY-04 search and filter | `test_FR_PARTY_04_search_by_name_number_and_across_scripts`, `..._filters_sorting_and_paging`, `..._global_search_across_types`; Vitest list, search tests; E2E header search by transliteration | API, component, E2E |
+| FR-ADM-02 reference lists (industries) | `test_FR_ADM_02_*` (seeded en/bg, add/rename/deactivate/reorder/delete, in-use refused); Vitest reference admin | API, component |
+| FR-I18N-04 Cyrillic search and import | `tests/unit/test_text.py` (transliteration, name key, search text); API search tests in both scripts; E2E party journey | Unit, API, E2E |
+| FR-INT-05 sync mode (machinery; integration clients in Phase 6) | `tests/api/test_sync_mode.py` (envelope, order, archived rows, `AC2` no skips/repeats during changes, tampered and foreign cursors, page-size limits, safety lag, `(updated_at, id)` indexes) | API |
 | FR-INT-03 scopes (policy only until Phase 6) | `test_FR_INT_03_*` in `tests/unit/test_policy.py` | Unit |
 | FR-INT-10 OpenAPI document | `test_FR_INT_10_openapi_document_is_public_outside_production`, `..._requires_sign_in_in_production`, `test_FR_INT_10_export_openapi_writes_document` | Unit, API |
 | NFR-04 security (secrets, CSRF, headers, DB roles) | `tests/unit/test_config.py`; CSRF tests in `test_auth.py`; `test_NFR_04_application_role_cannot_run_ddl`; E2E "security headers", "CSRF header" | Unit, API, migration, E2E |
 | NFR-08 health, JSON logs, request IDs | `tests/api/test_health.py`; `tests/unit/test_logging.py`; `tests/unit/test_errors.py`; Vitest API status; E2E readiness through proxy | Unit, API, component, E2E |
 | NFR-12 additive migrations | `tests/migrations/test_migrations.py` | Migration |
 
-Not yet covered because not yet built: everything from Phase 2 onwards (PARTY, LEAD, OPP, ACT, REP, IMP, AI, INT except the policy scopes), FR-AUTH-07 MFA (Phase 8).
+Not yet covered because not yet built: LEAD, OPP, ACT, REP, IMP, AI, INT (except policy scopes and the sync machinery), FR-ADM-04 GDPR, FR-AUTH-07 MFA (Phase 8).
 
 ## 3. Phase 0 — Foundation
 
@@ -153,12 +160,72 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 - Firefox still runs in CI only.
 - Performance, accessibility (axe) and the OWASP ASVS checklist are scheduled for Phases 5 and 8 (test strategy section 5).
 
+## 5. Phase 2 — Organizations and contacts
+
+### Strategy
+
+- **Normalisation as pure functions first:** transliteration, the duplicate name key and the EIK checksum are unit-tested with hand-computed vectors, independently of the database.
+- **Behaviour through HTTP on PostgreSQL** for every endpoint: duplicates (both scripts, registration number, similar names, confirmation), ownership (organization owner, derived contact owner, owner change by Manager+ only), archive/restore and edits refused on archived records, audit before/after values, list filters, sorting and paging, search in Cyrillic and Latin.
+- **Sync mode tested as a contract** for Phase 6 integrations: ordering, archived rows, a record changed and a record created while paging, tampered and foreign cursors, page-size limits, the safety lag, and the presence of `(updated_at, id)` indexes.
+- **Authorization matrix** extended automatically by the 20 new routes (expectations from the spec); explicit owner-versus-non-owner API cases for organizations and contacts.
+- **Frontend:** component tests for list URL state, aria-sort, live duplicate warning and the 409 "create anyway" flow, EIK warning toast, owner picker visibility, 360 page, ownership-based hiding of edit/archive, organization picker, reference administration and global search.
+- **E2E:** one journey per language through the real stack plus an ownership check with a freshly created Sales Rep.
+
+### Test cases added (summary)
+
+| Area | Cases | Files |
+|---|---|---|
+| Transliteration, name key, search text, LIKE escaping | 17 | `backend/tests/unit/test_text.py` |
+| EIK/UIC checksum (9 and 13 digits, second weights) | 9 | `backend/tests/unit/test_eik.py` |
+| Organizations: create/validate, EIK warning, industries, 360 counts, duplicates (4 cases), update/audit, ownership (4 cases), archive/restore, search, filters/sort/paging, 400s | 19 | `backend/tests/api/test_organizations.py` |
+| Contacts (7), reference lists (3), global search (1) | 12 | `backend/tests/api/test_contacts_reference_search.py` |
+| Sync mode | 8 | `backend/tests/api/test_sync_mode.py` |
+| Authorization matrix: 20 new routes | +20 | `backend/tests/api/test_authorization_matrix.py` |
+| Route catalog: new routes and access levels | +40 | `backend/tests/api/test_route_catalog.py` |
+| Production refuses default `APP_SECRET_KEY` | 1 | `backend/tests/unit/test_config.py` |
+| Organization list, create (duplicates, validation, owner picker), 360, archive | 8 | `frontend/src/features/organizations/organizations.test.tsx` |
+| Contacts, reference administration, global search | 7 | `frontend/src/features/contacts/contacts.test.tsx` |
+| Organizations and contacts journey (en, bg), ownership | 3 × 2 browsers | `frontend/e2e/party.spec.ts` |
+
+### Runs performed
+
+| Date | Where | What | Result |
+|---|---|---|---|
+| 2026-11-17 | Developer Mac, scratch PostgreSQL 18.7 | Migration 0003 up/down/up; seeded industries inspected | OK (14 industries, en/bg) |
+| 2026-11-17 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 517 passed, 95.7% coverage (party service 93%, listing 98%, reference 98%); clean |
+| 2026-11-17 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (357 keys), pnpm audit, contract, OpenAPI snapshot | 59 passed; clean (same moderate dev-only advisory) |
+| 2026-11-17 | Docker Desktop, `scripts/start-mac.sh` (also appended `APP_SECRET_KEY` to the existing `.env`) | Playwright Chromium, full suite | First run: 1 failure (test data collision, below); after the fix 12/12 in three consecutive runs |
+| 2026-11-17 | GitHub Actions, PR #4 run 44102245986 | All four jobs | Green; Playwright journeys passed on Chromium and Firefox |
+
+### Defects found by testing and fixed
+
+| Found by | Defect | Fix |
+|---|---|---|
+| Design review while writing tests | The transliterated name key did not match "Acme" with «Акме» (c vs к) | Phonetic alignment of Latin spellings in the duplicate key (ADR 0016) |
+| import-linter | "Internals are private" contracts counted indirect chains (party → identity service → identity models) | Contracts check direct imports only (`allow_indirect_imports`) |
+| mypy | SQLAlchemy 2.1 types `select(Model)` as `Select[Model]` | Annotations updated |
+| Vitest | Changing sort or filters replaced the table with a loading indicator | Lists keep the previous rows while loading (`keepPreviousData`) |
+| Vitest | Test fixtures: admin lacked permissions; Bulgarian test user had an English profile | Fixtures corrected |
+| E2E | English and Bulgarian journeys generated the same company name in parallel; the app correctly flagged a duplicate | Unique token includes the language |
+
+### Manual / exploratory checks
+
+- Normalisation examples checked by hand: «Акме ЕООД», "ACME e.o.o.d.", "Acme EOOD" → `akme`; «Филипс»/"Philips" → `filips`; «София» → `sofia`.
+- `scripts/start-mac.sh` on an existing installation added the missing `APP_SECRET_KEY` and the stack started in production mode.
+
+### Gaps and deferred
+
+- Organization archive is not yet blocked by open opportunities (added with opportunities in Phase 4).
+- Organization `leads`, `opportunities`, `timeline` sub-resources and exports: Phases 3–5.
+- Performance against the NFR-01 volumes (10,000 organizations): Phase 5 seed and measurement.
+- Integration clients calling sync mode with API keys: Phase 6 (machinery tested now through users).
+
 ## Appendix — test case inventory
 
 <!-- inventory:start -->
 _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 
-### Backend (pytest: unit, API, authorization matrix, migrations) — 391 test cases
+### Backend (pytest: unit, API, authorization matrix, migrations) — 517 test cases
 
 **`backend/tests/api/test_auth.py`** (27)
 
@@ -192,12 +259,29 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Login is rate limited per ip | — | 1 |
 | Rate limit response has retry after | — | 1 |
 
-**`backend/tests/api/test_authorization_matrix.py`** (27)
+**`backend/tests/api/test_authorization_matrix.py`** (47)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| Route role matrix | FR-AUTH-05 | 26 |
+| Route role matrix | FR-AUTH-05 | 46 |
 | Matrix covers every api route | — | 1 |
+
+**`backend/tests/api/test_contacts_reference_search.py`** (12)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Create contact linked to organization | FR-PARTY-02 | 1 |
+| Contact without organization is owned by creator | FR-PARTY-02 | 1 |
+| Contact validation | — | 1 |
+| Contact cannot join an archived organization | — | 1 |
+| Duplicate email needs confirmation | — | 1 |
+| Contact ownership follows the organization | — | 1 |
+| Archive restore and owner filter | FR-PARTY-02 | 1 |
+| Contact search in both scripts | — | 1 |
+| Industries are seeded in both languages | FR-ADM-02 | 1 |
+| Admin manages a list | FR-ADM-02 | 1 |
+| Value in use cannot be deleted | FR-ADM-02 | 1 |
+| Global search across types | FR-PARTY-04 | 1 |
 
 **`backend/tests/api/test_health.py`** (7)
 
@@ -237,16 +321,52 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Housekeeping removes expired sessions | — | 1 |
 | Every limits how often a job runs | — | 1 |
 
-**`backend/tests/api/test_route_catalog.py`** (214)
+**`backend/tests/api/test_organizations.py`** (19)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Create with all fields | FR-PARTY-01 | 1 |
+| Validation | FR-PARTY-01 | 1 |
+| Wrong eik checksum is a warning | FR-PARTY-01 | 1 |
+| Inactive or unknown industry is rejected | — | 1 |
+| Detail with counts | FR-PARTY-03 | 1 |
+| Duplicate name across scripts is flagged | FR-PARTY-01 AC1 | 1 |
+| Duplicate registration number is flagged | FR-PARTY-01 AC1 | 1 |
+| Duplicate check endpoint includes similar names | FR-PARTY-01 AC1 | 1 |
+| Renaming into a duplicate needs confirmation | — | 1 |
+| Update is audited with before and after | FR-PARTY-01 | 1 |
+| Rep cannot edit another reps organization | FR-AUTH-05 AC1 | 1 |
+| Viewer cannot change organizations | FR-AUTH-05 AC2 | 1 |
+| Manager edits any organization and changes owner | — | 1 |
+| Rep cannot give an organization to someone else | — | 1 |
+| Owner must be an active person | — | 1 |
+| Archive and restore | FR-PARTY-01 | 1 |
+| Search by name number and across scripts | FR-PARTY-04 | 1 |
+| Filters sorting and paging | FR-PARTY-04 | 1 |
+| Unknown sort or filter is 400 | — | 1 |
+
+**`backend/tests/api/test_route_catalog.py`** (254)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Catalog is parsed | — | 1 |
-| Every route is in the catalog | — | 30 |
-| Every api route declares the catalog access level | — | 28 |
+| Every route is in the catalog | — | 50 |
+| Every api route declares the catalog access level | — | 48 |
 | Every catalog entry is built or pending | — | 153 |
 | Pending list only names catalog entries | — | 1 |
 | No route is hidden from the openapi document | — | 1 |
+
+**`backend/tests/api/test_sync_mode.py`** (8)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Sync envelope order and archived rows | FR-INT-05 | 1 |
+| No skips or repeats while data changes | FR-INT-05 AC2 | 1 |
+| Updated since filters and contacts work too | FR-INT-05 | 1 |
+| Cursors cannot be tampered with or reused elsewhere | — | 1 |
+| Sync page size limits | — | 1 |
+| Rows inside the safety lag are held back | — | 1 |
+| Sync mode needs an index on updated at and id | — | 2 |
 
 **`backend/tests/api/test_users.py`** (16)
 
@@ -286,16 +406,25 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Export openapi defaults to stdout | — | 1 |
 | Command is required | — | 1 |
 
-**`backend/tests/unit/test_config.py`** (6)
+**`backend/tests/unit/test_config.py`** (7)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Production refuses default database secret | NFR-04 | 1 |
 | Production refuses default migration secret | NFR-04 | 1 |
 | Production starts with real secrets | NFR-04 | 1 |
+| Production refuses default secret key | NFR-04 | 1 |
 | Development allows placeholder secrets | — | 1 |
 | Settings are read from environment | — | 1 |
 | Migration url falls back to database url | — | 1 |
+
+**`backend/tests/unit/test_eik.py`** (9)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Valid codes | — | 3 |
+| Invalid codes | — | 5 |
+| Second weights are used when the first sum gives 10 | — | 1 |
 
 **`backend/tests/unit/test_errors.py`** (9)
 
@@ -347,6 +476,19 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Viewer edits nothing | FR-AUTH-05 AC2 | 1 |
 | Permissions follow the role matrix | — | 1 |
 
+**`backend/tests/unit/test_text.py`** (17)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Bulgarian transliteration | FR-I18N-04 | 5 |
+| Fold strips accents and case | — | 1 |
+| Name key ignores script case punctuation and legal form | FR-PARTY-01 AC1 | 6 |
+| Name key keeps names made only of a legal form | — | 1 |
+| Different companies keep different keys | — | 1 |
+| Search text holds original and folded forms | FR-I18N-04 | 1 |
+| Search terms offer both forms | — | 1 |
+| Like wildcards are escaped | — | 1 |
+
 **`backend/tests/unit/test_worker.py`** (2)
 
 | Test | Requirement | Cases |
@@ -354,7 +496,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Failing job does not stop other jobs | — | 1 |
 | Worker runs jobs until stopped | — | 1 |
 
-### Frontend (Vitest + Testing Library + MSW) — 38 test cases
+### Frontend (Vitest + Testing Library + MSW) — 54 test cases
 
 **`frontend/src/app/app.test.tsx`** (15)
 
@@ -424,7 +566,33 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
 | profile › shows the server error for a wrong current password | — | 1 |
 
-### End-to-end (Playwright, composed stack) — 18 test cases
+**`frontend/src/features/contacts/contacts.test.tsx`** (7)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
+| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
+| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
+
+**`frontend/src/features/organizations/organizations.test.tsx`** (9)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-PARTY-04 organization list › shows organizations with translated industry and keeps sort and filters in the URL | FR-PARTY-04 | 1 |
+| FR-PARTY-04 organization list › searches after typing pauses | FR-PARTY-04 | 1 |
+| FR-PARTY-01 create organization › AC1 warns about possible duplicates before saving, with a link | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › AC1 offers \"Create anyway\" after a 409 and resends with confirm_duplicate | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › validates EIK, VAT, website and country on the client | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › shows the owner picker only to users who may reassign | FR-PARTY-01 | 1 |
+| FR-PARTY-03 organization 360 › shows details, counts, contacts and empty later-phase sections | FR-PARTY-03 | 1 |
+| FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
+| FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
+
+### End-to-end (Playwright, composed stack) — 24 test cases
 
 **`frontend/e2e/identity.spec.ts`** (8)
 
@@ -438,6 +606,17 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Journey 1 in bg › FR-AUTH-02 admin creates a rep who sets a password, signs in and gets locked out (firefox) | FR-AUTH-02 | 1 |
 | NFR-04 mutating requests without the CSRF header are rejected (firefox) | NFR-04 | 1 |
 | FR-AUTH-01 anonymous API calls get 401 (firefox) | FR-AUTH-01 | 1 |
+
+**`frontend/e2e/party.spec.ts`** (6)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Organizations and contacts in en › FR-PARTY-01..04 create, detect duplicate, add contact, search across scripts, archive (chromium) | FR-PARTY-01 | 1 |
+| Organizations and contacts in bg › FR-PARTY-01..04 create, detect duplicate, add contact, search across scripts, archive (chromium) | FR-PARTY-01 | 1 |
+| Ownership › FR-AUTH-05 AC1 a sales rep cannot edit an organization owned by someone else (chromium) | FR-AUTH-05 AC1 | 1 |
+| Organizations and contacts in en › FR-PARTY-01..04 create, detect duplicate, add contact, search across scripts, archive (firefox) | FR-PARTY-01 | 1 |
+| Organizations and contacts in bg › FR-PARTY-01..04 create, detect duplicate, add contact, search across scripts, archive (firefox) | FR-PARTY-01 | 1 |
+| Ownership › FR-AUTH-05 AC1 a sales rep cannot edit an organization owned by someone else (firefox) | FR-AUTH-05 AC1 | 1 |
 
 **`frontend/e2e/smoke.spec.ts`** (10)
 

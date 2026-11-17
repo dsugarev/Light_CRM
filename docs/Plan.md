@@ -6,7 +6,8 @@ What has been built, phase by phase, with the key code. The specifications in `d
 |---|---|---|
 | 0 — Foundation | Done, merged (PR #1) | `phase-0-foundation` |
 | 1 — Identity, access and audit | Done, merged (PR #2), CI green | `phase-1-identity` |
-| 2 — Organizations and contacts | Not started | — |
+| 2 — Organizations and contacts | Built, awaiting owner review | `phase-2-party` |
+| 3 — Leads | Not started | — |
 
 ---
 
@@ -650,7 +651,7 @@ Journey 1 in English and in Bulgarian: the Admin creates a Sales Rep → the rep
 ### Open items
 
 1. ~~Owner review of PR for Phase 1~~ — merged 2026-11-17 (PR #2).
-2. Confirm the password link lifetimes (72 h / 2 h).
+2. ~~Confirm the password link lifetimes (72 h / 2 h)~~ — confirmed by the owner on 2026-11-17.
 3. SMTP relay details when available (open question 4); set `SMTP_*` in `.env`.
 
 ### Documentation update after Phase 1 (2026-11-17)
@@ -668,3 +669,159 @@ def backend() -> "OrderedDict[str, OrderedDict[str, int]]":
 ```
 
 - CLAUDE.md: documentation is part of done; new rows for `Test_strategy.md` and `docs/api/`.
+
+---
+
+## Phase 2 — Organizations and contacts
+
+Requirements: FR-PARTY-01 to 04, FR-ADM-02 (industries). Owner decisions at the start (2026-11-17, "accept the recommendations"): industries owned by party (ADR 0016); organization fields `address_line`, `postal_code`, `city`, `country`, `notes` and a fixed size-band list; EIK/VAT format checks with a checksum **warning**; duplicate rule by registration number or a name key that ignores script, case, punctuation and legal form, plus similar-name suggestions; cross-script search; the proposed 14 industries; `sonner` for toasts; a new `APP_SECRET_KEY`.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 2.1 | Schema: `industry` (seeded), `organization`, `contact`; trigram and `(updated_at, id)` indexes | Done: migration `0003` |
+| 2.2 | Shared list machinery: paging, sorting, filters, `include_archived`, sync mode with signed cursors | Done (ADR 0017) |
+| 2.3 | Party service: CRUD, archive/restore, ownership, owner changes, duplicates, audit events | Done |
+| 2.4 | Generic reference lists wired for `industries` | Done |
+| 2.5 | Global search | Done |
+| 2.6 | Backend tests | Done (517 total) |
+| 2.7 | Reusable frontend pieces: URL list state, data table, toasts, empty/error states | Done |
+| 2.8 | Screens: organizations (list, form, 360), contacts, industries admin, search | Done, en + bg |
+| 2.9 | E2E journeys | Done (en, bg, ownership) |
+| 2.10 | Documentation, gate, PR | Done |
+
+### Endpoints built (20)
+
+`/reference/{list}` (GET, POST, PATCH, PUT order, DELETE); `/organizations` (GET, POST), `/organizations/duplicate-check`, `/organizations/{org_id}` (GET, PATCH, DELETE), `/organizations/{org_id}/restore`, `/organizations/{org_id}/contacts`; `/contacts` (GET, POST), `/contacts/{contact_id}` (GET, PATCH, DELETE), `/contacts/{contact_id}/restore`; `/search`. Routes that integrations will use already declare their scope (`organizations:read`, `contacts:write`, `reference:read`, …) for Phase 6.
+
+### Backend
+
+#### Text normalisation (`app/core/text.py`, ADR 0016)
+
+```python
+def normalize_company_name(name: str) -> str:
+    """Duplicate key ... "Акме ЕООД", "ACME e.o.o.d." and "Acme EOOD" all become "akme"."""
+    words = _NON_WORD.sub(" ", fold(name).replace(".", "")).split()   # fold = transliterate + casefold + strip accents
+    kept = [w for w in words if w not in _LEGAL_FORMS] or words      # ЕООД/ООД/АД/EAD/Ltd/GmbH...
+    key = " ".join(kept)
+    for latin, replacement in _PHONETIC:                              # c/q->k, w->v, x->ks, ph->f, kh->h
+        key = key.replace(latin, replacement)
+    return key
+```
+
+Transliteration follows the official Streamlined System, including word-final «-ия» → "-ia" (`София` → `sofia`). Searchable text stores every field both as typed and folded; a query term matches either form (`ILIKE` on a trigram GIN index).
+
+#### Duplicates (FR-PARTY-01 AC1)
+
+```python
+if not data.confirm_duplicate:
+    matches = await _duplicates(ctx, data.name, data.registration_number, None, similar=False)
+    if matches:
+        raise _duplicate_error(matches)        # 409 conflict.duplicate, extra={"matches": [...]}
+```
+
+`repository.organization_duplicates` collects exact matches on registration number and name key and, for the duplicate-check endpoint, similar names via `pg_trgm` (`name_normalized % :key`, ordered by `similarity`). Contacts match on email.
+
+#### Ownership
+
+```python
+def _contact_owner_id(contact: Contact) -> UUID:
+    """Ownership follows the organisation; without one, the creator (API spec section 8)."""
+    if contact.organization is not None:
+        return contact.organization.owner_id
+    return contact.created_by
+```
+
+Every change loads the record and calls `check_owner(principal, owner_id)` (Owner+). Changing an organization's owner, or creating one for somebody else, requires Manager+; owners must be active people (`identity.service.is_assignable_owner`). The owner filter for contacts is a SQL condition over the organization's owner or the creator.
+
+#### List machinery and sync mode (`app/core/listing.py`, ADR 0017)
+
+```python
+OrganizationList = Annotated[ListQuery, Depends(list_query(
+    "organizations", sortable=("name", "created_at", "updated_at"), default_sort="name",
+    filters=("owner_id", "industry_id", "city", "country", "size_band"),
+))]
+...
+statement = statement.where(
+    updated_at >= query.updated_since,
+    updated_at < func.now() - text("make_interval(secs => :lag)").bindparams(lag=safety_lag_seconds),
+)
+if query.cursor is not None:
+    statement = statement.where(tuple_(updated_at, id_column) > tuple_(literal(cursor.updated_at), literal(cursor.id)))
+```
+
+Cursors are `base64url(JSON) + "." + HMAC-SHA256` (128-bit) with `APP_SECRET_KEY`, bound to the list name.
+
+#### Reference lists (`app/core/reference.py`)
+
+Each module registers `ReferenceList(name, entity_type, model, usage_counter)`; `app.main` puts them in `app.state.reference_lists`. Deletion checks the usage counter (`409 reference.in_use`); changes are audited as `reference.*`.
+
+#### EIK checksum (`app/modules/party/eik.py`)
+
+9-digit: weights 1–8 mod 11, else 3–10, 10 → 0; 13-digit: additionally digits 9–12 with (2,7,3,5), else (4,9,5,7). A mismatch is returned as `warnings: [{field: "registration_number", code: "organization.registration_checksum"}]`.
+
+### Frontend
+
+- **Reusable:** `useListParams` (sort, page, `q`, filters, archived in the URL), `DataTable` (sortable headers with `aria-sort`), `SearchInput` (debounced), `ErrorState`, `Textarea`, toasts via `sonner`, `useCanEditOwned` (UI mirror of Owner+), `useUserLookup`, `useReferenceList` + `referenceName(item, locale)`, `asPage()` for list envelopes. List queries keep the previous rows while the next page loads.
+- **Organizations:** list (search, owner "mine", industry, archived), form with a **live duplicate warning** while typing and a "Create anyway" after a 409, EIK checksum warning as a toast and on the 360 page, owner picker only with `records.reassign`, 360 page with counts, contacts, empty leads/opportunities/timeline sections, archive (confirm) and restore.
+- **Contacts:** list, form with a searchable organization picker (thousands of organizations), email duplicates, detail with derived owner.
+- **Admin → Lists:** industries (add, reorder ↑/↓, activate/deactivate, delete with the in-use explanation).
+- **Search:** header box → `/search?q=` results grouped by type.
+- 357 translation keys in English and Bulgarian; 59 Vitest tests (15 new).
+
+```tsx
+// Live duplicate check while typing (FR-PARTY-01 AC1)
+const duplicates = useQuery({
+  queryKey: ['organizations', 'duplicate-check', probe],
+  queryFn: () => call(api.GET('/api/v1/organizations/duplicate-check', { params: { query: {...} } })),
+  enabled: changedIdentity && (probe.name.length >= 2 || /^\d{9}(\d{4})?$/.test(probe.registration)),
+})
+```
+
+### Deployment
+
+- `APP_SECRET_KEY` required by Compose (`:?`), placeholder in `.env.example`, refused at its default in production. The start scripts generate it for new installations and **append it to an existing `.env`** (verified on this machine). CI generates one.
+
+### Verification (2026-11-17)
+
+| Gate | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| pytest (scratch PostgreSQL 18.7) | 517 passed, 95.7% coverage (party service 93%, listing 98%, reference 98%) |
+| pip-audit | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n (357 keys) | clean |
+| Vitest | 59 passed |
+| pnpm audit (high) | pass; moderate dev-only `minimatch` advisory remains |
+| Contract drift, OpenAPI snapshot | up to date |
+| Docker stack via `scripts/start-mac.sh` | migration 0003 applied; `APP_SECRET_KEY` appended to `.env` |
+| Playwright Chromium vs. stack | 12/12 in three consecutive runs (after fixing a test-data collision) |
+| GitHub Actions (PR #4, run 44102245986) | all four jobs green: backend 1 min 15 s, frontend 46 s, contract 36 s, e2e 2 min 7 s (Playwright on Chromium and Firefox) |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | Done for FR-PARTY-01..04, FR-ADM-02, FR-I18N-04, FR-INT-05 (machinery) |
+| 2 | `docker compose up` works | Done (start script) |
+| 3 | Lint, types, suites green | Done locally and in CI |
+| 4 | Permission checks + matrix | Done for all 46 routes; owner/non-owner cases for organizations and contacts |
+| 5 | UI text en + bg | Done |
+| 6 | Additive migrations + tests | Done (0003) |
+| 7 | Audit for create/update/delete | Done (organization.*, contact.*, reference.*) |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.3 with payloads, rules, field codes, `resource.archived` |
+
+### Decisions and deviations
+
+- **Industries in party**, not sales (ADR 0016).
+- **No full-text (`tsvector`) search**: trigram `ILIKE` over folded text covers partial, cross-script matching for names; FTS can be added if long-text search is needed (ADR 0016).
+- **Name sorting** uses the folded name, so Cyrillic and Latin names interleave alphabetically by their Latin form.
+- **Reference values** are returned with both names (`name_en`, `name_bg`) rather than one translated `name`; the UI picks the language (the backend returns data, not translations).
+- **Editing archived records** is refused with a new code `resource.archived` (409), added to the spec.
+- **Duplicate check on rename**: a `PATCH` that changes the name or registration number into a duplicate also needs `confirm_duplicate`.
+- **Organization counts** for leads and opportunities are `0` until those modules exist; archiving is not yet blocked by open opportunities (Phase 4).
+
+### Open items
+
+1. Owner review of the Phase 2 pull request.

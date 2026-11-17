@@ -38,6 +38,8 @@ class ErrorCode(StrEnum):
     PERMISSION_NOT_FOR_INTEGRATIONS = "permission.not_for_integrations"
     PERMISSION_SCOPE_MISSING = "permission.scope_missing"
     RATE_LIMIT_EXCEEDED = "rate_limit.exceeded"
+    REFERENCE_IN_USE = "reference.in_use"
+    RESOURCE_ARCHIVED = "resource.archived"
     REQUEST_METHOD_NOT_ALLOWED = "request.method_not_allowed"
     RESOURCE_NOT_FOUND = "resource.not_found"
     SERVER_INTERNAL_ERROR = "server.internal_error"

@@ -59,3 +59,21 @@ export async function call<T>(
 export function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401
 }
+
+interface PageEnvelope<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+}
+
+/**
+ * List endpoints return a page envelope, or a sync envelope when `updated_since`
+ * is sent (integrations only). The UI never uses sync mode, so narrow to a page.
+ */
+export function asPage<T>(
+  data: PageEnvelope<T> | { items: T[]; next_cursor: string | null },
+): PageEnvelope<T> {
+  if ('total' in data) return data
+  throw new Error('Expected a page envelope')
+}

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
@@ -62,6 +62,8 @@ export function AuditLogPage() {
 
   const entries = useQuery({
     queryKey: ['audit-log', params.toString()],
+    // Keep showing the current rows while the next page, sort or filter loads.
+    placeholderData: keepPreviousData,
     queryFn: () =>
       call(
         api.GET('/api/v1/audit-log', {

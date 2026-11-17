@@ -1,6 +1,6 @@
 # 05 — API Specification (Release 1)
 
-Status: Draft v0.2 (updated after Phase 1, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+Status: Draft v0.3 (updated after Phase 2, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
 
 This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
 
@@ -11,14 +11,19 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | Section | Phase | Status |
 |---|---|---|
 | 1 Conventions: problem details, request IDs, CSRF, access levels | 0–1 | Built |
-| 1.3 Lists: page/page_size/q and filters | 1 (users, audit log) | Built for those lists; sorting, `include_archived` and sync mode arrive with Phase 2 |
+| 1.3 Lists: paging, sorting, filters, `q`, `include_archived`, sync mode | 2 | Built (shared machinery, ADR 0017); users and audit-log lists keep their Phase 1 parameters |
 | 2 System and health | 0–1 | Built |
 | 3 Authentication and sessions | 1 | Built, except MFA endpoints (FR-AUTH-07, Phase 8) |
 | 4 Current user | 1 | Built, except `/me/tasks` (Phase 4) |
 | 5 Users and roles | 1 | Built |
 | 6.1 Application settings | 1 | Built with session timeouts; further settings added by their phases |
-| 6.2–6.3 Reference lists, pipelines | 2–4 | Pending |
-| 7–15 Business resources, search, reports, exports, import | 2–5 | Pending |
+| 6.2 Reference lists | 2 | Built; `industries` registered, other lists added by Phases 3, 4 and 6 |
+| 6.3 Pipelines and stages | 4 | Pending |
+| 7 Organizations | 2 | Built, except `/leads`, `/opportunities` (Phases 3–4), `/timeline` (Phase 4), `/export` (Phase 5) |
+| 8 Contacts | 2 | Built, except `/timeline` (Phase 4), GDPR `personal-data`/`anonymize` (Phase 8), `/export` (Phase 5) |
+| 9–11 Leads, opportunities, activities | 3–4 | Pending |
+| 12 Search | 2 | Built for organizations and contacts; leads and opportunities join in Phases 3–4 |
+| 13–15 Reports, exports, import | 5 | Pending |
 | 16 Audit log | 1 | Built, except `/audit-log/export` (Phase 5) |
 | 17 AI assistant | 7 | Pending |
 | 18 Rate limits | 1 | Built for sign-in, password endpoints and per user; others with their features |
@@ -75,6 +80,14 @@ List response envelope:
 **Sync mode.** When `updated_since` is given, the list is ordered by `(updated_at, id)` ascending, `sort` and `page` are ignored, archived and anonymized records are included (so consumers can mirror removals), and the envelope is `{ "items": [...], "next_cursor": "..." | null }`. Clients keep calling with `cursor` until `next_cursor` is `null`, then store the largest `updated_at` seen for the next run. Ordering is stable, so no record is skipped or repeated when data changes during paging. Page size in sync mode defaults to 100 and may be raised to 500. Sync mode is available on organizations, contacts, leads, opportunities and activities.
 
 Each list endpoint documents which fields are sortable and filterable in its OpenAPI description; unknown sort or filter fields return `400` with code `validation.failed`.
+
+Details (as built, ADR 0017):
+
+- Error field codes: `validation.unknown_filter` (field = the parameter name), `validation.unknown_sort`, `validation.less_than_equal` (`page_size` over 100, or over 500 in sync mode), `validation.invalid_cursor` (altered cursor or one from another list), `validation.cursor_requires_updated_since`.
+- `sort` accepts several fields; ties are always broken by `id`, so paging is stable. Name sorting uses the folded name, so Cyrillic and Latin sort together.
+- `q` matches every whitespace-separated term, each as typed or transliterated (official Bulgarian system), anywhere in the indexed fields; "sofia" finds «София» and «глобал» finds "Global".
+- `owner_id` filters accept user IDs and `me`, and may be repeated.
+- The sync cursor is opaque: a signed token bound to one list. Rows changed within the last few seconds (`SYNC_SAFETY_LAG_SECONDS`, default 5) are returned on a later call, so no committed change is skipped. A record changed while a client pages is returned again in its new version; consumers keep the newest `updated_at` per `id`.
 
 ### 1.4 Create, update, archive
 
@@ -146,6 +159,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `permission.denied` | 403 | Role or ownership does not allow the action |
 | `permission.last_admin` | 409 | The change would leave no active Admin (demote or deactivate the last one) |
 | `resource.not_found` | 404 | No such record (also returned for unknown paths) |
+| `resource.archived` | 409 | The record is archived; restore it before changing it |
 | `request.method_not_allowed` | 405 | HTTP method not supported on this path |
 | `server.internal_error` | 500 | Unexpected error; details are only in the server log, under the `request_id` |
 | `validation.failed` | 422 | Field-level errors in `errors` (field codes below). Also used with `400` for a malformed body (field `body`, code `validation.json_invalid`) and unknown sort or filter fields |
@@ -181,7 +195,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `owner.required` | 422 | Integration-created record has no `owner_id` and the client has no default owner |
 | `webhook.url_not_allowed` | 422 | Webhook URL not HTTPS or host not in the allowlist |
 
-**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`. Field names are the request body or query field names.
+**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`). Field names are the request body or query field names.
 
 ### 1.7 Access levels used in the tables
 
@@ -335,6 +349,14 @@ One uniform set of endpoints serves every configurable list. `{list}` is one of 
 
 New lists in later releases are added by extending the allowed `{list}` values, not by new endpoint shapes.
 
+As built: `industries` is available (seeded with 14 values in English and Bulgarian: telecommunications, IT and software, finance and banking, public sector, healthcare, manufacturing, retail and wholesale, energy and utilities, transport and logistics, construction and real estate, education, hospitality and tourism, media, other). Other names return `404`.
+
+- `POST` body `{ "code", "name_en", "name_bg", "is_active" }`; `code` is `^[a-z0-9_]{1,50}$` and unique in the list (`409 conflict.duplicate`, field `code` / `reference.code_taken`); the value goes to the end of the order. Returns `201` with `Location`.
+- `PATCH` body `{ "name_en"?, "name_bg"?, "is_active"? }`; the code is permanent.
+- `PUT /order` body: a JSON array of every item ID exactly once (`422`, field `body` / `reference.order_incomplete` otherwise); returns the reordered list.
+- `GET` returns active values ordered by `position` (all with `include_inactive=true`). Records referencing an inactive value keep it; new references must use active values (`422`, field e.g. `industry_id` / `reference.invalid`).
+- Changes are audited as `reference.created|updated|reordered|deleted` with entity type `industry` (etc.) and `details.list`.
+
 ### 6.3 Pipelines and stages
 
 | Method | Path | Purpose | Access | Req. |
@@ -365,6 +387,30 @@ Creating additional pipelines is out of scope for R1; the paths are already pipe
 | GET | `/api/v1/organizations/{org_id}/timeline` | Merged timeline for the organization and its contacts, leads and opportunities | Signed-in | FR-ACT-03 |
 | GET | `/api/v1/organizations/export` | Export the filtered list (section 14) | Signed-in | FR-REP-02 |
 
+Organization resource (response; `GET /{id}` adds `counts`):
+
+```json
+{ "id": "...", "name": "Акме ЕООД", "registration_number": "123456786", "vat_number": "BG123456786",
+  "industry": { "id": "...", "code": "telecommunications", "name_en": "Telecommunications", "name_bg": "Телекомуникации" },
+  "size_band": "10-49", "website": "https://acme.example",
+  "address_line": "бул. Витоша 1", "postal_code": "1000", "city": "София", "country": "BG",
+  "owner": { "id": "...", "full_name": "Ivan Petrov" }, "notes": null,
+  "created_at": "...", "updated_at": "...", "created_by": { "id": "...", "full_name": "Ivan Petrov" },
+  "archived_at": null,
+  "warnings": [ { "field": "registration_number", "code": "organization.registration_checksum" } ],
+  "counts": { "contacts": 2, "open_leads": 0, "open_opportunities": 0, "open_pipeline_value": "0.00", "currency": "EUR" } }
+```
+
+Rules (as built):
+
+- Fields: `name` (required, ≤ 200), `registration_number` (EIK/UIC, 9 or 13 digits, spaces ignored), `vat_number` (`BG` + 9–10 digits, stored upper case without spaces), `industry_id` (active industry), `size_band` (`1-9`, `10-49`, `50-249`, `250+`), `website` (`http(s)://…`), `address_line`, `postal_code`, `city`, `country` (ISO 3166-1 alpha-2, default `BG`), `owner_id`, `notes` (≤ 5000). Unknown fields return `422`. In `PATCH`, a field sent as `null` is cleared; fields not sent are unchanged.
+- A wrong EIK check digit does not block saving; the response lists it in `warnings`.
+- **Duplicates** (FR-PARTY-01 AC1): create, and a `PATCH` that changes `name` or `registration_number`, return `409 conflict.duplicate` with `matches` when another organization (archived ones included) has the same registration number or the same name key. The key ignores script (Cyrillic/Latin), case, punctuation and the legal form, so «Акме ЕООД» and "ACME e.o.o.d." match. Send `"confirm_duplicate": true` to save anyway. `duplicate-check` (`name`, `registration_number` query parameters) additionally returns similar names. Each match: `{ id, name, registration_number, city, archived, reason }` with `reason` `registration_number | name | similar_name`.
+- **Ownership**: the owner defaults to the creator. Sales Reps may only own their own records: setting someone else as owner, on create or update, needs Manager+ (`403 permission.denied`). The owner must be an active person (`422`, field `owner_id` / `owner.invalid`). Owner changes are audited as `organization.owner_changed`.
+- Archived records cannot be changed (`409 resource.archived`) until restored. Archiving will be refused while the organization has open opportunities once opportunities exist (Phase 4).
+- Audit actions: `organization.created`, `organization.updated`, `organization.owner_changed`, `organization.archived`, `organization.restored`, with before and after values.
+- List filters: `owner_id` (repeatable, `me`), `industry_id`, `city` (case-insensitive), `country`, `size_band` (all repeatable); `q` searches name (both scripts), registration and VAT numbers, city and website.
+
 ## 8. Contacts
 
 | Method | Path | Purpose | Access | Req. |
@@ -381,6 +427,18 @@ Creating additional pipelines is out of scope for R1; the paths are already pipe
 | GET | `/api/v1/contacts/export` | Export the filtered list | Signed-in | FR-REP-02 |
 
 Ownership of a contact follows its organization; a contact without an organization is owned by its creator.
+
+Contact resource (response):
+
+```json
+{ "id": "...", "first_name": "Мария", "last_name": "Иванова", "full_name": "Мария Иванова",
+  "job_title": "CTO", "email": "m.ivanova@acme.example", "phone": "+359 2 000 0000", "preferred_locale": "bg",
+  "organization": { "id": "...", "name": "Акме ЕООД" }, "owner": { "id": "...", "full_name": "Ivan Petrov" },
+  "notes": null, "created_at": "...", "updated_at": "...", "created_by": { "id": "...", "full_name": "..." },
+  "archived_at": null, "anonymized_at": null }
+```
+
+Rules (as built): `first_name` and `last_name` required (≤ 100); `email` stored in lower case; `preferred_locale` `en | bg`; `organization_id` must exist and not be archived (`422`, field `organization_id` / `organization.not_found` or `organization.archived`). A contact whose email already exists returns `409 conflict.duplicate` with `matches` (`reason: "email"`) unless `confirm_duplicate`. `owner` is derived (organization owner, else creator), and Owner+ edit rights follow it. Archived contacts cannot be changed (`409 resource.archived`). List filters: `organization_id`, `owner_id` (`me`); `q` searches names (both scripts), email, phone and job title. Audit actions: `contact.created`, `contact.updated`, `contact.archived`, `contact.restored`.
 
 ## 9. Leads
 
@@ -541,6 +599,8 @@ Event types in R1: `created`, `updated`, `owner_changed`, `status_changed`, `sta
 | Method | Path | Purpose | Access | Req. |
 |---|---|---|---|---|
 | GET | `/api/v1/search` | Global quick search across organizations, contacts, leads and opportunities. `q` required (min 2 chars), `types` optional, up to 5 results per type | Signed-in | FR-PARTY-04 |
+
+Response: `{ "items": [ { "type": "organization" | "contact", "id", "label", "detail" } ] }` grouped by type, archived records excluded. `detail` is the city for organizations and the organization name (else email) for contacts. `types` may repeat (`organization`, `contact`; `lead` and `opportunity` from Phases 3–4).
 
 ## 13. Reports and dashboard
 

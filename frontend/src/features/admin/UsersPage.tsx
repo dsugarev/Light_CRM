@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 
@@ -56,6 +56,8 @@ export function UsersPage() {
 
   const users = useQuery({
     queryKey: ['users', { q, role, status, page }],
+    // Keep showing the current rows while the next page, sort or filter loads.
+    placeholderData: keepPreviousData,
     queryFn: () =>
       call(
         api.GET('/api/v1/users', {

@@ -711,6 +711,20 @@ async def list_roles(ctx: Context) -> list[RoleOut]:
     ]
 
 
+# --- For other modules ----------------------------------------------------------
+
+
+async def user_names(session: AsyncSession, user_ids: set[UUID]) -> dict[UUID, str]:
+    """Display names for embedded owner/author summaries (API spec 1.5)."""
+    return {u.id: u.full_name for u in await repository.get_users(session, user_ids)}
+
+
+async def is_assignable_owner(session: AsyncSession, user_id: UUID) -> bool:
+    """Records may be owned only by active human users (FR-INT-03 AC4 relies on this too)."""
+    user = await repository.get_user(session, user_id)
+    return user is not None and user.is_active and user.is_human
+
+
 # --- Operations (CLI and worker) ----------------------------------------------
 
 

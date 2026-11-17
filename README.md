@@ -2,7 +2,7 @@
 
 A light B2B CRM for the Commercial team: lead and opportunity management, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, Docker Compose.
 
-Status: **Phase 1 (identity, access and audit)**. Users sign in, Admins manage users and see the audit log; leads and opportunities follow in later phases. See [`docs/Plan.md`](docs/Plan.md) for what is built.
+Status: **Phase 2 (organizations and contacts)**. Users sign in; Admins manage users, lists and the audit log; everyone works with organizations and contacts (duplicate detection, search in Cyrillic and Latin). Leads and opportunities follow in later phases. See [`docs/Plan.md`](docs/Plan.md) for what is built.
 
 ## Documentation
 
@@ -32,7 +32,7 @@ scripts/stop-mac.sh         # or scripts/stop-linux.sh
 .\scripts\stop-windows.ps1
 ```
 
-On first run the start script creates `.env` from `.env.example` with random database passwords. The CRM is then at **https://localhost**. Caddy uses its own local certificate authority, so the browser warns until you trust it (or set `CRM_TLS` to a real certificate, see `.env.example`).
+On first run the start script creates `.env` from `.env.example` with random database passwords and secret key (and adds settings introduced by later releases, such as `APP_SECRET_KEY`, to an existing `.env`). The CRM is then at **https://localhost**. Caddy uses its own local certificate authority, so the browser warns until you trust it (or set `CRM_TLS` to a real certificate, see `.env.example`).
 
 There is no default account. Create the first Admin, then open the printed one-time link to set the password:
 

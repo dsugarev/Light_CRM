@@ -48,6 +48,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "app/cli.py" = ["T201"]
 "app/core/errors.py" = ["S105"]  # error codes such as auth.token_invalid are not secrets
 "tests/api/catalog_pending.py" = ["E501"]
+"alembic/versions/*" = ["E501"]  # migrations keep generated column lines intact
 
 [tool.ruff.lint.isort]
 # The local alembic/ directory holds migrations; the package is third-party.
@@ -143,57 +144,67 @@ source_modules = ["app.main", "app.worker", "app.cli", "app.core", "app.modules"
 forbidden_modules = ["litellm"]
 
 # Modules talk to each other only through service functions: for each module,
-# no other module may import its router, repository or models.
+# no other module may import its router, repository or models directly. (Reaching
+# them through the module's own service is the intended path.)
 [[tool.importlinter.contracts]]
 name = "identity internals are private"
 type = "forbidden"
 source_modules = ["app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
 forbidden_modules = ["app.modules.identity.router", "app.modules.identity.repository", "app.modules.identity.models"]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "party internals are private"
 type = "forbidden"
 source_modules = ["app.modules.identity", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
 forbidden_modules = ["app.modules.party.router", "app.modules.party.repository", "app.modules.party.models"]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "sales internals are private"
 type = "forbidden"
 source_modules = ["app.modules.identity", "app.modules.party", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
 forbidden_modules = ["app.modules.sales.router", "app.modules.sales.repository", "app.modules.sales.models"]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "activity internals are private"
 type = "forbidden"
 source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
 forbidden_modules = ["app.modules.activity.router", "app.modules.activity.repository", "app.modules.activity.models"]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "reporting internals are private"
 type = "forbidden"
 source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.dataimport", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
 forbidden_modules = ["app.modules.reporting.router", "app.modules.reporting.repository", "app.modules.reporting.models"]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "dataimport internals are private"
 type = "forbidden"
 source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
 forbidden_modules = ["app.modules.dataimport.router", "app.modules.dataimport.repository", "app.modules.dataimport.models"]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "audit internals are private"
 type = "forbidden"
 source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.integration", "app.modules.assistant"]
 forbidden_modules = ["app.modules.audit.router", "app.modules.audit.repository", "app.modules.audit.models"]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "integration internals are private"
 type = "forbidden"
 source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.assistant"]
 forbidden_modules = ["app.modules.integration.router", "app.modules.integration.repository", "app.modules.integration.models"]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "assistant internals are private"
 type = "forbidden"
 source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.integration"]
 forbidden_modules = ["app.modules.assistant.router", "app.modules.assistant.repository", "app.modules.assistant.models"]
+allow_indirect_imports = true

@@ -10,9 +10,15 @@ if [[ ! -f .env ]]; then
   sed -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(gen)/" \
       -e "s/^CRM_MIGRATOR_PASSWORD=.*/CRM_MIGRATOR_PASSWORD=$(gen)/" \
       -e "s/^CRM_APP_PASSWORD=.*/CRM_APP_PASSWORD=$(gen)/" \
+      -e "s/^APP_SECRET_KEY=.*/APP_SECRET_KEY=$(openssl rand -hex 32)/" \
       .env.example > .env
   chmod 600 .env
-  echo "Created .env with generated database passwords."
+  echo "Created .env with generated passwords and secret key."
+fi
+# Settings added in later releases: append generated values to an existing .env.
+if ! grep -q '^APP_SECRET_KEY=' .env; then
+  printf '\n# Added by start script\nAPP_SECRET_KEY=%s\n' "$(openssl rand -hex 32)" >> .env
+  echo "Added APP_SECRET_KEY to .env."
 fi
 
 docker compose up --build --detach

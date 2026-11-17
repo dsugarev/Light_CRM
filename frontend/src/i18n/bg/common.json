@@ -25,7 +25,11 @@
     "auditLog": "Одитен журнал",
     "settings": "Настройки",
     "profile": "Моят профил",
-    "signOut": "Изход"
+    "signOut": "Изход",
+    "organizations": "Организации",
+    "contacts": "Контакти",
+    "reference": "Списъци",
+    "search": "Търсене"
   },
   "roles": {
     "admin": "Администратор",

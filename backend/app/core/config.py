@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     public_url: str = "https://localhost"
     csrf_trusted_origins: list[str] = []
 
+    # Signs opaque tokens such as sync cursors. Must be a long random value in production.
+    app_secret_key: str = f"{INSECURE_PLACEHOLDER}-secret-key"
+
     # The application connects with a DML-only role; migrations use a separate
     # DDL role (architecture section 7, "Database").
     database_url: PostgresDsn = PostgresDsn(
@@ -41,6 +44,10 @@ class Settings(BaseSettings):
     database_connect_timeout_seconds: float = Field(default=5.0, gt=0)
 
     health_check_timeout_seconds: float = Field(default=2.0, gt=0)
+
+    # Sync mode only returns rows older than this, so a transaction that commits
+    # late cannot slip behind a client's cursor (FR-INT-05 AC2).
+    sync_safety_lag_seconds: float = Field(default=5.0, ge=0)
     worker_poll_interval_seconds: float = Field(default=5.0, gt=0)
 
     # Authentication (FR-AUTH-01..04). Session timeouts are runtime settings
@@ -90,6 +97,7 @@ class Settings(BaseSettings):
             "DATABASE_URL": str(self.database_url),
             "MIGRATION_DATABASE_URL": str(self.migration_database_url or ""),
             "SMTP_PASSWORD": self.smtp_password or "",
+            "APP_SECRET_KEY": self.app_secret_key,
         }
         insecure = sorted(name for name, value in secrets.items() if INSECURE_PLACEHOLDER in value)
         if insecure:

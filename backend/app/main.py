@@ -7,7 +7,7 @@ from http import HTTPStatus
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
-from app.core import health, runtime_settings, system
+from app.core import health, reference, runtime_settings, system
 from app.core.auth import csrf_protect
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings, get_settings
@@ -21,6 +21,8 @@ from app.modules.audit import router as audit_router
 from app.modules.audit import service as audit_service
 from app.modules.identity import router as identity_router
 from app.modules.identity import service as identity_service
+from app.modules.party import router as party_router
+from app.modules.party import service as party_service
 
 API_V1_PREFIX = "/api/v1"
 OPENAPI_PATH = f"{API_V1_PREFIX}/openapi.json"
@@ -69,6 +71,8 @@ def create_app(
     app.state.mailer = mailer or create_mailer(settings)
     app.state.event_bus = create_event_bus()
     app.state.authenticator = identity_service.authenticate_request
+    # Configurable lists served by /reference/{list}; each module registers its own.
+    app.state.reference_lists = {ref.name: ref for ref in party_service.REFERENCE_LISTS}
 
     register_error_handlers(app)
     app.add_middleware(RequestContextMiddleware)
@@ -80,6 +84,9 @@ def create_app(
     for router in identity_router.routers:
         api_v1.include_router(router)
     api_v1.include_router(runtime_settings.router)
+    api_v1.include_router(reference.router)
+    for router in party_router.routers:
+        api_v1.include_router(router)
     api_v1.include_router(audit_router.router)
     app.include_router(api_v1)
 

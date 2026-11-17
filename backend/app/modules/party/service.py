@@ -1,1 +1,682 @@
-"""Business rules, permission checks and transactions. Public API of the module."""
+"""Organisations and contacts (FR-PARTY-01..04): rules, ownership, duplicates, search.
+
+Public API of the module. Every change publishes a domain event (audited) and
+commits here. Permission rules: Contributors create; Owner+ edit and archive
+(Sales Reps only their own records); Manager+ restore and change owners.
+"""
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime
+from http import HTTPStatus
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import Settings
+from app.core.errors import AppError, ErrorCode, FieldError
+from app.core.events import DomainEvent, EventBus
+from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
+from app.core.policy import MANAGER_ROLES, check_owner
+from app.core.principal import Principal
+from app.core.reference import ReferenceList, is_active_item
+from app.core.text import normalize_company_name, search_terms, search_text
+from app.modules.identity import service as identity
+from app.modules.party import repository
+from app.modules.party.eik import is_valid_eik
+from app.modules.party.models import Contact, Industry, Organization
+from app.modules.party.schemas import (
+    ContactCreate,
+    ContactOut,
+    ContactUpdate,
+    DuplicateCheck,
+    Match,
+    OrganizationCounts,
+    OrganizationCreate,
+    OrganizationDetail,
+    OrganizationOut,
+    OrganizationSummary,
+    OrganizationUpdate,
+    ReferenceSummary,
+    SearchHit,
+    SearchResults,
+    UserSummary,
+)
+
+ORGANIZATION_SORT = {
+    "name": Organization.name_normalized,
+    "created_at": Organization.created_at,
+    "updated_at": Organization.updated_at,
+}
+CONTACT_SORT = {"last_name": Contact.last_name, "created_at": Contact.created_at}
+SEARCH_RESULTS_PER_TYPE = 5
+
+
+@dataclass(frozen=True, slots=True)
+class Context:
+    session: AsyncSession
+    events: EventBus
+    settings: Settings
+    now: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class OrganizationFilters:
+    owner_ids: tuple[UUID, ...] = ()
+    industry_ids: tuple[UUID, ...] = ()
+    cities: tuple[str, ...] = ()
+    countries: tuple[str, ...] = ()
+    size_bands: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ContactFilters:
+    organization_ids: tuple[UUID, ...] = ()
+    owner_ids: tuple[UUID, ...] = ()
+
+
+# --- Shared helpers ---------------------------------------------------------------------
+
+
+def _not_found() -> AppError:
+    return AppError(ErrorCode.RESOURCE_NOT_FOUND, HTTPStatus.NOT_FOUND)
+
+
+def _invalid(field: str, code: str) -> AppError:
+    return AppError(
+        ErrorCode.VALIDATION_FAILED,
+        HTTPStatus.UNPROCESSABLE_CONTENT,
+        errors=[FieldError(field, code)],
+    )
+
+
+async def _publish(
+    ctx: Context,
+    action: str,
+    entity_type: str,
+    entity_id: UUID,
+    principal: Principal,
+    *,
+    before: Mapping[str, Any] | None = None,
+    after: Mapping[str, Any] | None = None,
+) -> None:
+    await ctx.events.publish(
+        ctx.session,
+        DomainEvent(
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            actor=principal,
+            occurred_at=ctx.now,
+            before=before,
+            after=after,
+        ),
+    )
+
+
+async def _names(ctx: Context, *ids: UUID | None) -> dict[UUID, str]:
+    return await identity.user_names(ctx.session, {i for i in ids if i is not None})
+
+
+def _user(names: Mapping[UUID, str], user_id: UUID | None) -> UserSummary | None:
+    if user_id is None:
+        return None
+    return UserSummary(id=user_id, full_name=names.get(user_id, ""))
+
+
+async def _check_owner_choice(ctx: Context, principal: Principal, owner_id: UUID) -> None:
+    """Owners must be active people; only Managers+ give a record to someone else."""
+    if (
+        owner_id != principal.user_id
+        and principal.role not in MANAGER_ROLES
+        and not principal.is_integration
+    ):
+        raise AppError(ErrorCode.PERMISSION_DENIED, HTTPStatus.FORBIDDEN)
+    if not await identity.is_assignable_owner(ctx.session, owner_id):
+        raise _invalid("owner_id", "owner.invalid")
+
+
+def _ensure_not_archived(archived_at: datetime | None) -> None:
+    if archived_at is not None:
+        raise AppError(ErrorCode.RESOURCE_ARCHIVED, HTTPStatus.CONFLICT)
+
+
+# --- Organisations ----------------------------------------------------------------------
+
+
+def _org_view(org: Organization) -> dict[str, Any]:
+    """Fields recorded in the audit log and compared for changes."""
+    return {
+        "name": org.name,
+        "registration_number": org.registration_number,
+        "vat_number": org.vat_number,
+        "industry_id": str(org.industry_id) if org.industry_id else None,
+        "size_band": org.size_band,
+        "website": org.website,
+        "address_line": org.address_line,
+        "postal_code": org.postal_code,
+        "city": org.city,
+        "country": org.country,
+        "owner_id": str(org.owner_id),
+        "notes": org.notes,
+    }
+
+
+def _org_search_text(org: Organization) -> str:
+    return search_text(org.name, org.registration_number, org.vat_number, org.city, org.website)
+
+
+def _warnings(org: Organization) -> list[FieldError]:
+    if org.registration_number and not is_valid_eik(org.registration_number):
+        return [FieldError("registration_number", "organization.registration_checksum")]
+    return []
+
+
+def _industry(industry: Industry | None) -> ReferenceSummary | None:
+    if industry is None:
+        return None
+    return ReferenceSummary(
+        id=industry.id, code=industry.code, name_en=industry.name_en, name_bg=industry.name_bg
+    )
+
+
+def _org_out(org: Organization, names: Mapping[UUID, str]) -> OrganizationOut:
+    owner = _user(names, org.owner_id)
+    assert owner is not None  # noqa: S101 - owner_id is NOT NULL
+    return OrganizationOut(
+        id=org.id,
+        name=org.name,
+        registration_number=org.registration_number,
+        vat_number=org.vat_number,
+        industry=_industry(org.industry),
+        size_band=org.size_band,  # type: ignore[arg-type]
+        website=org.website,
+        address_line=org.address_line,
+        postal_code=org.postal_code,
+        city=org.city,
+        country=org.country,
+        owner=owner,
+        notes=org.notes,
+        created_at=org.created_at,
+        updated_at=org.updated_at,
+        created_by=_user(names, org.created_by),
+        archived_at=org.archived_at,
+        warnings=_warnings(org),
+    )
+
+
+async def _orgs_out(ctx: Context, orgs: list[Organization]) -> list[OrganizationOut]:
+    names = await _names(ctx, *(o.owner_id for o in orgs), *(o.created_by for o in orgs))
+    return [_org_out(o, names) for o in orgs]
+
+
+async def _check_industry(ctx: Context, industry_id: UUID | None) -> None:
+    if industry_id is not None and not await is_active_item(ctx.session, Industry, industry_id):
+        raise _invalid("industry_id", "reference.invalid")
+
+
+async def _duplicates(
+    ctx: Context,
+    name: str | None,
+    registration_number: str | None,
+    exclude_id: UUID | None,
+    *,
+    similar: bool,
+) -> list[Match]:
+    found = await repository.organization_duplicates(
+        ctx.session,
+        name_normalized=normalize_company_name(name) if name else None,
+        registration_number=registration_number,
+        exclude_id=exclude_id,
+        similar=similar,
+    )
+    return [
+        Match(
+            id=org.id,
+            name=org.name,
+            registration_number=org.registration_number,
+            city=org.city,
+            archived=org.archived_at is not None,
+            reason=reason,  # type: ignore[arg-type]
+        )
+        for org, reason in found
+    ]
+
+
+def _duplicate_error(matches: list[Match]) -> AppError:
+    return AppError(
+        ErrorCode.CONFLICT_DUPLICATE,
+        HTTPStatus.CONFLICT,
+        extra={"matches": [m.model_dump(mode="json") for m in matches]},
+    )
+
+
+async def duplicate_check(
+    ctx: Context, *, name: str | None, registration_number: str | None
+) -> DuplicateCheck:
+    """FR-PARTY-01 AC1: exact matches plus similar names, before saving."""
+    return DuplicateCheck(
+        matches=await _duplicates(ctx, name, registration_number, None, similar=True)
+    )
+
+
+async def create_organization(
+    ctx: Context, principal: Principal, data: OrganizationCreate
+) -> OrganizationOut:
+    owner_id = data.owner_id or principal.user_id
+    await _check_owner_choice(ctx, principal, owner_id)
+    await _check_industry(ctx, data.industry_id)
+    if not data.confirm_duplicate:
+        matches = await _duplicates(ctx, data.name, data.registration_number, None, similar=False)
+        if matches:
+            raise _duplicate_error(matches)
+    values = data.model_dump(exclude={"confirm_duplicate", "owner_id"})
+    org = Organization(
+        **values,
+        owner_id=owner_id,
+        name_normalized=normalize_company_name(data.name),
+        created_by=principal.user_id,
+        updated_by=principal.user_id,
+    )
+    org.search_text = _org_search_text(org)
+    ctx.session.add(org)
+    await ctx.session.flush()
+    await _publish(
+        ctx, "organization.created", "organization", org.id, principal, after=_org_view(org)
+    )
+    await ctx.session.commit()
+    created = await repository.get_organization(ctx.session, org.id)
+    assert created is not None  # noqa: S101 - just created
+    return (await _orgs_out(ctx, [created]))[0]
+
+
+async def get_organization(ctx: Context, org_id: UUID) -> OrganizationDetail:
+    """FR-PARTY-03: the organisation with counts for the 360 view."""
+    org = await repository.get_organization(ctx.session, org_id)
+    if org is None:
+        raise _not_found()
+    [out] = await _orgs_out(ctx, [org])
+    counts = OrganizationCounts(
+        contacts=await repository.count_contacts(ctx.session, org.id),
+        # Leads arrive in Phase 3 and opportunities in Phase 4; until then there are none.
+        open_leads=0,
+        open_opportunities=0,
+        open_pipeline_value="0.00",
+    )
+    return OrganizationDetail(**out.model_dump(), counts=counts)
+
+
+async def list_organizations(
+    ctx: Context, query: ListQuery, filters: OrganizationFilters
+) -> Page[OrganizationOut] | SyncPage[OrganizationOut]:
+    statement = repository.organizations_statement(
+        search=search_terms(query.q) if query.q else None,
+        include_archived=query.include_archived,
+        owner_ids=filters.owner_ids,
+        industry_ids=filters.industry_ids,
+        cities=filters.cities,
+        countries=filters.countries,
+        size_bands=filters.size_bands,
+    )
+    if query.sync:
+        rows, cursor = await fetch_sync(
+            ctx.session, statement, query, Organization.updated_at, Organization.id,
+            safety_lag_seconds=ctx.settings.sync_safety_lag_seconds,
+        )  # fmt: skip
+        return SyncPage[OrganizationOut](
+            items=await _orgs_out(ctx, rows),
+            next_cursor=encode_cursor(ctx.settings.app_secret_key, query.resource, cursor)
+            if cursor
+            else None,
+        )
+    rows, total = await fetch_page(
+        ctx.session, statement, query, ORGANIZATION_SORT, Organization.id
+    )
+    return Page[OrganizationOut](
+        items=await _orgs_out(ctx, rows), total=total, page=query.page, page_size=query.page_size
+    )
+
+
+async def _load_org_for_change(ctx: Context, principal: Principal, org_id: UUID) -> Organization:
+    org = await repository.get_organization(ctx.session, org_id, for_update=True)
+    if org is None:
+        raise _not_found()
+    check_owner(principal, org.owner_id)
+    return org
+
+
+async def update_organization(
+    ctx: Context, principal: Principal, org_id: UUID, data: OrganizationUpdate
+) -> OrganizationOut:
+    org = await _load_org_for_change(ctx, principal, org_id)
+    _ensure_not_archived(org.archived_at)
+    changes = data.model_dump(exclude_unset=True, exclude={"confirm_duplicate"})
+    if "name" in changes and changes["name"] is None:
+        raise _invalid("name", "validation.missing")
+    if "country" in changes and changes["country"] is None:
+        changes["country"] = "BG"
+    if "owner_id" in changes:
+        new_owner = changes.pop("owner_id")
+        if new_owner is not None and new_owner != org.owner_id:
+            if principal.role not in MANAGER_ROLES and not principal.is_integration:
+                raise AppError(ErrorCode.PERMISSION_DENIED, HTTPStatus.FORBIDDEN)
+            await _check_owner_choice(ctx, principal, new_owner)
+            changes["owner_id"] = new_owner
+    if "industry_id" in changes:
+        await _check_industry(ctx, changes["industry_id"])
+    identity_changed = ("name" in changes and changes["name"] != org.name) or (
+        "registration_number" in changes
+        and changes["registration_number"] != org.registration_number
+    )
+    if identity_changed and not data.confirm_duplicate:
+        matches = await _duplicates(
+            ctx,
+            changes.get("name", org.name),
+            changes.get("registration_number", org.registration_number),
+            org.id,
+            similar=False,
+        )
+        if matches:
+            raise _duplicate_error(matches)
+
+    before = _org_view(org)
+    for key, value in changes.items():
+        setattr(org, key, value)
+    org.name_normalized = normalize_company_name(org.name)
+    org.search_text = _org_search_text(org)
+    org.updated_by = principal.user_id
+    after = _org_view(org)
+    if after != before:
+        action = (
+            "organization.owner_changed"
+            if after["owner_id"] != before["owner_id"]
+            else "organization.updated"
+        )
+        await _publish(ctx, action, "organization", org.id, principal, before=before, after=after)
+    await ctx.session.commit()
+    return await _fresh_org(ctx, org.id)
+
+
+async def _fresh_org(ctx: Context, org_id: UUID) -> OrganizationOut:
+    ctx.session.expire_all()
+    org = await repository.get_organization(ctx.session, org_id)
+    assert org is not None  # noqa: S101 - exists
+    return (await _orgs_out(ctx, [org]))[0]
+
+
+async def archive_organization(ctx: Context, principal: Principal, org_id: UUID) -> None:
+    """Soft delete. Phase 4 adds: blocked while the organisation has open opportunities."""
+    org = await _load_org_for_change(ctx, principal, org_id)
+    if org.archived_at is None:
+        org.archived_at = ctx.now
+        org.updated_by = principal.user_id
+        await _publish(ctx, "organization.archived", "organization", org.id, principal)
+    await ctx.session.commit()
+
+
+async def restore_organization(ctx: Context, principal: Principal, org_id: UUID) -> OrganizationOut:
+    org = await repository.get_organization(ctx.session, org_id, for_update=True)
+    if org is None:
+        raise _not_found()
+    if org.archived_at is not None:
+        org.archived_at = None
+        org.updated_by = principal.user_id
+        await _publish(ctx, "organization.restored", "organization", org.id, principal)
+    await ctx.session.commit()
+    return await _fresh_org(ctx, org.id)
+
+
+async def industry_usage(session: AsyncSession, industry_id: UUID) -> int:
+    return await repository.count_organizations_with_industry(session, industry_id)
+
+
+REFERENCE_LISTS = (ReferenceList("industries", "industry", Industry, industry_usage),)
+
+
+# --- Contacts ---------------------------------------------------------------------------
+
+
+def _contact_owner_id(contact: Contact) -> UUID:
+    """Ownership follows the organisation; without one, the creator (API spec section 8)."""
+    if contact.organization is not None:
+        return contact.organization.owner_id
+    assert contact.created_by is not None  # noqa: S101 - set on create
+    return contact.created_by
+
+
+def _contact_view(contact: Contact) -> dict[str, Any]:
+    return {
+        "first_name": contact.first_name,
+        "last_name": contact.last_name,
+        "job_title": contact.job_title,
+        "email": contact.email,
+        "phone": contact.phone,
+        "preferred_locale": contact.preferred_locale,
+        "organization_id": str(contact.organization_id) if contact.organization_id else None,
+        "notes": contact.notes,
+    }
+
+
+def _contact_search_text(contact: Contact) -> str:
+    return search_text(
+        contact.first_name, contact.last_name, contact.email, contact.phone, contact.job_title
+    )
+
+
+def _contact_out(contact: Contact, names: Mapping[UUID, str]) -> ContactOut:
+    owner = _user(names, _contact_owner_id(contact))
+    assert owner is not None  # noqa: S101 - always resolvable
+    org = contact.organization
+    return ContactOut(
+        id=contact.id,
+        first_name=contact.first_name,
+        last_name=contact.last_name,
+        full_name=f"{contact.first_name} {contact.last_name}",
+        job_title=contact.job_title,
+        email=contact.email,
+        phone=contact.phone,
+        preferred_locale=contact.preferred_locale,  # type: ignore[arg-type]
+        organization=OrganizationSummary(id=org.id, name=org.name) if org else None,
+        owner=owner,
+        notes=contact.notes,
+        created_at=contact.created_at,
+        updated_at=contact.updated_at,
+        created_by=_user(names, contact.created_by),
+        archived_at=contact.archived_at,
+        anonymized_at=contact.anonymized_at,
+    )
+
+
+async def _contacts_out(ctx: Context, contacts: list[Contact]) -> list[ContactOut]:
+    names = await _names(
+        ctx, *(_contact_owner_id(c) for c in contacts), *(c.created_by for c in contacts)
+    )
+    return [_contact_out(c, names) for c in contacts]
+
+
+async def _check_contact_organization(ctx: Context, org_id: UUID | None) -> None:
+    if org_id is None:
+        return
+    org = await repository.get_organization(ctx.session, org_id)
+    if org is None:
+        raise _invalid("organization_id", "organization.not_found")
+    if org.archived_at is not None:
+        raise _invalid("organization_id", "organization.archived")
+
+
+async def _email_duplicates(ctx: Context, email: str, exclude_id: UUID | None) -> list[Match]:
+    contacts = await repository.contacts_with_email(ctx.session, email, exclude_id=exclude_id)
+    return [
+        Match(
+            id=c.id,
+            name=f"{c.first_name} {c.last_name}",
+            email=c.email,
+            archived=c.archived_at is not None,
+            reason="email",
+        )
+        for c in contacts
+    ]
+
+
+async def create_contact(ctx: Context, principal: Principal, data: ContactCreate) -> ContactOut:
+    await _check_contact_organization(ctx, data.organization_id)
+    if data.email and not data.confirm_duplicate:
+        matches = await _email_duplicates(ctx, data.email, None)
+        if matches:
+            raise _duplicate_error(matches)
+    contact = Contact(
+        **data.model_dump(exclude={"confirm_duplicate"}),
+        created_by=principal.user_id,
+        updated_by=principal.user_id,
+    )
+    contact.search_text = _contact_search_text(contact)
+    ctx.session.add(contact)
+    await ctx.session.flush()
+    await _publish(
+        ctx, "contact.created", "contact", contact.id, principal, after=_contact_view(contact)
+    )
+    await ctx.session.commit()
+    return await _fresh_contact(ctx, contact.id)
+
+
+async def _fresh_contact(ctx: Context, contact_id: UUID) -> ContactOut:
+    ctx.session.expire_all()
+    contact = await repository.get_contact(ctx.session, contact_id)
+    assert contact is not None  # noqa: S101 - exists
+    return (await _contacts_out(ctx, [contact]))[0]
+
+
+async def get_contact(ctx: Context, contact_id: UUID) -> ContactOut:
+    contact = await repository.get_contact(ctx.session, contact_id)
+    if contact is None:
+        raise _not_found()
+    return (await _contacts_out(ctx, [contact]))[0]
+
+
+async def list_contacts(
+    ctx: Context, query: ListQuery, filters: ContactFilters
+) -> Page[ContactOut] | SyncPage[ContactOut]:
+    statement = repository.contacts_statement(
+        search=search_terms(query.q) if query.q else None,
+        include_archived=query.include_archived,
+        organization_ids=filters.organization_ids,
+        owner_ids=filters.owner_ids,
+    )
+    if query.sync:
+        rows, cursor = await fetch_sync(
+            ctx.session, statement, query, Contact.updated_at, Contact.id,
+            safety_lag_seconds=ctx.settings.sync_safety_lag_seconds,
+        )  # fmt: skip
+        return SyncPage[ContactOut](
+            items=await _contacts_out(ctx, rows),
+            next_cursor=encode_cursor(ctx.settings.app_secret_key, query.resource, cursor)
+            if cursor
+            else None,
+        )
+    rows, total = await fetch_page(ctx.session, statement, query, CONTACT_SORT, Contact.id)
+    return Page[ContactOut](
+        items=await _contacts_out(ctx, rows),
+        total=total,
+        page=query.page,
+        page_size=query.page_size,
+    )
+
+
+async def organization_contacts(
+    ctx: Context, org_id: UUID, query: ListQuery
+) -> Page[ContactOut] | SyncPage[ContactOut]:
+    if await repository.get_organization(ctx.session, org_id) is None:
+        raise _not_found()
+    return await list_contacts(ctx, query, ContactFilters(organization_ids=(org_id,)))
+
+
+async def _load_contact_for_change(ctx: Context, principal: Principal, contact_id: UUID) -> Contact:
+    contact = await repository.get_contact(ctx.session, contact_id, for_update=True)
+    if contact is None:
+        raise _not_found()
+    check_owner(principal, _contact_owner_id(contact))
+    return contact
+
+
+async def update_contact(
+    ctx: Context, principal: Principal, contact_id: UUID, data: ContactUpdate
+) -> ContactOut:
+    contact = await _load_contact_for_change(ctx, principal, contact_id)
+    _ensure_not_archived(contact.archived_at)
+    changes = data.model_dump(exclude_unset=True, exclude={"confirm_duplicate"})
+    for required in ("first_name", "last_name"):
+        if required in changes and changes[required] is None:
+            raise _invalid(required, "validation.missing")
+    if "organization_id" in changes and changes["organization_id"] != contact.organization_id:
+        await _check_contact_organization(ctx, changes["organization_id"])
+    new_email = changes.get("email")
+    if new_email and new_email != contact.email and not data.confirm_duplicate:
+        matches = await _email_duplicates(ctx, new_email, contact.id)
+        if matches:
+            raise _duplicate_error(matches)
+    before = _contact_view(contact)
+    for key, value in changes.items():
+        setattr(contact, key, value)
+    contact.search_text = _contact_search_text(contact)
+    contact.updated_by = principal.user_id
+    after = _contact_view(contact)
+    if after != before:
+        await _publish(
+            ctx, "contact.updated", "contact", contact.id, principal, before=before, after=after
+        )
+    await ctx.session.commit()
+    return await _fresh_contact(ctx, contact.id)
+
+
+async def archive_contact(ctx: Context, principal: Principal, contact_id: UUID) -> None:
+    contact = await _load_contact_for_change(ctx, principal, contact_id)
+    if contact.archived_at is None:
+        contact.archived_at = ctx.now
+        contact.updated_by = principal.user_id
+        await _publish(ctx, "contact.archived", "contact", contact.id, principal)
+    await ctx.session.commit()
+
+
+async def restore_contact(ctx: Context, principal: Principal, contact_id: UUID) -> ContactOut:
+    contact = await repository.get_contact(ctx.session, contact_id, for_update=True)
+    if contact is None:
+        raise _not_found()
+    if contact.archived_at is not None:
+        contact.archived_at = None
+        contact.updated_by = principal.user_id
+        await _publish(ctx, "contact.restored", "contact", contact.id, principal)
+    await ctx.session.commit()
+    return await _fresh_contact(ctx, contact.id)
+
+
+# --- Search (API spec section 12) -------------------------------------------------------
+
+
+async def search(ctx: Context, q: str, types: set[str]) -> SearchResults:
+    """Quick search across organisations and contacts, up to 5 per type."""
+    terms = search_terms(q)
+    hits: list[SearchHit] = []
+    if "organization" in types:
+        statement = repository.organizations_statement(
+            search=terms, include_archived=False, owner_ids=(), industry_ids=(),
+            cities=(), countries=(), size_bands=(),
+        ).order_by(Organization.name_normalized).limit(SEARCH_RESULTS_PER_TYPE)  # fmt: skip
+        for org in (await ctx.session.execute(statement)).unique().scalars():
+            hits.append(SearchHit(type="organization", id=org.id, label=org.name, detail=org.city))
+    if "contact" in types:
+        contacts = (
+            repository.contacts_statement(
+                search=terms, include_archived=False, organization_ids=(), owner_ids=()
+            )
+            .order_by(Contact.last_name, Contact.first_name)
+            .limit(SEARCH_RESULTS_PER_TYPE)
+        )
+        for c in (await ctx.session.execute(contacts)).unique().scalars():
+            detail = c.organization.name if c.organization else c.email
+            hits.append(
+                SearchHit(
+                    type="contact", id=c.id, label=f"{c.first_name} {c.last_name}", detail=detail
+                )
+            )
+    return SearchResults(items=hits)
