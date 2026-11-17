@@ -17,5 +17,45 @@
     "unexpected": "Something went wrong. Please try again.",
     "notFound": "This page does not exist.",
     "backHome": "Back to the start page"
+  },
+  "nav": {
+    "label": "Main navigation",
+    "home": "Home",
+    "users": "Users",
+    "auditLog": "Audit log",
+    "settings": "Settings",
+    "profile": "My profile",
+    "signOut": "Sign out"
+  },
+  "roles": {
+    "admin": "Admin",
+    "sales_manager": "Sales Manager",
+    "sales_rep": "Sales Rep",
+    "viewer": "Viewer",
+    "integration": "Integration client"
+  },
+  "actions": {
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "copy": "Copy",
+    "copied": "Copied",
+    "previous": "Previous",
+    "next": "Next",
+    "search": "Search",
+    "back": "Back"
+  },
+  "states": {
+    "loading": "Loading…",
+    "empty": "Nothing to show.",
+    "saved": "Saved."
+  },
+  "pagination": {
+    "summary": "Page {{page}} of {{pages}} · {{total}} in total"
+  },
+  "home": {
+    "title": "Welcome, {{name}}",
+    "intro": "Leads, opportunities and the dashboard will appear here in the coming releases."
   }
 }

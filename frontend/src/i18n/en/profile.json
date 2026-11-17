@@ -1,0 +1,28 @@
+{
+  "title": "My profile",
+  "details": {
+    "title": "Personal details",
+    "fullName": "Full name",
+    "email": "Email",
+    "role": "Role",
+    "language": "Language"
+  },
+  "password": {
+    "title": "Change password",
+    "current": "Current password",
+    "new": "New password",
+    "confirm": "Repeat the new password",
+    "submit": "Change password",
+    "done": "Password changed. Your other sessions were signed out."
+  },
+  "sessions": {
+    "title": "Active sessions",
+    "started": "Signed in",
+    "lastSeen": "Last activity",
+    "device": "Browser",
+    "ip": "IP address",
+    "current": "This session",
+    "revoke": "Sign out",
+    "unknownDevice": "Unknown browser"
+  }
+}

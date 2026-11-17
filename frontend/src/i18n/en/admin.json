@@ -1,0 +1,124 @@
+{
+  "users": {
+    "title": "Users",
+    "new": "New user",
+    "search": "Search by name or email",
+    "allRoles": "All roles",
+    "allStatuses": "All statuses",
+    "role": "Role",
+    "status": {
+      "active": "Active",
+      "inactive": "Deactivated",
+      "locked": "Locked"
+    },
+    "columns": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "lastLogin": "Last sign-in"
+    },
+    "never": "Never",
+    "statusFilter": "Status"
+  },
+  "userForm": {
+    "createTitle": "New user",
+    "editTitle": "Edit user",
+    "email": "Email",
+    "fullName": "Full name",
+    "role": "Role",
+    "language": "Language",
+    "create": "Create user"
+  },
+  "link": {
+    "title": "One-time password link",
+    "explain": "Give this link to {{name}} to set a password. It can be used once and expires on {{expires}}.",
+    "emailed": "The link was also sent by email.",
+    "notEmailed": "Email is not configured, so hand over the link yourself.",
+    "openUser": "Open the user"
+  },
+  "userDetail": {
+    "title": "User",
+    "status": "Status",
+    "lockedUntil": "Locked until {{time}}",
+    "created": "Created",
+    "lastLogin": "Last sign-in",
+    "actions": "Account actions",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "unlock": "Unlock",
+    "resetPassword": "Create password reset link",
+    "revokeSessions": "Sign out everywhere",
+    "confirmDeactivate": "Deactivate {{name}}? They are signed out at once and cannot sign in until reactivated. Their records stay.",
+    "confirmRevoke": "Sign {{name}} out of all sessions?",
+    "done": {
+      "deactivated": "User deactivated.",
+      "activated": "User activated.",
+      "unlocked": "Account unlocked.",
+      "revoked": "All sessions ended."
+    }
+  },
+  "audit": {
+    "title": "Audit log",
+    "action": "Action",
+    "entityType": "Record type",
+    "from": "From",
+    "to": "To",
+    "filter": "Apply filters",
+    "reset": "Clear",
+    "columns": {
+      "time": "Time",
+      "actor": "Actor",
+      "action": "Action",
+      "entity": "Record",
+      "ip": "IP address"
+    },
+    "actor": {
+      "anonymous": "Anonymous",
+      "system": "System"
+    },
+    "detail": {
+      "title": "Audit entry",
+      "before": "Before",
+      "after": "After",
+      "details": "Details",
+      "requestId": "Request ID",
+      "none": "—"
+    },
+    "actions": {
+      "auth": {
+        "login_succeeded": "Signed in",
+        "login_failed": "Failed sign-in",
+        "account_locked": "Account locked",
+        "logout": "Signed out",
+        "password_set": "Password set",
+        "password_changed": "Password changed",
+        "password_reset_requested": "Password reset requested"
+      },
+      "user": {
+        "created": "User created",
+        "updated": "User updated",
+        "role_changed": "Role changed",
+        "deactivated": "User deactivated",
+        "activated": "User activated",
+        "password_reset_issued": "Password reset link created",
+        "unlocked": "Account unlocked",
+        "sessions_revoked": "All sessions ended"
+      },
+      "session": {
+        "revoked": "Session ended"
+      },
+      "settings": {
+        "updated": "Settings changed"
+      }
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "sessions": "Sessions",
+    "idle": "Sign out after inactivity (minutes)",
+    "absolute": "Maximum session length (minutes)",
+    "idleHint": "Default 480 (8 hours); 15 to 1440.",
+    "absoluteHint": "Default 10080 (7 days); 60 to 43200."
+  }
+}

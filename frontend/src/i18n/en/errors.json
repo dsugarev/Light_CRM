@@ -1,0 +1,60 @@
+{
+  "unknown": "Something went wrong. Please try again.",
+  "auth": {
+    "invalid_credentials": "Wrong email or password.",
+    "session_expired": "Your session has ended. Please sign in again.",
+    "account_locked": "Too many failed attempts. The account is locked until {{time}}.",
+    "account_inactive": "Wrong email or password.",
+    "token_invalid": "This link is invalid, already used or expired.",
+    "password_policy": "The password does not meet the requirements.",
+    "csrf_failed": "The request was blocked for security reasons. Reload the page and try again.",
+    "mixed_credentials": "The request was rejected.",
+    "api_key_invalid": "The request was rejected."
+  },
+  "permission": {
+    "denied": "You are not allowed to do this.",
+    "last_admin": "At least one active administrator must remain."
+  },
+  "conflict": {
+    "duplicate": "A record with these details already exists.",
+    "version_mismatch": "Someone else changed this record. Reload and try again."
+  },
+  "resource": {
+    "not_found": "Not found."
+  },
+  "rate_limit": {
+    "exceeded": "Too many attempts. Please wait a moment and try again."
+  },
+  "request": {
+    "method_not_allowed": "The request was rejected."
+  },
+  "server": {
+    "internal_error": "Something went wrong on the server. Please try again."
+  },
+  "validation": {
+    "failed": "Please correct the highlighted fields.",
+    "required": "Required.",
+    "email": "Enter a valid email address.",
+    "passwords_mismatch": "The passwords do not match.",
+    "missing": "Required.",
+    "string_too_short": "Too short.",
+    "string_too_long": "Too long.",
+    "value_error": "Invalid value.",
+    "literal_error": "Choose one of the options.",
+    "greater_than_equal": "The value is too small.",
+    "less_than_equal": "The value is too large.",
+    "int_parsing": "Enter a whole number.",
+    "exceeds_absolute": "Must not be longer than the absolute timeout.",
+    "minutes_range": "Enter a value between {{min}} and {{max}}."
+  },
+  "password": {
+    "too_short": "At least 12 characters.",
+    "too_long": "At most 128 characters.",
+    "too_common": "This password is too common.",
+    "current_incorrect": "The current password is wrong."
+  },
+  "user": {
+    "email_taken": "A user with this email already exists.",
+    "inactive": "The user is deactivated."
+  }
+}
