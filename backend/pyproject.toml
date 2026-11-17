@@ -1,0 +1,187 @@
+[project]
+name = "light-crm-backend"
+version = "0.1.0"
+description = "Light B2B CRM: JSON API, background worker and CLI"
+requires-python = ">=3.14"
+dependencies = [
+    "alembic==1.20.1",
+    "asyncpg==0.32.0",
+    "fastapi==0.163.1",
+    "pydantic==2.14.3",
+    "pydantic-settings==2.16.3",
+    "sqlalchemy[asyncio]==2.1.9",
+    "uvicorn[standard]==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx==0.28.1",
+    "import-linter==2.16",
+    "mypy==2.4.1",
+    "pip-audit==2.10.1",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.5.0",
+    "pytest-cov==7.1.0",
+    "ruff==0.17.5",
+]
+
+[tool.uv]
+package = false
+
+# --- Ruff -------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = ["alembic/versions/*.mako"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "UP", "N", "S", "ASYNC", "C4", "SIM", "RUF", "PT", "T20", "DTZ",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "N802"]
+"app/cli.py" = ["T201"]
+"tests/api/catalog_pending.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+# The local alembic/ directory holds migrations; the package is third-party.
+known-third-party = ["alembic"]
+
+# --- mypy -------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.14"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["app", "alembic", "tests"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# --- pytest -----------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = "--strict-markers --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=75"
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+
+# --- import-linter (architecture section 3, module boundary rules) ----------
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Top-level layering: entry points > modules > llm > core"
+type = "layers"
+layers = [
+    "app.cli",
+    "app.main | app.worker",
+    "app.modules",
+    "app.llm",
+    "app.core",
+]
+
+[[tool.importlinter.contracts]]
+name = "Module dependency direction (nothing depends on assistant or integration)"
+type = "layers"
+containers = ["app.modules"]
+layers = [
+    "assistant | integration",
+    "dataimport | reporting | audit",
+    "activity",
+    "sales",
+    "party",
+    "identity",
+]
+
+[[tool.importlinter.contracts]]
+name = "Inside a module: router > service > repository > models"
+type = "layers"
+containers = [
+    "app.modules.identity",
+    "app.modules.party",
+    "app.modules.sales",
+    "app.modules.activity",
+    "app.modules.reporting",
+    "app.modules.dataimport",
+    "app.modules.audit",
+    "app.modules.integration",
+    "app.modules.assistant",
+]
+layers = ["router", "service", "repository", "models"]
+
+[[tool.importlinter.contracts]]
+name = "Routers never touch the database"
+type = "forbidden"
+source_modules = ["app.modules.*.router"]
+forbidden_modules = ["app.modules.*.repository", "app.modules.*.models", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
+name = "Only app.llm may import litellm"
+type = "forbidden"
+source_modules = ["app.main", "app.worker", "app.cli", "app.core", "app.modules"]
+forbidden_modules = ["litellm"]
+
+# Modules talk to each other only through service functions: for each module,
+# no other module may import its router, repository or models.
+[[tool.importlinter.contracts]]
+name = "identity internals are private"
+type = "forbidden"
+source_modules = ["app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
+forbidden_modules = ["app.modules.identity.router", "app.modules.identity.repository", "app.modules.identity.models"]
+
+[[tool.importlinter.contracts]]
+name = "party internals are private"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
+forbidden_modules = ["app.modules.party.router", "app.modules.party.repository", "app.modules.party.models"]
+
+[[tool.importlinter.contracts]]
+name = "sales internals are private"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.party", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
+forbidden_modules = ["app.modules.sales.router", "app.modules.sales.repository", "app.modules.sales.models"]
+
+[[tool.importlinter.contracts]]
+name = "activity internals are private"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
+forbidden_modules = ["app.modules.activity.router", "app.modules.activity.repository", "app.modules.activity.models"]
+
+[[tool.importlinter.contracts]]
+name = "reporting internals are private"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.dataimport", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
+forbidden_modules = ["app.modules.reporting.router", "app.modules.reporting.repository", "app.modules.reporting.models"]
+
+[[tool.importlinter.contracts]]
+name = "dataimport internals are private"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.audit", "app.modules.integration", "app.modules.assistant"]
+forbidden_modules = ["app.modules.dataimport.router", "app.modules.dataimport.repository", "app.modules.dataimport.models"]
+
+[[tool.importlinter.contracts]]
+name = "audit internals are private"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.integration", "app.modules.assistant"]
+forbidden_modules = ["app.modules.audit.router", "app.modules.audit.repository", "app.modules.audit.models"]
+
+[[tool.importlinter.contracts]]
+name = "integration internals are private"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.assistant"]
+forbidden_modules = ["app.modules.integration.router", "app.modules.integration.repository", "app.modules.integration.models"]
+
+[[tool.importlinter.contracts]]
+name = "assistant internals are private"
+type = "forbidden"
+source_modules = ["app.modules.identity", "app.modules.party", "app.modules.sales", "app.modules.activity", "app.modules.reporting", "app.modules.dataimport", "app.modules.audit", "app.modules.integration"]
+forbidden_modules = ["app.modules.assistant.router", "app.modules.assistant.repository", "app.modules.assistant.models"]
