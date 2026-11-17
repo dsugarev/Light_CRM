@@ -17,7 +17,7 @@
   },
   "conflict": {
     "duplicate": "A record with these details already exists.",
-    "version_mismatch": "Someone else changed this record. Reload and try again."
+    "version_mismatch": "Someone else changed this record. The latest version is shown; please repeat your change."
   },
   "resource": {
     "not_found": "Not found.",
@@ -54,7 +54,9 @@
     "url": "Enter a web address starting with http:// or https://",
     "vat": "BG followed by 9 or 10 digits.",
     "registration": "9 or 13 digits.",
-    "country": "Two letters, e.g. BG."
+    "country": "Two letters, e.g. BG.",
+    "use_action_endpoint": "Use the action buttons for this change.",
+    "money": "Enter an amount, e.g. 48000 or 48000.50."
   },
   "password": {
     "too_short": "At least 12 characters.",
@@ -79,5 +81,15 @@
   },
   "owner": {
     "invalid": "Choose an active user as owner."
+  },
+  "lead": {
+    "bant_incomplete": "To qualify, every BANT item must be known.",
+    "bant_unknown": "Still unknown.",
+    "invalid_transition": "This status change is not possible now.",
+    "read_only": "This lead can no longer be edited."
+  },
+  "contact": {
+    "not_found": "The contact does not exist.",
+    "organization_mismatch": "The contact belongs to another organization."
   }
 }

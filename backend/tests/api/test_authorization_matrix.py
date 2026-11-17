@@ -31,6 +31,7 @@ EXPECTED: dict[str, set[str]] = {
     "Signed-in": HUMANS,
     "Signed-in or any integration client": HUMANS,
     "Contributor": {"admin", "sales_manager", "sales_rep"},
+    "Contributor (rules in service)": {"admin", "sales_manager", "sales_rep"},
     "Owner+": {"admin", "sales_manager", "sales_rep"},  # ownership checked per record
     "Manager+": {"admin", "sales_manager"},
     "Admin": {"admin"},

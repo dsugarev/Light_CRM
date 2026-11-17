@@ -5,7 +5,7 @@ commits here. Permission rules: Contributors create; Owner+ edit and archive
 (Sales Reps only their own records); Manager+ restore and change owners.
 """
 
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
@@ -21,6 +21,7 @@ from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_pag
 from app.core.policy import MANAGER_ROLES, check_owner
 from app.core.principal import Principal
 from app.core.reference import ReferenceList, is_active_item
+from app.core.search import SearchHit, SearchProvider
 from app.core.text import normalize_company_name, search_terms, search_text
 from app.modules.identity import service as identity
 from app.modules.party import repository
@@ -39,8 +40,6 @@ from app.modules.party.schemas import (
     OrganizationSummary,
     OrganizationUpdate,
     ReferenceSummary,
-    SearchHit,
-    SearchResults,
     UserSummary,
 )
 
@@ -50,7 +49,9 @@ ORGANIZATION_SORT = {
     "updated_at": Organization.updated_at,
 }
 CONTACT_SORT = {"last_name": Contact.last_name, "created_at": Contact.created_at}
-SEARCH_RESULTS_PER_TYPE = 5
+# Higher modules (sales) contribute figures to the organisation 360 view through
+# providers registered at start-up (ADR 0018); party never imports them.
+OrganizationStats = Callable[[AsyncSession, UUID], Awaitable[Mapping[str, Any]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +60,7 @@ class Context:
     events: EventBus
     settings: Settings
     now: datetime
+    organization_stats: Sequence[OrganizationStats] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -297,13 +299,15 @@ async def get_organization(ctx: Context, org_id: UUID) -> OrganizationDetail:
     if org is None:
         raise _not_found()
     [out] = await _orgs_out(ctx, [org])
-    counts = OrganizationCounts(
-        contacts=await repository.count_contacts(ctx.session, org.id),
-        # Leads arrive in Phase 3 and opportunities in Phase 4; until then there are none.
-        open_leads=0,
-        open_opportunities=0,
-        open_pipeline_value="0.00",
-    )
+    figures: dict[str, Any] = {
+        "contacts": await repository.count_contacts(ctx.session, org.id),
+        "open_leads": 0,
+        "open_opportunities": 0,
+        "open_pipeline_value": "0.00",
+    }
+    for provider in ctx.organization_stats:
+        figures.update(await provider(ctx.session, org.id))
+    counts = OrganizationCounts(**figures)
     return OrganizationDetail(**out.model_dump(), counts=counts)
 
 
@@ -650,33 +654,89 @@ async def restore_contact(ctx: Context, principal: Principal, contact_id: UUID) 
     return await _fresh_contact(ctx, contact.id)
 
 
-# --- Search (API spec section 12) -------------------------------------------------------
+# --- Search providers (registered with app.core.search) --------------------------------
 
 
-async def search(ctx: Context, q: str, types: set[str]) -> SearchResults:
-    """Quick search across organisations and contacts, up to 5 per type."""
-    terms = search_terms(q)
-    hits: list[SearchHit] = []
-    if "organization" in types:
-        statement = repository.organizations_statement(
+async def search_organizations(
+    session: AsyncSession, terms: list[list[str]], limit: int
+) -> list[SearchHit]:
+    statement = (
+        repository.organizations_statement(
             search=terms, include_archived=False, owner_ids=(), industry_ids=(),
             cities=(), countries=(), size_bands=(),
-        ).order_by(Organization.name_normalized).limit(SEARCH_RESULTS_PER_TYPE)  # fmt: skip
-        for org in (await ctx.session.execute(statement)).unique().scalars():
-            hits.append(SearchHit(type="organization", id=org.id, label=org.name, detail=org.city))
-    if "contact" in types:
-        contacts = (
-            repository.contacts_statement(
-                search=terms, include_archived=False, organization_ids=(), owner_ids=()
-            )
-            .order_by(Contact.last_name, Contact.first_name)
-            .limit(SEARCH_RESULTS_PER_TYPE)
         )
-        for c in (await ctx.session.execute(contacts)).unique().scalars():
-            detail = c.organization.name if c.organization else c.email
-            hits.append(
-                SearchHit(
-                    type="contact", id=c.id, label=f"{c.first_name} {c.last_name}", detail=detail
-                )
-            )
-    return SearchResults(items=hits)
+        .order_by(Organization.name_normalized)
+        .limit(limit)
+    )  # fmt: skip
+    return [
+        SearchHit(type="organization", id=org.id, label=org.name, detail=org.city)
+        for org in (await session.execute(statement)).unique().scalars()
+    ]
+
+
+async def search_contacts(
+    session: AsyncSession, terms: list[list[str]], limit: int
+) -> list[SearchHit]:
+    statement = (
+        repository.contacts_statement(
+            search=terms, include_archived=False, organization_ids=(), owner_ids=()
+        )
+        .order_by(Contact.last_name, Contact.first_name)
+        .limit(limit)
+    )
+    return [
+        SearchHit(
+            type="contact",
+            id=c.id,
+            label=f"{c.first_name} {c.last_name}",
+            detail=c.organization.name if c.organization else c.email,
+        )
+        for c in (await session.execute(statement)).unique().scalars()
+    ]
+
+
+SEARCH_PROVIDERS = (
+    SearchProvider("organization", search_organizations),
+    SearchProvider("contact", search_contacts),
+)
+
+
+# --- For other modules -------------------------------------------------------------------
+
+
+async def organization_summary(session: AsyncSession, org_id: UUID) -> OrganizationSummary | None:
+    """Name of an organisation for embedding, or None if it does not exist."""
+    org = await repository.get_organization(session, org_id)
+    return OrganizationSummary(id=org.id, name=org.name) if org else None
+
+
+async def check_organization_link(session: AsyncSession, org_id: UUID) -> str | None:
+    """Field code when an organisation cannot be linked to a new record, else None."""
+    org = await repository.get_organization(session, org_id)
+    if org is None:
+        return "organization.not_found"
+    if org.archived_at is not None:
+        return "organization.archived"
+    return None
+
+
+@dataclass(frozen=True, slots=True)
+class ContactLink:
+    id: UUID
+    full_name: str
+    organization_id: UUID | None
+
+
+async def contact_link(
+    session: AsyncSession, contact_id: UUID, *, include_archived: bool = False
+) -> ContactLink | None:
+    """A contact that may be linked to a record (e.g. a lead), else None. Archived
+    contacts count only with `include_archived` (for showing existing links)."""
+    contact = await repository.get_contact(session, contact_id)
+    if contact is None or (contact.archived_at is not None and not include_archived):
+        return None
+    return ContactLink(
+        id=contact.id,
+        full_name=f"{contact.first_name} {contact.last_name}",
+        organization_id=contact.organization_id,
+    )

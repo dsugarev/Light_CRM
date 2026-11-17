@@ -29,7 +29,8 @@
     "organizations": "Organizations",
     "contacts": "Contacts",
     "reference": "Lists",
-    "search": "Search"
+    "search": "Search",
+    "leads": "Leads"
   },
   "roles": {
     "admin": "Admin",

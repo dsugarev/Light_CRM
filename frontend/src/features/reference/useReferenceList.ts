@@ -5,7 +5,10 @@ import type { Locale } from '@/i18n'
 
 export type ReferenceItem = Schemas['ReferenceItem']
 
-export function useReferenceList(list: 'industries', includeInactive = false) {
+export const REFERENCE_LISTS = ['industries', 'lead-sources', 'disqualification-reasons'] as const
+export type ReferenceListName = (typeof REFERENCE_LISTS)[number]
+
+export function useReferenceList(list: ReferenceListName, includeInactive = false) {
   return useQuery({
     queryKey: ['reference', list, includeInactive],
     queryFn: () =>

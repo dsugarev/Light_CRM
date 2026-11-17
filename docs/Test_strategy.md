@@ -25,7 +25,7 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | End-to-end | `frontend/e2e/` | Playwright (Chromium, Firefox) | Composed Docker stack over HTTPS; Admins created with `create-admin --password-stdin` | Every commit (CI `e2e` job) and locally on demand |
 | Dependency audit | CI | pip-audit (hashed lock export), `pnpm audit --audit-level high` | Lockfiles | Every commit |
 
-## 2. Requirement coverage (Phases 0–2)
+## 2. Requirement coverage (Phases 0–3)
 
 | Requirement | Covered by (examples; see appendix for all) | Levels |
 |---|---|---|
@@ -49,13 +49,19 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | FR-ADM-02 reference lists (industries) | `test_FR_ADM_02_*` (seeded en/bg, add/rename/deactivate/reorder/delete, in-use refused); Vitest reference admin | API, component |
 | FR-I18N-04 Cyrillic search and import | `tests/unit/test_text.py` (transliteration, name key, search text); API search tests in both scripts; E2E party journey | Unit, API, E2E |
 | FR-INT-05 sync mode (machinery; integration clients in Phase 6) | `tests/api/test_sync_mode.py` (envelope, order, archived rows, `AC2` no skips/repeats during changes, tampered and foreign cursors, page-size limits, safety lag, `(updated_at, id)` indexes) | API |
+| FR-LEAD-01 capture | `test_FR_LEAD_01_company_name_alone_is_enough`, `..._all_fields_bant_score_and_links`, validation and link checks; Vitest "saves with only a title and company name"; E2E leads journey | API, component, E2E |
+| FR-LEAD-02 lifecycle (AC1 reason, AC2 read-only/reopen) | `tests/unit/test_lead_lifecycle.py` (full transition matrix); `test_FR_LEAD_02_*` (happy path, invalid transitions, disqualify with reason, read-only, reopen by managers); Vitest disqualify and reopen; E2E leads journey | Unit, API, component, E2E |
+| FR-LEAD-03 BANT (AC1 qualify needs BANT, AC2 score) | `test_FR_LEAD_03_AC2_score` (7 vectors incl. the spec example 63), `test_FR_LEAD_03_AC1_cannot_qualify_with_unknown_bant`; Vitest live score and disabled Qualify; E2E score 63 | Unit, API, component, E2E |
+| FR-LEAD-05 lead list | `test_FR_LEAD_05_filters_sort_and_search`; Vitest lead list with URL filters | API, component |
+| FR-LEAD-06 assignment | `test_FR_LEAD_06_rep_takes_over_a_lead_but_cannot_give_it_away`, `..._manager_assigns_to_anyone_active`; Vitest "take over" | API, component |
+| Optimistic concurrency (architecture 4.1) | `test_stale_version_returns_409_with_the_current_lead`, `test_patch_needs_a_version`, `test_unchanged_patch_keeps_the_version`; Vitest "shows the latest version after a conflict" | API, component |
 | FR-INT-03 scopes (policy only until Phase 6) | `test_FR_INT_03_*` in `tests/unit/test_policy.py` | Unit |
 | FR-INT-10 OpenAPI document | `test_FR_INT_10_openapi_document_is_public_outside_production`, `..._requires_sign_in_in_production`, `test_FR_INT_10_export_openapi_writes_document` | Unit, API |
 | NFR-04 security (secrets, CSRF, headers, DB roles) | `tests/unit/test_config.py`; CSRF tests in `test_auth.py`; `test_NFR_04_application_role_cannot_run_ddl`; E2E "security headers", "CSRF header" | Unit, API, migration, E2E |
 | NFR-08 health, JSON logs, request IDs | `tests/api/test_health.py`; `tests/unit/test_logging.py`; `tests/unit/test_errors.py`; Vitest API status; E2E readiness through proxy | Unit, API, component, E2E |
 | NFR-12 additive migrations | `tests/migrations/test_migrations.py` | Migration |
 
-Not yet covered because not yet built: LEAD, OPP, ACT, REP, IMP, AI, INT (except policy scopes and the sync machinery), FR-ADM-04 GDPR, FR-AUTH-07 MFA (Phase 8).
+Not yet covered because not yet built: FR-LEAD-04 conversion, OPP, ACT, REP, IMP, AI, INT (except policy scopes and the sync machinery), FR-ADM-04 GDPR, FR-AUTH-07 MFA (Phase 8).
 
 ## 3. Phase 0 — Foundation
 
@@ -220,12 +226,61 @@ Prove the skeleton is production-shaped and the gates work, before any business 
 - Performance against the NFR-01 volumes (10,000 organizations): Phase 5 seed and measurement.
 - Integration clients calling sync mode with API keys: Phase 6 (machinery tested now through users).
 
+## 6. Phase 3 — Leads
+
+### Strategy
+
+- **State machine and score as pure functions**, tested exhaustively: every action × every status against the spec's transition table, and score vectors including the spec's own example (63).
+- **Every rule through HTTP on PostgreSQL**: capture with minimal and full data, links to existing records, BANT and score, each transition (allowed and refused), qualify with unknown BANT (field-level errors), disqualify reasons, read-only states, reopen by managers only, version conflicts (PATCH and actions) returning the current lead, `use_action_endpoint`, assignment rules (take over versus give away, inactive owner), viewer refusals, archive/restore, filters/sort/search, organisation leads and counts, lead lists seeded and protected when used.
+- **Extension points** (ADR 0018) tested through behaviour: leads in global search, `open_leads` on the organisation 360.
+- **Authorization matrix** grows automatically by 12 routes, including the new access wording "Contributor (rules in service)".
+- **Frontend**: list URL filters, capture payload (decimal comma → dot), BANT live score, Qualify disabled, disqualify reason required, reopen visibility by role, conflict handling, take over, list administration switching.
+- **E2E** in both languages with a freshly created Sales Rep (created with the test language), a second Rep for the ownership refusal, and the Admin reopening.
+
+### Test cases added (summary)
+
+| Area | Cases | Files |
+|---|---|---|
+| Transition matrix (5 actions × 5 statuses), terminal states, score vectors, unknown items | 34 | `backend/tests/unit/test_lead_lifecycle.py` |
+| Leads API (capture, links, lifecycle, BANT, concurrency, PATCH rules, ownership, assignment, archive, lists, organisation leads, seeded lists) | 21 | `backend/tests/api/test_leads.py` |
+| Authorization matrix: 12 new routes | +12 | `backend/tests/api/test_authorization_matrix.py` |
+| Route catalog: new routes and access levels | +24 | `backend/tests/api/test_route_catalog.py` |
+| Policy: new access level | +6 | `backend/tests/unit/test_policy.py` |
+| Lead list, capture, BANT, Qualify, disqualify, reopen, conflict, take over, lists admin | 10 | `frontend/src/features/leads/leads.test.tsx` |
+| Leads journey (en, bg) | 1 × 2 languages × 2 browsers | `frontend/e2e/leads.spec.ts` |
+
+### Runs performed
+
+| Date | Where | What | Result |
+|---|---|---|---|
+| 2026-11-17 | Developer Mac, scratch PostgreSQL 18.7 | Migration 0004 up/down/up; seeded lists inspected | OK (7 sources, 9 reasons) |
+| 2026-11-17 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 614 passed, 96% coverage (lead service 96%); clean |
+| 2026-11-17 | Developer Mac (heavily loaded by other applications, load average 8–15) | ESLint, Prettier, tsc, Vitest, i18n (458 keys), pnpm audit, contract, OpenAPI snapshot | 69 passed with a 60 s per-test timeout for the local run (default 5 s exceeded under load); clean |
+| 2026-11-17 | Docker Desktop, rebuilt stack | Playwright Chromium, full suite (14 tests) | Run 1: 5 timeouts in older tests at the 30 s limit under load; runs 2 and 3 (two workers): 14/14 |
+| 2026-11-17 | GitHub Actions, PR #5 run 44116111752 | All four jobs | Green; Vitest with default timeouts; Playwright on Chromium and Firefox |
+
+### Defects found by testing and fixed
+
+| Found by | Defect | Fix |
+|---|---|---|
+| API tests | Money serializer turned `estimated_value` into text inside the service, breaking audit formatting (500) | Serializer applies to JSON output only |
+| Vitest | Organization 360 test lacked the new leads request; a check ran before the leads loaded | Mock added; test waits for the section |
+| Vitest (under load) | `findBy` waits of 1 s caused flaky failures on a busy machine | Testing Library wait raised to 3 s for all tests |
+| E2E | New users default to English, so the Bulgarian journey switched language after sign-in | Test users are created with the journey's language |
+| E2E | "Qualify" also matched "Disqualify" | Exact button names |
+
+### Gaps and deferred
+
+- Lead conversion (FR-LEAD-04), conversion preview and lead timeline: Phase 4.
+- Lead export: Phase 5.
+- The local frontend and E2E runs were affected by machine load; CI is the reference run for timing.
+
 ## Appendix — test case inventory
 
 <!-- inventory:start -->
 _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 
-### Backend (pytest: unit, API, authorization matrix, migrations) — 517 test cases
+### Backend (pytest: unit, API, authorization matrix, migrations) — 614 test cases
 
 **`backend/tests/api/test_auth.py`** (27)
 
@@ -259,11 +314,11 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Login is rate limited per ip | — | 1 |
 | Rate limit response has retry after | — | 1 |
 
-**`backend/tests/api/test_authorization_matrix.py`** (47)
+**`backend/tests/api/test_authorization_matrix.py`** (59)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| Route role matrix | FR-AUTH-05 | 46 |
+| Route role matrix | FR-AUTH-05 | 58 |
 | Matrix covers every api route | — | 1 |
 
 **`backend/tests/api/test_contacts_reference_search.py`** (12)
@@ -294,6 +349,32 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Health reveals status only | NFR-08 | 1 |
 | Openapi document is public outside production | FR-INT-10 | 1 |
 | Openapi requires sign in in production | FR-INT-10 | 1 |
+
+**`backend/tests/api/test_leads.py`** (21)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Company name alone is enough | FR-LEAD-01 | 1 |
+| All fields bant score and links | FR-LEAD-01 | 1 |
+| Lead validation | — | 1 |
+| Lead links and lists are validated | — | 1 |
+| Happy path new contacted qualified | FR-LEAD-02 | 1 |
+| Cannot qualify with unknown bant | FR-LEAD-03 AC1 | 1 |
+| Invalid transitions are 409 | FR-LEAD-02 | 1 |
+| Disqualify needs a reason and makes the lead read only | FR-LEAD-02 AC1 | 1 |
+| Only managers reopen | FR-LEAD-02 AC2 | 1 |
+| Stale version returns 409 with the current lead | — | 1 |
+| Patch refuses status and owner | — | 1 |
+| Patch needs a version | — | 1 |
+| Unchanged patch keeps the version | — | 1 |
+| Rep cannot change another reps lead | FR-AUTH-05 AC1 | 1 |
+| Rep takes over a lead but cannot give it away | FR-LEAD-06 | 1 |
+| Manager assigns to anyone active | FR-LEAD-06 | 1 |
+| Viewer cannot capture or assign | — | 1 |
+| Archive and restore | — | 1 |
+| Filters sort and search | FR-LEAD-05 | 1 |
+| Organization shows its open leads | FR-PARTY-03 | 1 |
+| Lead lists are seeded and protected when used | FR-ADM-02 | 1 |
 
 **`backend/tests/api/test_me_settings_audit.py`** (14)
 
@@ -345,13 +426,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Filters sorting and paging | FR-PARTY-04 | 1 |
 | Unknown sort or filter is 400 | — | 1 |
 
-**`backend/tests/api/test_route_catalog.py`** (254)
+**`backend/tests/api/test_route_catalog.py`** (278)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Catalog is parsed | — | 1 |
-| Every route is in the catalog | — | 50 |
-| Every api route declares the catalog access level | — | 48 |
+| Every route is in the catalog | — | 62 |
+| Every api route declares the catalog access level | — | 60 |
 | Every catalog entry is built or pending | — | 153 |
 | Pending list only names catalog entries | — | 1 |
 | No route is hidden from the openapi document | — | 1 |
@@ -440,6 +521,15 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Unsafe client request id is replaced | — | 1 |
 | Request id is generated when absent | — | 1 |
 
+**`backend/tests/unit/test_lead_lifecycle.py`** (34)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Transition matrix | FR-LEAD-02 | 25 |
+| Converted and disqualified are terminal except reopen | FR-LEAD-02 AC2 | 1 |
+| Score | FR-LEAD-03 AC2 | 7 |
+| Unknown items are listed | FR-LEAD-03 AC1 | 1 |
+
 **`backend/tests/unit/test_logging.py`** (4)
 
 | Test | Requirement | Cases |
@@ -460,13 +550,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Stored only as argon2id hash | FR-AUTH-03 | 1 |
 | Garbage hash never verifies | — | 1 |
 
-**`backend/tests/unit/test_policy.py`** (46)
+**`backend/tests/unit/test_policy.py`** (52)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| Role matrix | FR-AUTH-05 | 24 |
-| Public is open to everyone | — | 7 |
-| Anonymous callers get 401 | FR-AUTH-05 | 6 |
+| Role matrix | FR-AUTH-05 | 28 |
+| Public is open to everyone | — | 8 |
+| Anonymous callers get 401 | FR-AUTH-05 | 7 |
 | Integrations are denied routes without a scope | FR-INT-03 | 1 |
 | Missing scope names the required scope | FR-INT-03 AC1 | 1 |
 | Scope opens the route | FR-INT-03 | 1 |
@@ -496,7 +586,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Failing job does not stop other jobs | — | 1 |
 | Worker runs jobs until stopped | — | 1 |
 
-### Frontend (Vitest + Testing Library + MSW) — 54 test cases
+### Frontend (Vitest + Testing Library + MSW) — 64 test cases
 
 **`frontend/src/app/app.test.tsx`** (15)
 
@@ -534,6 +624,29 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-I18N-01 locale detection › ignores unsupported stored values | FR-I18N-01 | 1 |
 | FR-I18N-01 locale detection › remembers the chosen language | FR-I18N-01 | 1 |
 
+**`frontend/src/features/auth/setPassword.test.tsx`** (6)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-AUTH-02 set password from a one-time link › checks the token from the URL fragment and sets the password | FR-AUTH-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › explains an invalid or used link | FR-AUTH-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › shows the policy error returned by the server | FR-AUTH-02 | 1 |
+| forgot password › always confirms without revealing whether the account exists | — | 1 |
+| safeNext | — | 1 |
+| set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
+
+**`frontend/src/features/contacts/contacts.test.tsx`** (7)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
+| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
+| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
+
 **`frontend/src/features/admin/admin.test.tsx`** (8)
 
 | Test | Requirement | Cases |
@@ -547,36 +660,20 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-ADM-03 audit log › shows before and after values as text | FR-ADM-03 | 1 |
 | FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
 
-**`frontend/src/features/auth/setPassword.test.tsx`** (6)
+**`frontend/src/features/leads/leads.test.tsx`** (10)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-AUTH-02 set password from a one-time link › checks the token from the URL fragment and sets the password | FR-AUTH-02 | 1 |
-| FR-AUTH-02 set password from a one-time link › explains an invalid or used link | FR-AUTH-02 | 1 |
-| FR-AUTH-02 set password from a one-time link › shows the policy error returned by the server | FR-AUTH-02 | 1 |
-| forgot password › always confirms without revealing whether the account exists | — | 1 |
-| safeNext | — | 1 |
-| set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
-
-**`frontend/src/features/profile/profile.test.tsx`** (3)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
-| profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
-| profile › shows the server error for a wrong current password | — | 1 |
-
-**`frontend/src/features/contacts/contacts.test.tsx`** (7)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
-| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
-| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
+| FR-LEAD-05 lead list › shows status, score and value, with filters in the URL | FR-LEAD-05 | 1 |
+| FR-LEAD-01 capture › saves with only a title and company name | FR-LEAD-01 | 1 |
+| FR-LEAD-01 capture › validates the amount on the client | FR-LEAD-01 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-03 shows BANT, recomputes the score live and saves with the version | FR-LEAD-02, FR-LEAD-03 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-03 AC1 disables Qualify while a BANT item is unknown | FR-LEAD-02, FR-LEAD-03 AC1 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-02 AC1 disqualifying needs a reason | FR-LEAD-02, FR-LEAD-02 AC1 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-02 AC2 shows Reopen to managers only | FR-LEAD-02, FR-LEAD-02 AC2 | 1 |
+| FR-LEAD-02, 03 lead detail › shows the latest version after a conflict | FR-LEAD-02 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-06 lets a rep take over another rep's lead | FR-LEAD-02, FR-LEAD-06 | 1 |
+| FR-ADM-02 lead lists administration › switches between the three lists | FR-ADM-02 | 1 |
 
 **`frontend/src/features/organizations/organizations.test.tsx`** (9)
 
@@ -592,7 +689,15 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
 | FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
 
-### End-to-end (Playwright, composed stack) — 24 test cases
+**`frontend/src/features/profile/profile.test.tsx`** (3)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
+| profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
+| profile › shows the server error for a wrong current password | — | 1 |
+
+### End-to-end (Playwright, composed stack) — 28 test cases
 
 **`frontend/e2e/identity.spec.ts`** (8)
 
@@ -606,6 +711,15 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Journey 1 in bg › FR-AUTH-02 admin creates a rep who sets a password, signs in and gets locked out (firefox) | FR-AUTH-02 | 1 |
 | NFR-04 mutating requests without the CSRF header are rejected (firefox) | NFR-04 | 1 |
 | FR-AUTH-01 anonymous API calls get 401 (firefox) | FR-AUTH-01 | 1 |
+
+**`frontend/e2e/leads.spec.ts`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Leads in en › FR-LEAD-01..03 capture, contact, qualify with BANT; disqualify and reopen (chromium) | FR-LEAD-01 | 1 |
+| Leads in bg › FR-LEAD-01..03 capture, contact, qualify with BANT; disqualify and reopen (chromium) | FR-LEAD-01 | 1 |
+| Leads in en › FR-LEAD-01..03 capture, contact, qualify with BANT; disqualify and reopen (firefox) | FR-LEAD-01 | 1 |
+| Leads in bg › FR-LEAD-01..03 capture, contact, qualify with BANT; disqualify and reopen (firefox) | FR-LEAD-01 | 1 |
 
 **`frontend/e2e/party.spec.ts`** (6)
 

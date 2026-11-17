@@ -14,6 +14,7 @@ ROLE_ACCESS = {
     AccessLevel.SIGNED_IN: {"admin", "sales_manager", "sales_rep", "viewer"},
     AccessLevel.SIGNED_IN_OR_ANY_CLIENT: {"admin", "sales_manager", "sales_rep", "viewer"},
     AccessLevel.CONTRIBUTOR: {"admin", "sales_manager", "sales_rep"},
+    AccessLevel.CONTRIBUTOR_RULES_IN_SERVICE: {"admin", "sales_manager", "sales_rep"},
     AccessLevel.OWNER_PLUS: {"admin", "sales_manager", "sales_rep"},
     AccessLevel.MANAGER_PLUS: {"admin", "sales_manager"},
     AccessLevel.ADMIN: {"admin"},

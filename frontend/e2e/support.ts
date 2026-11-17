@@ -46,12 +46,13 @@ export async function createUserWithPassword(
   role: 'sales_rep' | 'sales_manager' | 'viewer',
   password: string,
   project: string,
+  locale: 'en' | 'bg' = 'en',
 ) {
   const email = uniqueEmail(`e2e-${role}`, project)
   const headers = { 'X-Requested-With': 'XMLHttpRequest' }
   const created = await page.request.post('/api/v1/users', {
     headers,
-    data: { email, full_name: `E2E ${role}`, role },
+    data: { email, full_name: `E2E ${role}`, role, locale },
   })
   expect(created.status()).toBe(201)
   const { set_password } = (await created.json()) as { set_password: { url: string } }

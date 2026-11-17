@@ -1,6 +1,6 @@
 # 05 — API Specification (Release 1)
 
-Status: Draft v0.3 (updated after Phase 2, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+Status: Draft v0.4 (updated after Phase 3, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
 
 This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
 
@@ -17,12 +17,13 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | 4 Current user | 1 | Built, except `/me/tasks` (Phase 4) |
 | 5 Users and roles | 1 | Built |
 | 6.1 Application settings | 1 | Built with session timeouts; further settings added by their phases |
-| 6.2 Reference lists | 2 | Built; `industries` registered, other lists added by Phases 3, 4 and 6 |
+| 6.2 Reference lists | 2–3 | Built; `industries`, `lead-sources`, `disqualification-reasons` registered; `loss-reasons` (Phase 4) and `external-systems` (Phase 6) follow |
 | 6.3 Pipelines and stages | 4 | Pending |
-| 7 Organizations | 2 | Built, except `/leads`, `/opportunities` (Phases 3–4), `/timeline` (Phase 4), `/export` (Phase 5) |
+| 7 Organizations | 2–3 | Built, except `/opportunities`, `/timeline` (Phase 4), `/export` (Phase 5); `/leads` and the open-lead count added in Phase 3 |
 | 8 Contacts | 2 | Built, except `/timeline` (Phase 4), GDPR `personal-data`/`anonymize` (Phase 8), `/export` (Phase 5) |
-| 9–11 Leads, opportunities, activities | 3–4 | Pending |
-| 12 Search | 2 | Built for organizations and contacts; leads and opportunities join in Phases 3–4 |
+| 9 Leads | 3 | Built, except `conversion-preview`, `convert`, `/timeline` (Phase 4) and `/export` (Phase 5) |
+| 10–11 Opportunities, activities | 4 | Pending |
+| 12 Search | 2–3 | Built for organizations, contacts and leads; opportunities join in Phase 4 |
 | 13–15 Reports, exports, import | 5 | Pending |
 | 16 Audit log | 1 | Built, except `/audit-log/export` (Phase 5) |
 | 17 AI assistant | 7 | Pending |
@@ -169,6 +170,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `lead.invalid_transition` | 409 | Status change not allowed from the current status |
 | `lead.bant_incomplete` | 409 | Cannot qualify while a BANT item is unknown |
 | `lead.not_convertible` | 409 | Lead is not Qualified or is already converted |
+| `lead.read_only` | 409 | Lead is converted or disqualified; only reopen (disqualified, Manager+) is possible |
 | `opportunity.closed` | 409 | Change attempted on a closed opportunity |
 | `opportunity.loss_reason_required` | 422 | Lost outcome without a loss reason |
 | `stage.in_use` | 409 | Stage cannot be removed while in use |
@@ -195,7 +197,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `owner.required` | 422 | Integration-created record has no `owner_id` and the client has no default owner |
 | `webhook.url_not_allowed` | 422 | Webhook URL not HTTPS or host not in the allowlist |
 
-**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`). Field names are the request body or query field names.
+**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, `contact.not_found`, `contact.organization_mismatch`, `lead.bant_unknown`, `validation.use_action_endpoint`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`). Field names are the request body or query field names.
 
 ### 1.7 Access levels used in the tables
 
@@ -349,7 +351,7 @@ One uniform set of endpoints serves every configurable list. `{list}` is one of 
 
 New lists in later releases are added by extending the allowed `{list}` values, not by new endpoint shapes.
 
-As built: `industries` is available (seeded with 14 values in English and Bulgarian: telecommunications, IT and software, finance and banking, public sector, healthcare, manufacturing, retail and wholesale, energy and utilities, transport and logistics, construction and real estate, education, hospitality and tourism, media, other). Other names return `404`.
+As built: `lead-sources` (seeded: campaign, inbound, referral, event, cold_outreach, partner, other) and `disqualification-reasons` (seeded: no_budget, no_need, no_decision_maker, bad_timing, chose_competitor, unreachable, duplicate, outside_target, other), both in English and Bulgarian, since Phase 3. `industries` is available (seeded with 14 values in English and Bulgarian: telecommunications, IT and software, finance and banking, public sector, healthcare, manufacturing, retail and wholesale, energy and utilities, transport and logistics, construction and real estate, education, hospitality and tourism, media, other). Other names return `404`.
 
 - `POST` body `{ "code", "name_en", "name_bg", "is_active" }`; `code` is `^[a-z0-9_]{1,50}$` and unique in the list (`409 conflict.duplicate`, field `code` / `reference.code_taken`); the value goes to the end of the order. Returns `201` with `Location`.
 - `PATCH` body `{ "name_en"?, "name_bg"?, "is_active"? }`; the code is permanent.
@@ -527,6 +529,18 @@ Conversion request and response:
 
 Exactly one of `existing_id` and `new` is set for organization; `contact` may be `null`. Any failure rolls back the whole conversion.
 
+Rules (as built in Phase 3; conversion follows in Phase 4):
+
+- **Capture** (`POST`): `title` and `company_name` are required (≤ 200); optional `contact_name`, `email` (stored lower case), `phone`, `source_id` (active lead source), `description` (≤ 5000), `estimated_value` (decimal string or number, ≥ 0, 2 decimals; returned as a string with `currency: "EUR"`), `organization_id` and `contact_id` (links to existing, non-archived records; a contact of another organization returns `422`, field `contact_id` / `contact.organization_mismatch`), `owner_id` (a Sales Rep may only name themselves), and an optional `qualification` object. Status starts as `new`.
+- **BANT** (`qualification`): `budget`, `authority`, `need`, `timeline`, each `{ "status": "unknown" | "no" | "partial" | "yes", "note" }`, plus `fits_target_profile`. In requests every part is optional and only the parts sent change. **Score** = yes 25 + partial 12.5 per item, no/unknown 0, rounded half up (0–100; the example above, yes/partial/yes/unknown, is 63). The fit flag does not change the score. The score is stored, so lists sort by it.
+- **`PATCH`** requires `version`. A stale version returns `409 conflict.version_mismatch` with the current lead in `current`; a change that alters nothing keeps the version. `status` and `owner_id` are refused with `422 validation.use_action_endpoint`. Converted or disqualified leads return `409 lead.read_only`; archived ones `409 resource.archived`.
+- **Actions** take `{ "version" }` (plus the fields below) and return the lead with an incremented version: `mark-contacted` (new → contacted), `qualify` (contacted → qualified; `409 lead.bant_incomplete` with one `errors` entry per unknown item, field `qualification.<item>` / `lead.bant_unknown`), `disqualify` (`{ reason_id, note?, version }` from new, contacted or qualified; `reason_id` must be an active disqualification reason), `reopen` (Manager+, disqualified → contacted; clears the disqualification). Any other change returns `409 lead.invalid_transition` with `status` and `action`.
+- **Assign** (`{ owner_id, version }`): a Sales Rep may only take a lead for themselves, including one owned by another rep (owner decision, Phase 3); Managers+ assign to any active person (`422` `owner.invalid` otherwise). Converted or disqualified leads cannot be reassigned.
+- **List filters**: `status` (repeatable), `owner_id` (repeatable, `me`), `source_id`, `created_at_from` / `created_at_to`, `fits_target_profile`; default sort `-created_at`; `q` searches title, company, contact name, email and phone in both scripts.
+- `disqualification` in the response is `{ reason, note, disqualified_at }` when the lead is disqualified, else `null`; `converted_opportunity` stays `null` until Phase 4.
+- Audit actions: `lead.created`, `lead.updated`, `lead.status_changed`, `lead.owner_changed`, `lead.archived`, `lead.restored`, with before and after values.
+- `GET /organizations/{org_id}/leads` lists the leads linked to the organization (list conventions apply); the organization's `counts.open_leads` counts its open (new, contacted, qualified), non-archived leads.
+
 ## 10. Opportunities and pipeline board
 
 | Method | Path | Purpose | Access | Req. |
@@ -600,7 +614,7 @@ Event types in R1: `created`, `updated`, `owner_changed`, `status_changed`, `sta
 |---|---|---|---|---|
 | GET | `/api/v1/search` | Global quick search across organizations, contacts, leads and opportunities. `q` required (min 2 chars), `types` optional, up to 5 results per type | Signed-in | FR-PARTY-04 |
 
-Response: `{ "items": [ { "type": "organization" | "contact", "id", "label", "detail" } ] }` grouped by type, archived records excluded. `detail` is the city for organizations and the organization name (else email) for contacts. `types` may repeat (`organization`, `contact`; `lead` and `opportunity` from Phases 3–4).
+Response: `{ "items": [ { "type": "organization" | "contact", "id", "label", "detail" } ] }` grouped by type, archived records excluded. `detail` is the city for organizations, the organization name (else email) for contacts, and the company name for leads. `types` may repeat (`organization`, `contact`, `lead`; `opportunity` from Phase 4).
 
 ## 13. Reports and dashboard
 

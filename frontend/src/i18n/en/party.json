@@ -145,6 +145,8 @@
     "organization": "Organization",
     "contact": "Contact",
     "none": "Nothing found.",
-    "tooShort": "Type at least 2 characters."
+    "tooShort": "Type at least 2 characters.",
+    "lead": "Lead",
+    "opportunity": "Opportunity"
   }
 }

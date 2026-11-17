@@ -136,6 +136,7 @@ describe('FR-PARTY-01 create organization', () => {
         }),
       ),
       http.get('*/api/v1/organizations/new-id/contacts', () => HttpResponse.json(page([]))),
+      http.get('*/api/v1/organizations/new-id/leads', () => HttpResponse.json(page([]))),
     )
     const { router } = await renderApp('/organizations/new')
     await userEvent.type(await screen.findByLabelText('Name'), 'Acme')
@@ -208,6 +209,7 @@ describe('FR-PARTY-03 organization 360', () => {
     signedInAs(REP_ME)
     server.use(
       http.get(`*/api/v1/organizations/${ORG.id}`, () => HttpResponse.json(detail)),
+      http.get(`*/api/v1/organizations/${ORG.id}/leads`, () => HttpResponse.json(page([]))),
       http.get(`*/api/v1/organizations/${ORG.id}/contacts`, () =>
         HttpResponse.json(page([CONTACT])),
       ),
@@ -216,7 +218,7 @@ describe('FR-PARTY-03 organization 360', () => {
     expect(await screen.findByRole('heading', { name: 'Акме ЕООД' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Мария Иванова' })).toBeInTheDocument()
     expect(screen.getByText('€0.00')).toBeInTheDocument()
-    expect(screen.getByText('No leads yet.')).toBeInTheDocument()
+    expect(await screen.findByText('No leads yet.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Edit' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Add contact' })).toHaveAttribute(
       'href',
@@ -229,6 +231,7 @@ describe('FR-PARTY-03 organization 360', () => {
     server.use(
       http.get(`*/api/v1/organizations/${ORG.id}`, () => HttpResponse.json(detail)),
       http.get(`*/api/v1/organizations/${ORG.id}/contacts`, () => HttpResponse.json(page([]))),
+      http.get(`*/api/v1/organizations/${ORG.id}/leads`, () => HttpResponse.json(page([]))),
     )
     await renderApp(`/organizations/${ORG.id}`)
     expect(await screen.findByRole('heading', { name: 'Акме ЕООД' })).toBeInTheDocument()
@@ -244,6 +247,7 @@ describe('FR-PARTY-03 organization 360', () => {
         HttpResponse.json(archived ? { ...detail, archived_at: '2026-11-17T10:00:00Z' } : detail),
       ),
       http.get(`*/api/v1/organizations/${ORG.id}/contacts`, () => HttpResponse.json(page([]))),
+      http.get(`*/api/v1/organizations/${ORG.id}/leads`, () => HttpResponse.json(page([]))),
       http.delete(`*/api/v1/organizations/${ORG.id}`, () => {
         archived = true
         return new HttpResponse(null, { status: 204 })

@@ -2,7 +2,7 @@
 
 A light B2B CRM for the Commercial team: lead and opportunity management, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, Docker Compose.
 
-Status: **Phase 2 (organizations and contacts)**. Users sign in; Admins manage users, lists and the audit log; everyone works with organizations and contacts (duplicate detection, search in Cyrillic and Latin). Leads and opportunities follow in later phases. See [`docs/Plan.md`](docs/Plan.md) for what is built.
+Status: **Phase 3 (leads)**. Users sign in; Admins manage users, lists and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment), with search in Cyrillic and Latin. Opportunities follow in Phase 4. See [`docs/Plan.md`](docs/Plan.md) for what is built.
 
 ## Documentation
 

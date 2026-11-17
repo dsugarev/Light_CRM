@@ -26,6 +26,7 @@ _ROLES_BY_LEVEL: dict[AccessLevel, frozenset[RoleCode]] = {
     AccessLevel.SIGNED_IN: HUMAN_ROLES,
     AccessLevel.SIGNED_IN_OR_ANY_CLIENT: HUMAN_ROLES,
     AccessLevel.CONTRIBUTOR: CONTRIBUTOR_ROLES,
+    AccessLevel.CONTRIBUTOR_RULES_IN_SERVICE: CONTRIBUTOR_ROLES,
     AccessLevel.OWNER_PLUS: CONTRIBUTOR_ROLES,
     AccessLevel.MANAGER_PLUS: MANAGER_ROLES,
     AccessLevel.ADMIN: frozenset({RoleCode.ADMIN}),

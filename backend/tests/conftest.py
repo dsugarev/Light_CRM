@@ -37,7 +37,7 @@ def migrated_database() -> str:
 
 
 # Reference data seeded by migrations, restored after each API test.
-_SEEDED_TABLES = ("industry",)
+_SEEDED_TABLES = ("industry", "lead_source", "disqualification_reason")
 
 
 @pytest.fixture(scope="session")
@@ -73,7 +73,7 @@ def settings() -> Settings:
 # application role may not truncate the append-only audit_log.
 _DATA_TABLES = (
     "audit_log, user_session, password_token, app_user, rate_limit_bucket, app_setting, "
-    "contact, organization, industry"
+    "contact, organization, industry, lead, lead_source, disqualification_reason"
 )
 
 

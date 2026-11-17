@@ -19,3 +19,4 @@ One file per decision: `NNNN-title.md` with context, decision and consequences. 
 - [0015 Runtime settings and rate limits as core infrastructure](0015-runtime-settings-and-rate-limits-in-core.md)
 - [0016 Industries owned by party; search and duplicates across scripts](0016-party-owns-industries-and-search-normalisation.md)
 - [0017 Shared list machinery and sync mode with signed cursors](0017-list-machinery-and-sync-mode.md)
+- [0018 Cross-module extension points (search, organisation figures, reference lists)](0018-cross-module-extension-points.md)

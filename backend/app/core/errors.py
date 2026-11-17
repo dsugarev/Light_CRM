@@ -33,6 +33,10 @@ class ErrorCode(StrEnum):
     AUTH_SESSION_EXPIRED = "auth.session_expired"
     AUTH_TOKEN_INVALID = "auth.token_invalid"
     CONFLICT_DUPLICATE = "conflict.duplicate"
+    CONFLICT_VERSION_MISMATCH = "conflict.version_mismatch"
+    LEAD_BANT_INCOMPLETE = "lead.bant_incomplete"
+    LEAD_INVALID_TRANSITION = "lead.invalid_transition"
+    LEAD_READ_ONLY = "lead.read_only"
     PERMISSION_DENIED = "permission.denied"
     PERMISSION_LAST_ADMIN = "permission.last_admin"
     PERMISSION_NOT_FOR_INTEGRATIONS = "permission.not_for_integrations"
@@ -44,6 +48,7 @@ class ErrorCode(StrEnum):
     RESOURCE_NOT_FOUND = "resource.not_found"
     SERVER_INTERNAL_ERROR = "server.internal_error"
     VALIDATION_FAILED = "validation.failed"
+    VALIDATION_USE_ACTION_ENDPOINT = "validation.use_action_endpoint"
 
 
 @dataclass(frozen=True, slots=True)

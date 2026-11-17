@@ -25,6 +25,8 @@ import { OrganizationPage } from '@/features/organizations/OrganizationPage'
 import { OrganizationsPage } from '@/features/organizations/OrganizationsPage'
 import { ProfilePage } from '@/features/profile/ProfilePage'
 import { SearchPage } from '@/features/search/SearchPage'
+import { LeadPage } from '@/features/leads/LeadPage'
+import { LeadEditPage, LeadNewPage, LeadsPage } from '@/features/leads/LeadPages'
 
 import { AppLayout } from './AppLayout'
 import { HomePage } from './HomePage'
@@ -52,11 +54,14 @@ export const routes: RouteObject[] = [
               { path: 'organizations/:orgId', element: <OrganizationPage /> },
               { path: 'contacts', element: <ContactsPage /> },
               { path: 'contacts/:contactId', element: <ContactPage /> },
+              { path: 'leads', element: <LeadsPage /> },
+              { path: 'leads/:leadId', element: <LeadPage /> },
               {
                 element: <RequirePermission permission="records.create" />,
                 children: [
                   { path: 'organizations/new', element: <OrganizationNewPage /> },
                   { path: 'contacts/new', element: <ContactNewPage /> },
+                  { path: 'leads/new', element: <LeadNewPage /> },
                 ],
               },
               {
@@ -64,6 +69,7 @@ export const routes: RouteObject[] = [
                 children: [
                   { path: 'organizations/:orgId/edit', element: <OrganizationEditPage /> },
                   { path: 'contacts/:contactId/edit', element: <ContactEditPage /> },
+                  { path: 'leads/:leadId/edit', element: <LeadEditPage /> },
                 ],
               },
               {
@@ -88,7 +94,7 @@ export const routes: RouteObject[] = [
                     element: <RequirePermission permission="settings.manage" />,
                     children: [
                       { path: 'settings', element: <SettingsPage /> },
-                      { path: 'reference/industries', element: <ReferenceListPage /> },
+                      { path: 'reference/:list', element: <ReferenceListPage /> },
                     ],
                   },
                 ],

@@ -21,6 +21,8 @@ class AccessLevel(StrEnum):
     SIGNED_IN = "Signed-in"
     SIGNED_IN_OR_ANY_CLIENT = "Signed-in or any integration client"
     CONTRIBUTOR = "Contributor"
+    # Contributors may call it; the service applies finer rules (e.g. assign, FR-LEAD-06).
+    CONTRIBUTOR_RULES_IN_SERVICE = "Contributor (rules in service)"
     OWNER_PLUS = "Owner+"
     MANAGER_PLUS = "Manager+"
     ADMIN = "Admin"
