@@ -126,6 +126,8 @@ jobs:
               -e "s/^CRM_MIGRATOR_PASSWORD=.*/CRM_MIGRATOR_PASSWORD=$(openssl rand -hex 24)/" \
               -e "s/^CRM_APP_PASSWORD=.*/CRM_APP_PASSWORD=$(openssl rand -hex 24)/" \
               .env.example > .env
+          # Every browser shares one IP address in CI; keep the per-IP limits out of the way.
+          printf 'RATE_LIMIT_LOGIN_PER_MINUTE=500\nRATE_LIMIT_PASSWORD_PER_15_MINUTES=500\n' >> .env
       - name: Build images and start the stack
         run: docker compose up --build --detach
       - name: Wait for readiness through the proxy
@@ -135,6 +137,20 @@ jobs:
             sleep 2
           done
           docker compose ps; exit 1
+      - name: Create the E2E admin accounts with the CLI
+        run: |
+          password="E2e-$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          for locale in en bg; do
+            echo "$password" | docker compose exec -T backend python -m app.cli create-admin \
+              --email "e2e-admin-$locale@example.test" --full-name "E2E Admin $locale" \
+              --locale "$locale" --password-stdin
+          done
+          {
+            echo "E2E_ADMIN_PASSWORD=$password"
+            echo "E2E_ADMIN_EMAIL_EN=e2e-admin-en@example.test"
+            echo "E2E_ADMIN_EMAIL_BG=e2e-admin-bg@example.test"
+          } >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           package_json_file: frontend/package.json

@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 
 import { api, call } from '@/api/client'
 import { PageHeader } from '@/components/PageHeader'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useLocale } from '@/lib/useLocale'
 
@@ -32,13 +32,12 @@ export function UserNewPage() {
                 link={create.data.set_password}
                 name={create.data.user.full_name}
               />
-              <Button
-                render={<Link to={`/admin/users/${create.data.user.id}`} />}
-                nativeButton={false}
-                className="self-start"
+              <Link
+                to={`/admin/users/${create.data.user.id}`}
+                className={buttonVariants({ className: 'self-start' })}
               >
                 {t('link.openUser')}
-              </Button>
+              </Link>
             </>
           ) : (
             <UserForm

@@ -94,3 +94,13 @@ describe('safeNext', () => {
     expect(safeNext(input)).toBe(expected)
   })
 })
+
+describe('set password errors', () => {
+  it('reports rate limiting instead of calling the link invalid', async () => {
+    server.use(
+      http.get('*/api/v1/auth/password/token/:token', () => problem(429, 'rate_limit.exceeded')),
+    )
+    await renderApp('/set-password#token=t')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Too many attempts')
+  })
+})

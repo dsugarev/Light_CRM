@@ -8,7 +8,7 @@ import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
 import { Pagination } from '@/components/Pagination'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -77,9 +77,9 @@ export function UsersPage() {
       <PageHeader
         title={t('users.title')}
         actions={
-          <Button render={<Link to="/admin/users/new" />} nativeButton={false}>
+          <Link to="/admin/users/new" className={buttonVariants()}>
             {t('users.new')}
-          </Button>
+          </Link>
         }
       />
       <div className="mb-4 grid gap-3 sm:grid-cols-[2fr_1fr_1fr]">

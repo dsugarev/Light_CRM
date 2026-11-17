@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 import { z } from 'zod'
 
-import { api, call } from '@/api/client'
+import { api, ApiError, call } from '@/api/client'
 import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
@@ -54,7 +54,8 @@ export function SetPasswordPage() {
   let body
   if (token === '') body = <FormMessage error="auth.token_invalid" />
   else if (check.isPending) body = <Loading />
-  else if (check.isError) body = <FormMessage error="auth.token_invalid" />
+  else if (check.isError)
+    body = <FormMessage error={check.error instanceof ApiError ? check.error.code : 'unknown'} />
   else {
     body = (
       <form
@@ -93,8 +94,8 @@ export function SetPasswordPage() {
             />
           )}
         </FormField>
-        {save.isError && !form.formState.errors.password ? (
-          <FormMessage error="auth.token_invalid" />
+        {save.error instanceof ApiError && !form.formState.errors.password ? (
+          <FormMessage error={save.error.code} />
         ) : null}
         <Button type="submit" disabled={save.isPending}>
           {t('setPassword.submit')}
