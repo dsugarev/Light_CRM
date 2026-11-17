@@ -21,12 +21,18 @@ def test_NFR_04_production_refuses_default_migration_secret() -> None:
             migration_database_url=PostgresDsn(
                 "postgresql+asyncpg://crm_migrator:change-me@db:5432/crm"
             ),
+            app_secret_key="x" * 48,
         )
 
 
 def test_NFR_04_production_starts_with_real_secrets() -> None:
-    settings = Settings(env=Environment.PRODUCTION, database_url=REAL_URL)
+    settings = Settings(env=Environment.PRODUCTION, database_url=REAL_URL, app_secret_key="x" * 48)
     assert settings.is_production
+
+
+def test_NFR_04_production_refuses_default_secret_key() -> None:
+    with pytest.raises(ValidationError, match="APP_SECRET_KEY"):
+        Settings(env=Environment.PRODUCTION, database_url=REAL_URL)
 
 
 def test_development_allows_placeholder_secrets() -> None:

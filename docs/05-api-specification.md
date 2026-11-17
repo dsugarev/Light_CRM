@@ -146,6 +146,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `permission.denied` | 403 | Role or ownership does not allow the action |
 | `permission.last_admin` | 409 | The change would leave no active Admin (demote or deactivate the last one) |
 | `resource.not_found` | 404 | No such record (also returned for unknown paths) |
+| `resource.archived` | 409 | The record is archived; restore it before changing it |
 | `request.method_not_allowed` | 405 | HTTP method not supported on this path |
 | `server.internal_error` | 500 | Unexpected error; details are only in the server log, under the `request_id` |
 | `validation.failed` | 422 | Field-level errors in `errors` (field codes below). Also used with `400` for a malformed body (field `body`, code `validation.json_invalid`) and unknown sort or filter fields |

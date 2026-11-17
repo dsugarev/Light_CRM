@@ -37,6 +37,12 @@ async def get_user(
     return (await session.execute(statement)).scalar_one_or_none()
 
 
+async def get_users(session: AsyncSession, user_ids: set[UUID]) -> list[User]:
+    if not user_ids:
+        return []
+    return list((await session.execute(select(User).where(User.id.in_(user_ids)))).scalars())
+
+
 async def get_user_by_email(
     session: AsyncSession, email: str, *, for_update: bool = False
 ) -> User | None:
