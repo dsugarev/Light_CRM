@@ -5,11 +5,13 @@ import bgAdmin from './bg/admin.json'
 import bgAuth from './bg/auth.json'
 import bgCommon from './bg/common.json'
 import bgErrors from './bg/errors.json'
+import bgParty from './bg/party.json'
 import bgProfile from './bg/profile.json'
 import enAdmin from './en/admin.json'
 import enAuth from './en/auth.json'
 import enCommon from './en/common.json'
 import enErrors from './en/errors.json'
+import enParty from './en/party.json'
 import enProfile from './en/profile.json'
 
 export const SUPPORTED_LOCALES = ['en', 'bg'] as const
@@ -20,8 +22,22 @@ export const defaultNS = 'common'
 // One namespace per feature; every key must exist in both languages
 // (checked by `pnpm check:i18n`).
 export const resources = {
-  en: { common: enCommon, auth: enAuth, errors: enErrors, profile: enProfile, admin: enAdmin },
-  bg: { common: bgCommon, auth: bgAuth, errors: bgErrors, profile: bgProfile, admin: bgAdmin },
+  en: {
+    common: enCommon,
+    auth: enAuth,
+    errors: enErrors,
+    profile: enProfile,
+    admin: enAdmin,
+    party: enParty,
+  },
+  bg: {
+    common: bgCommon,
+    auth: bgAuth,
+    errors: bgErrors,
+    profile: bgProfile,
+    admin: bgAdmin,
+    party: bgParty,
+  },
 } as const
 
 export function isLocale(value: unknown): value is Locale {

@@ -2,10 +2,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useNavigate } from 'react-router'
+import { Toaster } from 'sonner'
 
 import { api, call } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { ME_QUERY_KEY, useMe } from '@/features/auth/useMe'
+import { HeaderSearch } from '@/features/search/HeaderSearch'
 import { ApiStatus } from '@/features/system/ApiStatus'
 import { LanguageSwitcher } from '@/features/system/LanguageSwitcher'
 import { useCan } from '@/lib/permissions'
@@ -50,6 +52,12 @@ export function AppLayout() {
               <NavLink to="/" end className={linkClass}>
                 {t('nav.home')}
               </NavLink>
+              <NavLink to="/organizations" className={linkClass}>
+                {t('nav.organizations')}
+              </NavLink>
+              <NavLink to="/contacts" className={linkClass}>
+                {t('nav.contacts')}
+              </NavLink>
               {show.users ? (
                 <NavLink to="/admin/users" className={linkClass}>
                   {t('nav.users')}
@@ -65,10 +73,16 @@ export function AppLayout() {
                   {t('nav.settings')}
                 </NavLink>
               ) : null}
+              {show.settings ? (
+                <NavLink to="/admin/reference/industries" className={linkClass}>
+                  {t('nav.reference')}
+                </NavLink>
+              ) : null}
             </nav>
           ) : null}
         </div>
         <div className="flex items-center gap-3">
+          {me ? <HeaderSearch /> : null}
           <LanguageSwitcher />
           {me ? (
             <>
@@ -92,6 +106,7 @@ export function AppLayout() {
       <main className="flex-1 px-6 py-6">
         <Outlet />
       </main>
+      <Toaster position="bottom-right" richColors closeButton />
       <footer className="border-t px-6 py-2">
         <ApiStatus />
       </footer>

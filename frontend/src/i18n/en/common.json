@@ -25,7 +25,11 @@
     "auditLog": "Audit log",
     "settings": "Settings",
     "profile": "My profile",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "organizations": "Organizations",
+    "contacts": "Contacts",
+    "reference": "Lists",
+    "search": "Search"
   },
   "roles": {
     "admin": "Admin",

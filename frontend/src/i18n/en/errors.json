@@ -20,7 +20,8 @@
     "version_mismatch": "Someone else changed this record. Reload and try again."
   },
   "resource": {
-    "not_found": "Not found."
+    "not_found": "Not found.",
+    "archived": "This record is archived. Restore it before changing it."
   },
   "rate_limit": {
     "exceeded": "Too many attempts. Please wait a moment and try again."
@@ -45,7 +46,15 @@
     "less_than_equal": "The value is too large.",
     "int_parsing": "Enter a whole number.",
     "exceeds_absolute": "Must not be longer than the absolute timeout.",
-    "minutes_range": "Enter a value between {{min}} and {{max}}."
+    "minutes_range": "Enter a value between {{min}} and {{max}}.",
+    "unknown_sort": "This column cannot be sorted.",
+    "unknown_filter": "Unknown filter.",
+    "invalid_cursor": "The request was rejected.",
+    "uuid_parsing": "Invalid value.",
+    "url": "Enter a web address starting with http:// or https://",
+    "vat": "BG followed by 9 or 10 digits.",
+    "registration": "9 or 13 digits.",
+    "country": "Two letters, e.g. BG."
   },
   "password": {
     "too_short": "At least 12 characters.",
@@ -56,5 +65,19 @@
   "user": {
     "email_taken": "A user with this email already exists.",
     "inactive": "The user is deactivated."
+  },
+  "reference": {
+    "in_use": "This value is in use. Deactivate it instead.",
+    "invalid": "Choose an active value.",
+    "code_taken": "This code already exists.",
+    "order_incomplete": "The order must include every value once."
+  },
+  "organization": {
+    "registration_checksum": "The EIK check digit does not match. Please verify the number.",
+    "not_found": "The organization does not exist.",
+    "archived": "The organization is archived."
+  },
+  "owner": {
+    "invalid": "Choose an active user as owner."
   }
 }

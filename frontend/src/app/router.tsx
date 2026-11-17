@@ -10,7 +10,21 @@ import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage'
 import { RequireAuth, RequirePermission } from '@/features/auth/RequireAuth'
 import { SetPasswordPage } from '@/features/auth/SetPasswordPage'
 import { SignInPage } from '@/features/auth/SignInPage'
+import { ReferenceListPage } from '@/features/admin/ReferenceListPage'
+import {
+  ContactEditPage,
+  ContactNewPage,
+  ContactPage,
+  ContactsPage,
+} from '@/features/contacts/ContactPages'
+import {
+  OrganizationEditPage,
+  OrganizationNewPage,
+} from '@/features/organizations/OrganizationEditorPages'
+import { OrganizationPage } from '@/features/organizations/OrganizationPage'
+import { OrganizationsPage } from '@/features/organizations/OrganizationsPage'
 import { ProfilePage } from '@/features/profile/ProfilePage'
+import { SearchPage } from '@/features/search/SearchPage'
 
 import { AppLayout } from './AppLayout'
 import { HomePage } from './HomePage'
@@ -33,6 +47,25 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, element: <HomePage /> },
               { path: 'profile', element: <ProfilePage /> },
+              { path: 'search', element: <SearchPage /> },
+              { path: 'organizations', element: <OrganizationsPage /> },
+              { path: 'organizations/:orgId', element: <OrganizationPage /> },
+              { path: 'contacts', element: <ContactsPage /> },
+              { path: 'contacts/:contactId', element: <ContactPage /> },
+              {
+                element: <RequirePermission permission="records.create" />,
+                children: [
+                  { path: 'organizations/new', element: <OrganizationNewPage /> },
+                  { path: 'contacts/new', element: <ContactNewPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="records.edit_own" />,
+                children: [
+                  { path: 'organizations/:orgId/edit', element: <OrganizationEditPage /> },
+                  { path: 'contacts/:contactId/edit', element: <ContactEditPage /> },
+                ],
+              },
               {
                 path: 'admin',
                 children: [
@@ -53,7 +86,10 @@ export const routes: RouteObject[] = [
                   },
                   {
                     element: <RequirePermission permission="settings.manage" />,
-                    children: [{ path: 'settings', element: <SettingsPage /> }],
+                    children: [
+                      { path: 'settings', element: <SettingsPage /> },
+                      { path: 'reference/industries', element: <ReferenceListPage /> },
+                    ],
                   },
                 ],
               },

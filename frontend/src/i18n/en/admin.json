@@ -120,5 +120,26 @@
     "absolute": "Maximum session length (minutes)",
     "idleHint": "Default 480 (8 hours); 15 to 1440.",
     "absoluteHint": "Default 10080 (7 days); 60 to 43200."
+  },
+  "reference": {
+    "title": "Lists",
+    "industries": "Industries",
+    "code": "Code",
+    "nameEn": "Name (English)",
+    "nameBg": "Name (Bulgarian)",
+    "active": "Active",
+    "inactive": "Inactive",
+    "add": "Add value",
+    "codeHint": "Lower-case letters, digits and _",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "delete": "Delete",
+    "confirmDelete": "Delete {{name}}? Values that are in use can only be deactivated.",
+    "save": "Save names",
+    "added": "Value added.",
+    "saved": "Saved.",
+    "deleted": "Value deleted."
   }
 }

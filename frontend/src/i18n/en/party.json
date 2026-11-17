@@ -1,0 +1,150 @@
+{
+  "organizations": {
+    "title": "Organizations",
+    "new": "New organization",
+    "search": "Search by name, EIK, VAT or city",
+    "columns": {
+      "name": "Name",
+      "city": "City",
+      "industry": "Industry",
+      "owner": "Owner",
+      "updated": "Last change"
+    },
+    "filters": {
+      "owner": "Owner",
+      "everyone": "Everyone",
+      "mine": "Mine",
+      "industry": "Industry",
+      "allIndustries": "All industries",
+      "archived": "Show archived"
+    },
+    "archived": "Archived"
+  },
+  "organization": {
+    "fields": {
+      "name": "Name",
+      "registrationNumber": "EIK / UIC",
+      "vatNumber": "VAT number",
+      "industry": "Industry",
+      "sizeBand": "Employees",
+      "website": "Website",
+      "addressLine": "Address",
+      "postalCode": "Postal code",
+      "city": "City",
+      "country": "Country",
+      "owner": "Owner",
+      "notes": "Notes"
+    },
+    "hints": {
+      "registrationNumber": "9 or 13 digits",
+      "vatNumber": "BG followed by 9 or 10 digits",
+      "country": "Two-letter code, e.g. BG",
+      "website": "Starting with https://"
+    },
+    "sizeBands": {
+      "1-9": "1–9",
+      "10-49": "10–49",
+      "50-249": "50–249",
+      "250+": "250 or more"
+    },
+    "none": "Not set",
+    "createTitle": "New organization",
+    "editTitle": "Edit organization",
+    "create": "Create organization",
+    "detail": {
+      "details": "Details",
+      "contacts": "Contacts",
+      "addContact": "Add contact",
+      "leads": "Leads",
+      "opportunities": "Opportunities",
+      "timeline": "Timeline",
+      "noLeads": "No leads yet.",
+      "noOpportunities": "No opportunities yet.",
+      "noTimeline": "No activity yet.",
+      "counts": {
+        "contacts": "Contacts",
+        "openLeads": "Open leads",
+        "openOpportunities": "Open opportunities",
+        "pipelineValue": "Open pipeline"
+      },
+      "edit": "Edit",
+      "archive": "Archive",
+      "restore": "Restore",
+      "confirmArchive": "Archive {{name}}? It disappears from lists and search until restored.",
+      "archivedOn": "Archived on {{date}}",
+      "createdBy": "Created by {{name}} on {{date}}"
+    },
+    "toasts": {
+      "created": "Organization created.",
+      "saved": "Organization saved.",
+      "archived": "Organization archived.",
+      "restored": "Organization restored."
+    }
+  },
+  "duplicates": {
+    "title": "Possible duplicates",
+    "explain": "These organizations look the same. Open one to check before creating another.",
+    "contactExplain": "Contacts with the same email already exist.",
+    "reason": {
+      "registration_number": "same EIK",
+      "name": "same name",
+      "similar_name": "similar name",
+      "email": "same email"
+    },
+    "archived": "archived",
+    "saveAnyway": "Create anyway",
+    "saveAnywayChanges": "Save anyway"
+  },
+  "contacts": {
+    "title": "Contacts",
+    "new": "New contact",
+    "search": "Search by name, email, phone or position",
+    "columns": {
+      "name": "Name",
+      "organization": "Organization",
+      "jobTitle": "Position",
+      "email": "Email",
+      "phone": "Phone",
+      "owner": "Owner"
+    }
+  },
+  "contact": {
+    "fields": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "jobTitle": "Position",
+      "email": "Email",
+      "phone": "Phone",
+      "preferredLocale": "Preferred language",
+      "organization": "Organization",
+      "notes": "Notes"
+    },
+    "noOrganization": "No organization",
+    "notSet": "Not set",
+    "createTitle": "New contact",
+    "editTitle": "Edit contact",
+    "create": "Create contact",
+    "detail": {
+      "edit": "Edit",
+      "archive": "Archive",
+      "restore": "Restore",
+      "confirmArchive": "Archive {{name}}?",
+      "ownerNote": "Owner: {{name}} (follows the organization)"
+    },
+    "toasts": {
+      "created": "Contact created.",
+      "saved": "Contact saved.",
+      "archived": "Contact archived.",
+      "restored": "Contact restored."
+    }
+  },
+  "search": {
+    "title": "Search",
+    "label": "Search organizations and contacts",
+    "results": "Results for “{{q}}”",
+    "organization": "Organization",
+    "contact": "Contact",
+    "none": "Nothing found.",
+    "tooShort": "Type at least 2 characters."
+  }
+}
