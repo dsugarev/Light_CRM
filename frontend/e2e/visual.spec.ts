@@ -92,7 +92,7 @@ async function stabilise(page: Page) {
   })
 }
 
-/** Pages whose cards show totals over the whole database. */
+/** Pages whose cards and tables show totals over the whole database. */
 const FIGURES = /-(home|win-loss)$/
 
 async function snap(page: Page, name: string) {
@@ -109,7 +109,7 @@ async function snap(page: Page, name: string) {
       page.getByText(/\d{1,2} [A-Z][a-z]{2} \d{4}|\d{2}\.\d{2}\.\d{4}|\b\d{1,2}:\d{2}\b/),
       page.locator('.recharts-responsive-container'),
       // Dashboard and report figures follow all the data in the database.
-      ...(FIGURES.test(name) ? [page.locator('main [data-slot=card]')] : []),
+      ...(FIGURES.test(name) ? [page.locator('main [data-slot=card], main table')] : []),
     ],
   })
 }
