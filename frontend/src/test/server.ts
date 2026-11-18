@@ -18,6 +18,15 @@ export const handlers = [
   // ...and IDs in other systems (FR-INT-04); none unless a test says otherwise.
   http.get('*/api/v1/:records/:id/external-references', () => HttpResponse.json([])),
   http.get('*/api/v1/reference/external-systems', () => HttpResponse.json([])),
+  // The AI assistant is off unless a test switches it on (FR-AI-07).
+  http.get('*/api/v1/assistant/status', () =>
+    HttpResponse.json({
+      enabled: false,
+      daily_token_budget: 200000,
+      used_today: 0,
+      remaining_budget: 200000,
+    }),
+  ),
 ]
 
 export const server = setupServer(...handlers)

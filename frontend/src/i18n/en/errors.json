@@ -163,5 +163,10 @@
   },
   "webhook": {
     "url_not_allowed": "The URL must use HTTPS and a host on the webhook allowlist."
+  },
+  "assistant": {
+    "disabled": "The assistant is switched off.",
+    "budget_exceeded": "You have used today's assistant budget. It resets at midnight.",
+    "provider_unavailable": "The assistant is not available right now. Please try again later; the rest of the CRM works as usual."
   }
 }
