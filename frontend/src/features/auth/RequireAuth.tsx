@@ -27,6 +27,10 @@ export function RequireAuth() {
     const next = encodeURIComponent(location.pathname + location.search)
     return <Navigate to={`/sign-in?next=${next}`} replace />
   }
+  // FR-AUTH-07: an Admin who must use two-factor sign-in sets it up before anything else.
+  if (me.mfa_setup_required && location.pathname !== '/profile') {
+    return <Navigate to="/profile" replace />
+  }
   return <Outlet />
 }
 

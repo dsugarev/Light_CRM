@@ -132,6 +132,16 @@
       "saved": "Contact saved.",
       "archived": "Contact archived.",
       "restored": "Contact restored."
+    },
+    "gdpr": {
+      "title": "Personal data (GDPR)",
+      "exportHint": "Download everything the CRM holds about this person as a JSON file. The download is recorded in the audit log.",
+      "export": "Export personal data",
+      "anonymize": "Anonymize contact",
+      "anonymizeHint": "Replaces the name, email, phone, job title and notes for good, and clears the person's details on linked leads. Opportunities and activities stay. This cannot be undone. Free text that mentions the person (activity notes, assistant chats) is listed in the export for manual review.",
+      "typeToConfirm": "Type {{word}} to confirm",
+      "anonymized": "The contact was anonymized.",
+      "anonymizedOn": "Anonymized on {{date}}"
     }
   },
   "search": {

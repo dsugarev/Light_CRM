@@ -296,6 +296,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/login/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete sign-in with a TOTP code (or a recovery code) when MFA is enabled */
+        post: operations["login_mfa_api_v1_auth_login_mfa_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -307,6 +324,57 @@ export interface paths {
         put?: never;
         /** End the current session and clear the cookie */
         post: operations["logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm enrolment with a code; returns recovery codes once */
+        post: operations["mfa_confirm_api_v1_auth_mfa_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable own MFA (requires password); not allowed where enforced */
+        post: operations["mfa_disable_api_v1_auth_mfa_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start TOTP enrolment; returns the secret and provisioning URI */
+        post: operations["mfa_setup_api_v1_auth_mfa_setup_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -433,6 +501,40 @@ export interface paths {
         head?: never;
         /** Update */
         patch: operations["update_contact_api_v1_contacts__contact_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/contacts/{contact_id}/anonymize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Irreversibly anonymize; body must contain "confirm": "ANONYMIZE"; audited */
+        post: operations["anonymize_contact_api_v1_contacts__contact_id__anonymize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/{contact_id}/personal-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GDPR export of all personal data held about the contact (JSON download); audited */
+        get: operations["personal_data_api_v1_contacts__contact_id__personal_data_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/contacts/{contact_id}/restore": {
@@ -2081,6 +2183,17 @@ export interface components {
             /** Version */
             version: number;
         };
+        /**
+         * AnonymizeRequest
+         * @description FR-ADM-04: the word must be typed, so the irreversible step cannot happen by accident.
+         */
+        AnonymizeRequest: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: "ANONYMIZE";
+        };
         /** ApiKeyCreate */
         ApiKeyCreate: {
             /**
@@ -3102,6 +3215,14 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** LoginMfaRequest */
+        LoginMfaRequest: {
+            /**
+             * Code
+             * @description TOTP code or a recovery code
+             */
+            code: string;
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Email */
@@ -3171,6 +3292,16 @@ export interface components {
              * @enum {string}
              */
             locale: "en" | "bg";
+            /**
+             * Mfa Enabled
+             * @default false
+             */
+            mfa_enabled: boolean;
+            /**
+             * Mfa Setup Required
+             * @default false
+             */
+            mfa_setup_required: boolean;
             /** Permissions */
             permissions: string[];
             /**
@@ -3238,6 +3369,37 @@ export interface components {
              * @description Tools the assistant called; never their results
              */
             tools_used: string[];
+        };
+        /** MfaConfirmRequest */
+        MfaConfirmRequest: {
+            /** Code */
+            code: string;
+        };
+        /** MfaDisableRequest */
+        MfaDisableRequest: {
+            /** Password */
+            password: string;
+        };
+        /** MfaRecoveryCodes */
+        MfaRecoveryCodes: {
+            /**
+             * Recovery Codes
+             * @description Shown once; each works once
+             */
+            recovery_codes: string[];
+        };
+        /** MfaSetup */
+        MfaSetup: {
+            /**
+             * Provisioning Uri
+             * @description otpauth:// URI, for a QR code
+             */
+            provisioning_uri: string;
+            /**
+             * Secret
+             * @description Base32 secret, for typing into an authenticator app
+             */
+            secret: string;
         };
         /** MoveRequest */
         MoveRequest: {
@@ -3882,6 +4044,11 @@ export interface components {
         };
         /** RuntimeSettings */
         RuntimeSettings: {
+            /**
+             * Mfa Required For Admins
+             * @default false
+             */
+            mfa_required_for_admins: boolean;
             /** Session Absolute Timeout Minutes */
             session_absolute_timeout_minutes: number;
             /** Session Idle Timeout Minutes */
@@ -3891,6 +4058,8 @@ export interface components {
         };
         /** RuntimeSettingsUpdate */
         RuntimeSettingsUpdate: {
+            /** Mfa Required For Admins */
+            mfa_required_for_admins?: boolean | null;
             /** Session Absolute Timeout Minutes */
             session_absolute_timeout_minutes?: number | null;
             /** Session Idle Timeout Minutes */
@@ -5493,6 +5662,39 @@ export interface operations {
             };
         };
     };
+    login_mfa_api_v1_auth_login_mfa_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginMfaRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     logout_api_v1_auth_logout_post: {
         parameters: {
             query?: never;
@@ -5508,6 +5710,90 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    mfa_confirm_api_v1_auth_mfa_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaRecoveryCodes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mfa_disable_api_v1_auth_mfa_disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaDisableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mfa_setup_api_v1_auth_mfa_setup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaSetup"];
+                };
             };
         };
     };
@@ -5842,6 +6128,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anonymize_contact_api_v1_contacts__contact_id__anonymize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnonymizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    personal_data_api_v1_contacts__contact_id__personal_data_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
             /** @description Validation Error */

@@ -26,6 +26,7 @@ const schema = z
     session_idle_timeout_minutes: minutes(15, 1440),
     session_absolute_timeout_minutes: minutes(60, 43200),
     stale_opportunity_days: minutes(1, 365),
+    mfa_required_for_admins: z.boolean(),
   })
   .refine((v) => v.session_idle_timeout_minutes <= v.session_absolute_timeout_minutes, {
     path: ['session_idle_timeout_minutes'],
@@ -64,6 +65,7 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
       session_idle_timeout_minutes: String(current.session_idle_timeout_minutes),
       session_absolute_timeout_minutes: String(current.session_absolute_timeout_minutes),
       stale_opportunity_days: String(current.stale_opportunity_days),
+      mfa_required_for_admins: current.mfa_required_for_admins,
     },
   })
   const save = useMutation({
@@ -130,6 +132,14 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
               />
             )}
           </FormField>
+          <h3 className="pt-2 font-medium">{t('settings.security')}</h3>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1" {...form.register('mfa_required_for_admins')} />
+            <span>
+              {t('settings.mfaRequired')}
+              <span className="block text-muted-foreground">{t('settings.mfaRequiredHint')}</span>
+            </span>
+          </label>
           <Button type="submit" className="self-start" disabled={save.isPending}>
             {save.isPending ? tc('actions.saving') : tc('actions.save')}
           </Button>

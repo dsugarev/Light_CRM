@@ -24,5 +24,30 @@
     "current": "This session",
     "revoke": "Sign out",
     "unknownDevice": "Unknown browser"
+  },
+  "mfa": {
+    "title": "Two-factor sign-in",
+    "status": "Status:",
+    "on": "On",
+    "off": "Off",
+    "intro": "Protect your account with a code from an authenticator app (for example Microsoft or Google Authenticator) in addition to your password.",
+    "enable": "Set up two-factor sign-in",
+    "setupTitle": "Set up two-factor sign-in",
+    "scan": "Scan this QR code with your authenticator app, then enter the 6-digit code it shows.",
+    "qrTitle": "QR code for the authenticator app",
+    "manual": "Or type this key into the app:",
+    "code": "Code from the app",
+    "confirm": "Turn on",
+    "cancel": "Cancel",
+    "enabled": "Two-factor sign-in is on.",
+    "recoveryTitle": "Recovery codes",
+    "recoveryHint": "Keep these codes somewhere safe. Each one signs you in once if you lose your phone. They are shown only now.",
+    "copyCodes": "Copy codes",
+    "savedCodes": "I have saved them",
+    "disableTitle": "Turn off two-factor sign-in",
+    "disableHint": "To turn off two-factor sign-in, enter your password.",
+    "password": "Password",
+    "disable": "Turn off",
+    "required": "Your organization requires two-factor sign-in for Admins. Set it up to continue."
   }
 }
