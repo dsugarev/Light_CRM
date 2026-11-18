@@ -113,7 +113,7 @@ services:
       PGPASSWORD: ${CRM_MIGRATOR_PASSWORD}
       PGDATABASE: crm
       BACKUP_TIME: ${BACKUP_TIME:-02:00}
-      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-10}
       TZ: Europe/Sofia
     volumes:
       - ./deploy/backup/backup.sh:/usr/local/bin/backup.sh:ro

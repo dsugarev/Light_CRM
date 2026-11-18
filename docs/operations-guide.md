@@ -62,13 +62,13 @@ Only the variables below reach the containers (see `docker-compose.yml`); everyt
 | `CRM_EXTRA_DATABASES` | empty | Extra databases on first start, e.g. `crm_test` for developers |
 | `CRM_BACKUP_DIR` | `./backups` | Where nightly backups are written (put it on a different disk or a mounted share) |
 | `BACKUP_TIME` | `02:00` | Local time (Europe/Sofia) of the nightly backup |
-| `BACKUP_RETENTION_DAYS` | 30 | Older backups are deleted (NFR-07) |
+| `BACKUP_RETENTION_DAYS` | 10 | Backups older than this are deleted from the server; the copies on the other machine keep 30 days (NFR-07; owner decision, ADR 0028) |
 
 ### Users, email and limits
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` | empty, 587 | Optional mail relay (STARTTLS). Without it, password links are shown to Admins and "forgot password" sends nothing |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` | empty, 587 | Optional mail relay (STARTTLS). With it: invitation and password-reset links by email, and a security notice to the user after a password change or reset and after two-factor sign-in is turned on, off or reset. Without it, password links are shown to Admins and "forgot password" sends nothing |
 | `RATE_LIMIT_LOGIN_PER_MINUTE` | 10 | Sign-in attempts per minute per IP |
 | `RATE_LIMIT_PASSWORD_PER_15_MINUTES` | 5 | Password-link requests per 15 minutes per IP |
 | `RATE_LIMIT_USER_PER_MINUTE` | 600 | API requests per minute per user |
@@ -85,7 +85,7 @@ Session timeouts, the stale-opportunity threshold and "Require two-factor sign-i
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `AI_ENABLED` | `false` | Off until the data-flow question is answered (section 8) |
+| `AI_ENABLED` | `false` | Approved by the owner (2026-11-18); set to `true` together with `OPENROUTER_API_KEY` (section 8) |
 | `OPENROUTER_API_KEY` | empty | Key of a funded OpenRouter account; required when `AI_ENABLED=true` |
 | `LLM_MODEL`, `LLM_PROVIDER` | `openrouter/openai/gpt-oss-120b`, `cerebras` | The model and the only provider allowed (no fallbacks) |
 | `LLM_TIMEOUT_SECONDS` | 60 | Per model call |
@@ -125,7 +125,13 @@ The `backup` service writes `crm-<UTC time>.dump` (PostgreSQL custom format) to 
 
 On demand: `docker compose exec backup bash /usr/local/bin/backup.sh --now`.
 
-Copy the backup directory off the server (open question 5: where backups are stored and who owns restore). Keep `APP_ENCRYPTION_KEY` with the copies, in a separate secure place.
+**Copy the backups to another machine every night** (owner decision): the server keeps 10 days, the other machine 30 (NFR-07). For example, on the CRM server, a cron entry at 03:00 after the 02:00 backup:
+
+```bash
+0 3 * * * rsync -a --include='crm-*.dump' --exclude='*' /opt/light-crm/backups/ backup-host:/srv/crm-backups/
+```
+
+Do not use `--delete`: it would remove the other machine's copies once the server has pruned them after 10 days. On the other machine, delete copies older than 30 days (`find /srv/crm-backups -name 'crm-*.dump' -mtime +30 -delete`). Keep `APP_ENCRYPTION_KEY` with the copies, in a separate secure place.
 
 ### 5.2 Restore
 
@@ -166,7 +172,8 @@ Everything restores, but webhook signing secrets and two-factor secrets cannot b
 | A user lost the authenticator phone and the recovery codes | `docker compose exec backend python -m app.cli reset-mfa --email …` (ends their sessions; audited as `user.mfa_reset`). There is deliberately no web screen for this |
 | Require two-factor sign-in for Admins | Admin: **Settings → Security** |
 | Someone left the company | Admin: **Users → Deactivate** (their sessions end; records stay) |
-| Integration clients and keys | Admin: **Integrations**. Keys are shown once; at most two per client; expire after 12 months (24 at most) |
+| Integration clients and keys | Admin: **Integrations**. Keys are shown once; at most two per client; expire after 12 months (24 at most). `create-integration-client` gives every integration scope for now (ADR 0028); set a default owner before a system creates records |
+| Mutual TLS or OAuth 2.0 for integrations | Not configured. If company policy requires it later, see ADR 0028 for how each is added |
 
 The audit log (**Audit log**, Admins) records every change, sign-in and export.
 
@@ -180,15 +187,15 @@ The audit log (**Audit log**, Admins) records every change, sign-in and export.
 | Integration data | Read and written by Conclusion, ERP and Billing through the API with their scopes; webhook events to their HTTPS endpoints | Webhook events and delivery history 30 days |
 | Assistant questions and the CRM data the assistant looks up | Sent to OpenRouter and Cerebras (outside the company) when `AI_ENABLED=true`; answers stored in the user's chat history | Chats until the user deletes them; token usage per request kept for the budget |
 | Logs | Container logs (JSON): no passwords, tokens, keys or chat text; no query strings | As configured in Docker (rotate them) |
-| Backups | `CRM_BACKUP_DIR` | 30 days |
+| Backups | `CRM_BACKUP_DIR`, copied nightly to another machine | 10 days on the server; 30 days on the other machine |
 
 **GDPR requests for a contact** (FR-ADM-04): an Admin opens the contact and uses **Personal data (GDPR)**: *Export personal data* (JSON) and *Anonymize contact*. Anonymization replaces the person's name and clears email, phone, job title, language and notes, also on linked leads; opportunities and activities stay. Two exceptions are documented here (ADR 0027):
 - **the audit log is kept unchanged** for accountability, so older entries can still hold the old values;
 - **free text** (activity notes, assistant chats) is not rewritten. The export lists where the person is mentioned so an Admin can edit or delete those by hand.
 
-## 8. Before switching on the AI assistant
+## 8. Switching on the AI assistant
 
-Requirements open question 1 must be answered first: sending CRM content to OpenRouter and Cerebras may need DPO or security sign-off and a data-processing agreement. Then set `AI_ENABLED=true` and `OPENROUTER_API_KEY`, allow outbound HTTPS to `openrouter.ai`, run `docker compose up -d`, and run the live evaluation (`docs/assistant-eval.md`).
+The owner approved the data flow to OpenRouter and Cerebras on 2026-11-18 (ADR 0028). In the OpenRouter account settings, turn off prompt logging and training on your data, and file the data-processing agreement. Then set `AI_ENABLED=true` and `OPENROUTER_API_KEY` in `.env`, allow outbound HTTPS to `openrouter.ai`, run `docker compose up -d`, and run the live evaluation (`docs/assistant-eval.md`; it passed 20/20 on 2026-11-18).
 
 ## 9. Staging stack (second stack on the same host)
 

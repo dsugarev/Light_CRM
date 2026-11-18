@@ -1108,17 +1108,17 @@ Webhook administration (Phase 6b):
 - Breaking changes go to `/api/v2`; `v1` then stays available for at least 6 months, with deprecation announced through the `Deprecation` and `Sunset` response headers and release notes.
 - Each release's notes list API changes in a dedicated section.
 
-### 19.9 Initial integration profiles (to be confirmed)
+### 19.9 Initial integration profiles
 
-The data flows below are working assumptions so the build can proceed; they start read-only plus write-back of each system's own IDs. Grant any write scope only after the owner confirms the flow (requirements open question 7).
+**Owner answer (2026-11-18, ADR 0028):** for now each of the three systems gets every integration scope; endpoints closed to integration clients stay closed (19.3). The purposes and webhook events below remain working assumptions until the teams describe their flows; narrow the scopes then (an Admin action).
 
-| Client | Assumed purpose | Initial scopes | Initial webhook events |
+| Client | Assumed purpose | Scopes first assumed (now: all) | Initial webhook events |
 |---|---|---|---|
 | ERP (`erp`) | Create the customer in ERP when a deal is won; write the ERP customer number back to the organization | `organizations:read`, `contacts:read`, `opportunities:read`, `reference:read`, `external-references:write` | `opportunity.closed_won`, `organization.updated`, `contact.updated` |
 | Billing (`billing`) | Set up the billing account and services for a won deal; write the billing account ID back to the organization and opportunity | `organizations:read`, `contacts:read`, `opportunities:read`, `reference:read`, `external-references:write` | `opportunity.closed_won`, `organization.updated` |
 | Conclusion (`conclusion`) | Purpose to be confirmed | `organizations:read`, `opportunities:read`, `reference:read`, `external-references:write` | None until the purpose is confirmed |
 
-`python -m app.cli create-integration-client [--system erp|billing|conclusion|all]` creates these clients with the scopes above, inactive and without keys; it skips a system that already has a client.
+`python -m app.cli create-integration-client [--system erp|billing|conclusion|all]` creates these clients with every integration scope, inactive and without keys; it skips a system that already has a client (an Admin edits the scopes of an existing one). Writes need a default owner on the client (19.3).
 
 Typical ERP flow under these assumptions: receive `opportunity.closed_won` → read the organization and contacts → create the customer in ERP → `PUT /organizations/{id}/external-references/erp` with the customer number. Nightly, call `GET /opportunities?stage_type=won&external_system=erp&has_external_reference=false` and a sync-mode `GET /organizations?updated_since=...` to catch anything missed.
 
@@ -1132,7 +1132,8 @@ Original scope: Phase 6 produces `docs/integration-guide.md` for the Conclusion,
 
 These are recorded so R1 does not block them; do not build them now.
 
-- **OAuth 2.0 client credentials** as an alternative to API keys, if an integrated application or company policy requires it; the integration client model already fits it.
+- **OAuth 2.0 client credentials** as an alternative to API keys, if an integrated application or company policy requires it; the integration client model already fits it (ADR 0028).
+- **Mutual TLS** for integration traffic, at the proxy on a separate host name or port, in addition to the API key (ADR 0028).
 - **Further integrated applications** (for example a website contact form creating leads) are added as new integration clients and `external-systems` values, with no code change.
 - **TM Forum facade**: a separate `/tmf-api/...` adapter exposing TMF699 Sales Management and TMF632 Party Management shapes, mapped onto the R1 services.
 - **R2–R4 resources**: `/product-offerings`, `/product-offering-qualifications`, `/solution-configurations`, `/site-surveys`, `/quotes`, `/proposals`, `/agreements`, `/partners`, each nested or linked by `opportunity_id` and `organization_id` in the same style as this document, with matching scopes and webhook events.

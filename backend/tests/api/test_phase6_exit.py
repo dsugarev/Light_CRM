@@ -3,8 +3,10 @@ organizations with `updated_since`, receives a signed `opportunity.closed_won` w
 writes back an ERP external reference, and is refused every endpoint outside its
 scopes (here a sample; every route is covered by the integration scope matrix).
 
-The client has the ERP profile of API spec 19.9; the webhook goes to the reference
-receiver (`deploy/examples/webhook_receiver.py`) over a real HTTP connection.
+The client has the narrow ERP scopes first assumed in API spec 19.9 (the owner has since
+granted the systems every scope; this test checks the scope mechanism, not the profile).
+The webhook goes to the reference receiver (`deploy/examples/webhook_receiver.py`) over a
+real HTTP connection.
 """
 
 from typing import Any
@@ -13,7 +15,6 @@ import pytest
 
 from app.core.config import Settings
 from app.core.principal import RoleCode
-from app.modules.integration.service import PROFILES
 from tests.api.test_opportunities import act, create_opp
 from tests.api.test_webhooks import Receiver, real_now, run_worker
 from tests.helpers import TestApp
@@ -26,7 +27,8 @@ def settings(settings: Settings) -> Settings:
 
 async def test_phase_6_exit_erp_round_trip(test_app: TestApp) -> None:
     owner = await test_app.create_user()
-    _, scopes = PROFILES["erp"]
+    scopes = ["organizations:read", "contacts:read", "opportunities:read", "reference:read",
+              "external-references:write"]  # fmt: skip
     erp = await test_app.integration_client(scopes, default_owner_id=owner.id)
     sink = Receiver([])
     try:

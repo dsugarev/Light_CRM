@@ -284,6 +284,17 @@ Conclusion, ERP and Billing consume the CRM through the same REST API as the web
    e. Who is its technical contact, and which network addresses will it call from?
 8. Is there a company policy that requires OAuth 2.0 or mutual TLS for system-to-system APIs, instead of API keys?
 
+### Answers (owner, 2026-11-18; ADR 0028)
+
+1. Approved: the assistant may send CRM content to OpenRouter and Cerebras. A deployment switches it on with `AI_ENABLED=true` and the key.
+2. No samples: a documented import format with fictional sample files is the reference (`docs/import-format.md`).
+3. The default stages stay; Admins change them in the application.
+4. Yes, as an optional setting; with it, users also get security notices by email.
+5. Copied to another machine; keep backups on the server for 10 days.
+6. Keep A1 (everyone sees everything), with the option to restrict visibility later.
+7. For now the three systems may use every integration scope (closed endpoints stay closed); their addresses are not known yet.
+8. Keep API keys, with OAuth 2.0 or mutual TLS possible later.
+
 ## 9. Glossary
 
 - **Lead** — an unqualified prospect or inquiry, not yet tied to a confirmed organization.

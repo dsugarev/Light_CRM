@@ -1,0 +1,4 @@
+Name,Registration number (EIK),VAT number,Industry,Size,Website,Address,Postal code,City,Country,Owner email,Notes
+Примерна Телеком ООД,201234563,BG201234563,Telecommunications,50-249,https://example-telecom.example.test,ул. Примерна 1,1000,София,BG,,Fictional sample record
+Demo Logistics EAD,207654321,,Manufacturing,10-49,https://demo-logistics.example.test,бул. Тестов 12,4000,Пловдив,BG,,
+Пробна Болница АД,135792467,BG135792467,Healthcare,250+,,,9000,Варна,BG,,Hospital network; three sites

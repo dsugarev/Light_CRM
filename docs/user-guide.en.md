@@ -35,7 +35,7 @@ If your Admin has switched it on, the **Assistant** button in the top bar opens 
 
 ## For Sales Managers and Admins
 
-- **Import** (managers): upload an Excel or CSV file, map the columns, preview the rows with their problems, and import the valid ones. An Admin can roll a batch back.
+- **Import** (managers): prepare the file as in the [import format](import-format.md) (samples included), upload it, map the columns, preview the rows with their problems, and import the valid ones. An Admin can roll a batch back.
 - **Users**, **Settings**, **Lists**, **Stages**, **Audit log**, **Integrations** (Admins): see the operations guide.
 - **Personal data (GDPR)** on a contact's page (Admins): *Export personal data* downloads everything held about the person; *Anonymize contact* removes the person's details for good (type ANONYMIZE to confirm).
 

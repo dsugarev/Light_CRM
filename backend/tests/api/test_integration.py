@@ -3,6 +3,7 @@
 
 import json
 from datetime import timedelta
+from typing import get_args
 from uuid import uuid4
 
 import pytest
@@ -11,6 +12,7 @@ from sqlalchemy import select
 from app.core.principal import RoleCode
 from app.modules.identity.models import User
 from app.modules.integration.models import ApiKey
+from app.modules.integration.schemas import Scope
 from tests.api.test_opportunities import create_org
 from tests.helpers import TestApp
 
@@ -487,9 +489,9 @@ async def test_FR_INT_01_cli_creates_the_initial_profiles_inactive(
     }
     assert set(clients) == {"erp", "billing", "conclusion"}
     assert all(not c["is_active"] and c["active_keys"] == 0 for c in clients.values())
-    assert clients["conclusion"]["scopes"] == [
-        "external-references:write", "opportunities:read", "organizations:read", "reference:read",
-    ]  # fmt: skip
+    # Owner answer to open question 7: every integration scope, for now.
+    all_scopes = sorted(get_args(Scope))
+    assert all(sorted(c["scopes"]) == all_scopes for c in clients.values())
 
 
 async def test_FR_INT_06_idempotency_edge_cases(test_app: TestApp) -> None:
