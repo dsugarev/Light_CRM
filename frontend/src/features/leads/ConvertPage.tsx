@@ -11,6 +11,7 @@ import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -76,6 +77,7 @@ function defaultChoice(linked: { id: string } | null, matches: Match[], fallback
 
 function ConvertForm({ lead, preview }: { lead: Schemas['LeadOut']; preview: Preview }) {
   const { t } = useTranslation('leads')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -184,7 +186,10 @@ function ConvertForm({ lead, preview }: { lead: Schemas['LeadOut']; preview: Pre
 
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-6">
-      <PageHeader title={t('convert.title', { title: lead.title })} />
+      <PageHeader
+        title={t('convert.title', { title: lead.title })}
+        breadcrumbs={[crumbs.leads, { label: lead.title, to: `/leads/${lead.id}` }]}
+      />
       <form
         aria-label={t('convert.formLabel')}
         className="flex flex-col gap-6"

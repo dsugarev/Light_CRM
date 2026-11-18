@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { admin, expectSignedIn, signIn, uniqueEmail } from './support.ts'
+import { admin, expectSignedIn, mainNav, signIn, uniqueEmail } from './support.ts'
 
 // Journey 1 (test strategy section 4): Admin creates a user; the user sets a
 // password and signs in; lockout after repeated failures. Phase 1 exit check.
@@ -67,7 +67,7 @@ for (const language of ['en', 'bg'] as const) {
       // 1. The Admin signs in and creates the Sales Rep.
       await signIn(page, credentials.email, credentials.password, ui.signIn)
       await expectSignedIn(page, ui.welcome)
-      await page.getByRole('link', { name: ui.users }).click()
+      await mainNav(page).getByRole('link', { name: ui.users }).click()
       await page.getByRole('link', { name: ui.newUser }).click()
       await expect(page.getByRole('heading', { name: ui.newUser })).toBeVisible()
       await page.getByLabel(ui.form.email, { exact: true }).fill(repEmail)
@@ -110,7 +110,7 @@ for (const language of ['en', 'bg'] as const) {
       await attacker.close()
 
       // 4. Every step is in the audit log (FR-ADM-03).
-      await page.getByRole('link', { name: ui.auditLog }).click()
+      await mainNav(page).getByRole('link', { name: ui.auditLog }).click()
       await expect(page.getByRole('cell', { name: ui.userCreated }).first()).toBeVisible()
       await expect(page.getByRole('cell', { name: ui.accountLocked }).first()).toBeVisible()
     })

@@ -12,6 +12,7 @@ import { FormField } from '@/components/FormField'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Textarea } from '@/components/Textarea'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -40,6 +41,7 @@ import { Webhooks } from './Webhooks'
 export function ClientPage() {
   const { clientId = '' } = useParams()
   const { t } = useTranslation('integrations')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const client = useQuery({
     queryKey: ['integration-clients', clientId],
@@ -56,6 +58,7 @@ export function ClientPage() {
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-6">
       <PageHeader
+        breadcrumbs={[crumbs.integrations]}
         title={c.name}
         actions={
           <span className="flex items-center gap-2">

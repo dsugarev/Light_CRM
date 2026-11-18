@@ -1,6 +1,6 @@
 import { expect, request, test } from '@playwright/test'
 
-import { admin, expectSignedIn, signIn } from './support.ts'
+import { admin, expectSignedIn, mainNav, signIn } from './support.ts'
 
 // Phase 6a: an Admin sets up an integration client and API key (FR-INT-01, 02, 03), and
 // records an ID in another system on an organization (FR-INT-04), in both languages. The
@@ -103,7 +103,7 @@ for (const language of ['en', 'bg'] as const) {
       await expectSignedIn(page, ui.welcome)
 
       // FR-INT-01: create a client; it starts inactive.
-      await page.getByRole('link', { name: ui.nav, exact: true }).click()
+      await mainNav(page).getByRole('link', { name: ui.nav, exact: true }).click()
       const form = page.getByRole('form', { name: ui.newClient })
       await form.getByLabel(ui.name, { exact: true }).fill(`E2E ERP ${token}`)
       await form.getByLabel(ui.system, { exact: true }).selectOption('erp')
@@ -179,7 +179,7 @@ for (const language of ['en', 'bg'] as const) {
       const credentials = admin(language)
       await signIn(page, credentials.email, credentials.password, ui.signIn)
       await expectSignedIn(page, ui.welcome)
-      await page.getByRole('link', { name: ui.nav }).first().click()
+      await mainNav(page).getByRole('link', { name: ui.nav }).click()
       const form = page.getByRole('form', { name: ui.newClient })
       await form.getByLabel(ui.name, { exact: true }).fill(`E2E hooks ${token}`)
       await form.getByLabel(ui.system, { exact: true }).selectOption('billing')

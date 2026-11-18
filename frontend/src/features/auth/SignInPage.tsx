@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
 
+import { AuthCard } from '@/components/AuthCard'
 import { api, ApiError, call } from '@/api/client'
 import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
@@ -73,9 +74,7 @@ export function SignInPage() {
   if (codeStep) {
     const codeError = verify.error
     return (
-      <section className="mx-auto mt-16 w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
-        <h1 className="mb-2 text-xl font-semibold">{t('mfa.title')}</h1>
-        <p className="mb-4 text-sm text-muted-foreground">{t('mfa.hint')}</p>
+      <AuthCard title={t('mfa.title')} description={t('mfa.hint')}>
         <form
           noValidate
           className="flex flex-col gap-4"
@@ -116,7 +115,7 @@ export function SignInPage() {
             {t('mfa.back')}
           </Button>
         </form>
-      </section>
+      </AuthCard>
     )
   }
 
@@ -127,8 +126,7 @@ export function SignInPage() {
       : undefined
 
   return (
-    <section className="mx-auto mt-16 w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
-      <h1 className="mb-6 text-xl font-semibold">{t('signIn.title')}</h1>
+    <AuthCard title={t('signIn.title')}>
       <form
         noValidate
         className="flex flex-col gap-4"
@@ -167,6 +165,6 @@ export function SignInPage() {
           {t('signIn.forgot')}
         </Link>
       </form>
-    </section>
+    </AuthCard>
   )
 }

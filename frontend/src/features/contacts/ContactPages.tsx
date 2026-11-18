@@ -11,6 +11,7 @@ import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
 import { Badge } from '@/components/ui/badge'
@@ -165,6 +166,7 @@ function useAfterSave() {
 
 export function ContactNewPage() {
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const [params] = useSearchParams()
   const organizationId = params.get('organization_id')
   const afterSave = useAfterSave()
@@ -193,7 +195,7 @@ export function ContactNewPage() {
     : null
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('contact.createTitle')} />
+      <PageHeader title={t('contact.createTitle')} breadcrumbs={[crumbs.contacts]} />
       <Card>
         <CardContent>
           <ContactForm
@@ -212,6 +214,7 @@ export function ContactNewPage() {
 export function ContactEditPage() {
   const { contactId = '' } = useParams()
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const afterSave = useAfterSave()
   const path = { params: { path: { contact_id: contactId } } }
@@ -233,7 +236,13 @@ export function ContactEditPage() {
   if (!contact.data) return <Loading />
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('contact.editTitle')} />
+      <PageHeader
+        title={t('contact.editTitle')}
+        breadcrumbs={[
+          crumbs.contacts,
+          { label: contact.data.full_name, to: `/contacts/${contactId}` },
+        ]}
+      />
       <Card>
         <CardContent>
           <ContactForm
@@ -252,6 +261,7 @@ export function ContactEditPage() {
 export function ContactPage() {
   const { contactId = '' } = useParams()
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const locale = useLocale()
   const can = useCan()
@@ -321,6 +331,7 @@ export function ContactPage() {
     <section className="mx-auto flex max-w-3xl flex-col gap-6">
       <PageHeader
         title={c.full_name}
+        breadcrumbs={[crumbs.contacts]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {c.archived_at ? (

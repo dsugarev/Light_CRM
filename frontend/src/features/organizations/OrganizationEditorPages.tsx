@@ -7,6 +7,7 @@ import { api, call, type Schemas } from '@/api/client'
 import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Card, CardContent } from '@/components/ui/card'
 import { useErrorText } from '@/lib/errors'
 
@@ -27,6 +28,7 @@ function useAfterSave() {
 
 export function OrganizationNewPage() {
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const afterSave = useAfterSave()
   const create = useMutation({
     mutationFn: ({ values, confirm }: { values: OrganizationValues; confirm: boolean }) =>
@@ -39,7 +41,7 @@ export function OrganizationNewPage() {
   })
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('organization.createTitle')} />
+      <PageHeader title={t('organization.createTitle')} breadcrumbs={[crumbs.organizations]} />
       <Card>
         <CardContent>
           <OrganizationForm
@@ -56,6 +58,7 @@ export function OrganizationNewPage() {
 export function OrganizationEditPage() {
   const { orgId = '' } = useParams()
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const afterSave = useAfterSave()
   const path = { params: { path: { org_id: orgId } } }
@@ -77,7 +80,13 @@ export function OrganizationEditPage() {
   if (!organization.data) return <Loading />
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('organization.editTitle')} />
+      <PageHeader
+        title={t('organization.editTitle')}
+        breadcrumbs={[
+          crumbs.organizations,
+          { label: organization.data.name, to: `/organizations/${orgId}` },
+        ]}
+      />
       <Card>
         <CardContent>
           <OrganizationForm

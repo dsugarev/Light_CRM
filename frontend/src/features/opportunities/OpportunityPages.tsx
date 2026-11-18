@@ -9,6 +9,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
 import { Badge } from '@/components/ui/badge'
@@ -224,6 +225,7 @@ export function OpportunitiesPage() {
 
 export function OpportunityNewPage() {
   const { t } = useTranslation('opportunities')
+  const crumbs = useSectionCrumbs()
   const [params] = useSearchParams()
   const organizationId = params.get('organization_id')
   const navigate = useNavigate()
@@ -258,7 +260,7 @@ export function OpportunityNewPage() {
     : null
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('createTitle')} />
+      <PageHeader title={t('createTitle')} breadcrumbs={[crumbs.opportunities]} />
       <Card>
         <CardContent>
           <OpportunityForm
@@ -277,6 +279,7 @@ export function OpportunityNewPage() {
 export function OpportunityEditPage() {
   const { opportunityId = '' } = useParams()
   const { t } = useTranslation('opportunities')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -304,7 +307,13 @@ export function OpportunityEditPage() {
   if (!opportunity.data) return <Loading />
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('editTitle')} />
+      <PageHeader
+        title={t('editTitle')}
+        breadcrumbs={[
+          crumbs.opportunities,
+          { label: opportunity.data.name, to: `/opportunities/${opportunityId}` },
+        ]}
+      />
       <Card>
         <CardContent>
           <OpportunityForm

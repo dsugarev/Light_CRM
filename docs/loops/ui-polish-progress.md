@@ -20,3 +20,26 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
 - **Looked at:** home, organizations and users in en/bg at 1440 and 768 px, plus the drawer and the account menu. Axe: `accessibility.spec.ts` and `shell.spec.ts` passed.
 - **Gate:** lint, prettier, typecheck, Vitest 152/152, i18n 1072 keys; Playwright Chromium 41/41; backend ruff, mypy, import-linter 14/14, pytest 1303 passed. No backend or API change. Firefox Playwright cannot start on this machine (known); CI runs it.
 - **For later:** at 768 px the users table is wider than the page (the Status column is cut until you scroll the table), which belongs to UX-08/UX-13. The header search placeholder is cut in Bulgarian at 768 px (UX-13).
+
+## UX-03 — 2026-11-18 14:30
+
+- **Found:** `PageHeader` already existed and 27 pages used it (title and actions). Home and the signed-out pages (sign in, two-factor step, set password, forgot password) wrote their own `<h1>`.
+- **What changed:** `PageHeader` now takes `description` and `breadcrumbs` besides `title` and `actions`, and renders a `<header>`. The breadcrumbs are a `nav` labelled "Breadcrumbs"; the current page is taken from the title and marked `aria-current="page"`. A new `useSectionCrumbs()` hook gives the list-page crumbs with the same labels as the menu. Breadcrumbs were added to every record, create and edit page:
+  - organizations, contacts, leads (including Convert), opportunities;
+  - user detail and new user;
+  - audit entry, import batch;
+  - integration client, deliveries and delivery.
+
+  Edit and Convert pages lead back through the record (for example Contacts / Maria Ivanova / Edit contact). Home uses `PageHeader`. A new `AuthCard` gives the signed-out pages one shared frame and header (title plus an optional description, used by the two-factor hint).
+- **Files:** `frontend/src/components/PageHeader.tsx`, new `src/components/useSectionCrumbs.ts`, new `src/components/AuthCard.tsx`, `src/app/HomePage.tsx`, the three auth pages, and 16 feature pages. `src/i18n/{en,bg}/common.json` gained `breadcrumbs.label`.
+- **Tests:** `src/components/PageHeader.test.tsx` (4 `UX-03 ...` cases):
+  - a scan that fails if any `.tsx` other than `PageHeader`/`AuthCard` renders an `<h1>`;
+  - breadcrumbs on a record page;
+  - the Bulgarian edit-page trail;
+  - list pages without breadcrumbs.
+
+  In the E2E specs, clicks on menu links now go through a new `mainNav(page)` helper in `e2e/support.ts`, because breadcrumbs repeat some link names (Organizations, Leads, …). This is the same check with a narrower locator, not a weaker one.
+- **Looked at:** sign-in, home, an opportunity and its edit page, in en/bg at 1440 and 768 px.
+- **Gate:** lint, prettier, typecheck, Vitest 156/156, i18n 1073 keys; Playwright Chromium 41/41 (with `--workers=2`); backend ruff, mypy, import-linter 14/14, pytest 1303 passed. No backend or API change.
+- **Environment note:** the first three Playwright runs failed at random (timeouts on "Welcome", the assistant stuck on "Thinking…"). The Mac was out of memory: swap nearly full, load average up to 171 from macOS storage services and Time Machine, and Docker Desktop crashed during the third run. After restarting Docker and waiting for the load to drop, the suite passed 41/41 in 1.0 min with 2 workers. If E2E runs look flaky on this machine, check `uptime` and swap first.
+- **For later (UX-11):** pages that space their children with `gap-6` add it on top of the header's `mb-6`, so the space under the header is doubled (visible on the opportunity page). The header spacing should have one owner.

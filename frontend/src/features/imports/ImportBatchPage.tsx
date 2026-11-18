@@ -11,6 +11,7 @@ import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -46,6 +47,7 @@ function resultKey(result: string): (typeof RESULTS)[number] {
 export function ImportBatchPage() {
   const { batchId = '' } = useParams()
   const { t } = useTranslation('imports')
+  const crumbs = useSectionCrumbs()
   const batch = useQuery({
     queryKey: ['imports', batchId],
     queryFn: () =>
@@ -58,6 +60,7 @@ export function ImportBatchPage() {
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6">
       <PageHeader
+        breadcrumbs={[crumbs.imports]}
         title={b.file_name}
         actions={
           <span className="flex items-center gap-2">

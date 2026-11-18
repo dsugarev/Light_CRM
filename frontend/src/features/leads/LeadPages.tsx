@@ -9,6 +9,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
 import { Badge } from '@/components/ui/badge'
@@ -208,6 +209,7 @@ export function LeadsPage() {
 
 export function LeadNewPage() {
   const { t } = useTranslation('leads')
+  const crumbs = useSectionCrumbs()
   const [params] = useSearchParams()
   const organizationId = params.get('organization_id')
   const navigate = useNavigate()
@@ -238,7 +240,7 @@ export function LeadNewPage() {
     : null
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('createTitle')} />
+      <PageHeader title={t('createTitle')} breadcrumbs={[crumbs.leads]} />
       <Card>
         <CardContent>
           <LeadForm
@@ -256,6 +258,7 @@ export function LeadNewPage() {
 export function LeadEditPage() {
   const { leadId = '' } = useParams()
   const { t } = useTranslation('leads')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -283,7 +286,10 @@ export function LeadEditPage() {
   if (!lead.data) return <Loading />
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('editTitle')} />
+      <PageHeader
+        title={t('editTitle')}
+        breadcrumbs={[crumbs.leads, { label: lead.data.title, to: `/leads/${leadId}` }]}
+      />
       <Card>
         <CardContent>
           <LeadForm

@@ -9,6 +9,7 @@ import { FormField } from '@/components/FormField'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -43,6 +44,7 @@ function StatusBadge({ status }: { status: DeliveryStatus }) {
 /** FR-INT-07 AC3, FR-INT-12: the delivery log, filtered by client, status and event type. */
 export function DeliveriesPage() {
   const { t } = useTranslation('integrations')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const locale = useLocale()
   const [params, setParams] = useSearchParams()
@@ -82,7 +84,7 @@ export function DeliveriesPage() {
   const names = new Map((clients.data ?? []).map((c: IntegrationClient) => [c.id, c.name]))
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-4">
-      <PageHeader title={t('deliveries.title')} />
+      <PageHeader title={t('deliveries.title')} breadcrumbs={[crumbs.integrations]} />
       <div className="grid gap-3 sm:grid-cols-3">
         <FormField label={t('deliveries.client')}>
           {(control) => (
@@ -206,6 +208,7 @@ export function DeliveriesPage() {
 export function DeliveryPage() {
   const { deliveryId = '' } = useParams()
   const { t } = useTranslation('integrations')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -244,6 +247,10 @@ export function DeliveryPage() {
     <section className="mx-auto flex max-w-5xl flex-col gap-4">
       <PageHeader
         title={d.event_type}
+        breadcrumbs={[
+          crumbs.integrations,
+          { label: t('deliveries.title'), to: '/admin/integrations/deliveries' },
+        ]}
         actions={
           <Button
             type="button"

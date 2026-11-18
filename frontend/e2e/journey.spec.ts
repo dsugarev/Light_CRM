@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { admin, createUserWithPassword, expectSignedIn, signIn } from './support.ts'
+import { admin, createUserWithPassword, expectSignedIn, mainNav, signIn } from './support.ts'
 
 // Phase 4 exit (implementation plan): lead → qualify → convert → progress → close won,
 // in English and Bulgarian, through the real stack.
@@ -164,7 +164,7 @@ for (const language of ['en', 'bg'] as const) {
       await form.getByLabel(ui.due).fill('2026-12-01T10:00')
       await form.getByRole('button', { name: ui.createTask }).click()
       await expect(timeline.getByText(`Send the offer ${token}`)).toBeVisible()
-      await rep.getByRole('link', { name: ui.myTasks }).click()
+      await mainNav(rep).getByRole('link', { name: ui.myTasks }).click()
       await expect(
         rep.getByRole('table', { name: ui.myTasks }).getByText(`Send the offer ${token}`),
       ).toBeVisible()

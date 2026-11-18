@@ -78,5 +78,8 @@
   },
   "home": {
     "title": "Welcome, {{name}}"
+  },
+  "breadcrumbs": {
+    "label": "Breadcrumbs"
   }
 }

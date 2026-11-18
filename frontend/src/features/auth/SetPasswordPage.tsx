@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 import { z } from 'zod'
 
+import { AuthCard } from '@/components/AuthCard'
 import { api, ApiError, call } from '@/api/client'
 import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
@@ -106,10 +107,5 @@ export function SetPasswordPage() {
 
   const title =
     check.data?.purpose === 'reset' ? t('setPassword.titleReset') : t('setPassword.title')
-  return (
-    <section className="mx-auto mt-16 w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
-      <h1 className="mb-6 text-xl font-semibold">{title}</h1>
-      {body}
-    </section>
-  )
+  return <AuthCard title={title}>{body}</AuthCard>
 }

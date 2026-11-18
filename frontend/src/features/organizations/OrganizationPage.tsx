@@ -10,6 +10,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -32,6 +33,7 @@ type Contact = Schemas['ContactOut']
 export function OrganizationPage() {
   const { orgId = '' } = useParams()
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const can = useCan()
   const canEdit = useCanEditOwned()
@@ -110,6 +112,7 @@ export function OrganizationPage() {
     <section className="mx-auto flex max-w-6xl flex-col gap-6">
       <PageHeader
         title={org.name}
+        breadcrumbs={[crumbs.organizations]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {org.archived_at ? (

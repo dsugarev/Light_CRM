@@ -6,6 +6,7 @@ import { api, call } from '@/api/client'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
@@ -27,6 +28,7 @@ function Json({ value }: { value: unknown }) {
 export function AuditEntryPage() {
   const { entryId = '' } = useParams()
   const { t } = useTranslation('admin')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const labels = useAuditLabels()
   const entry = useQuery({
@@ -43,7 +45,7 @@ export function AuditEntryPage() {
   ] as const
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-6">
-      <PageHeader title={labels.action(e.action)} />
+      <PageHeader title={labels.action(e.action)} breadcrumbs={[crumbs.auditLog]} />
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted-foreground">{t('audit.columns.time')}</dt>
         <dd>{formatDateTime(e.occurred_at, locale)}</dd>

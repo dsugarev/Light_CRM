@@ -8,6 +8,7 @@ import { ConfirmButton } from '@/components/ConfirmButton'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useMe } from '@/features/auth/useMe'
@@ -24,6 +25,7 @@ type Action = 'deactivate' | 'activate' | 'unlock'
 export function UserDetailPage() {
   const { userId = '' } = useParams()
   const { t } = useTranslation('admin')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const locale = useLocale()
   const { data: me } = useMe()
@@ -83,7 +85,11 @@ export function UserDetailPage() {
 
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-6">
-      <PageHeader title={u.full_name} actions={<UserStatus user={u} />} />
+      <PageHeader
+        title={u.full_name}
+        breadcrumbs={[crumbs.users]}
+        actions={<UserStatus user={u} />}
+      />
       <FormMessage
         error={actionError instanceof ApiError ? actionError.code : null}
         success={message}

@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 
 import { api, call } from '@/api/client'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useLocale } from '@/lib/useLocale'
@@ -14,6 +15,7 @@ import { UserForm, type UserValues } from './UserForm'
 /** FR-AUTH-02: no self-registration; the Admin creates the user and hands over a link. */
 export function UserNewPage() {
   const { t } = useTranslation('admin')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const queryClient = useQueryClient()
   const create = useMutation({
@@ -23,7 +25,7 @@ export function UserNewPage() {
 
   return (
     <section className="mx-auto max-w-xl">
-      <PageHeader title={t('userForm.createTitle')} />
+      <PageHeader title={t('userForm.createTitle')} breadcrumbs={[crumbs.users]} />
       <Card>
         <CardContent className="flex flex-col gap-4">
           {create.data ? (

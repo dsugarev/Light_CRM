@@ -17,6 +17,11 @@ export function admin(locale: 'en' | 'bg') {
   return { email, password }
 }
 
+/** The sidebar menu (UX-02); breadcrumbs (UX-03) repeat some of its link names. */
+export function mainNav(page: Page) {
+  return page.getByRole('navigation', { name: /^(Main navigation|Основна навигация)$/ })
+}
+
 export function uniqueEmail(prefix: string, project: string) {
   return `${prefix}-${project}-${String(Date.now())}@example.test`.toLowerCase()
 }

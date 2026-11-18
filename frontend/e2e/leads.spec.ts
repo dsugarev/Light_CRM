@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { admin, createUserWithPassword, expectSignedIn, signIn } from './support.ts'
+import { admin, createUserWithPassword, expectSignedIn, mainNav, signIn } from './support.ts'
 
 // Phase 3: leads (FR-LEAD-01..03, 05, 06) through the real stack, in both languages.
 
@@ -91,7 +91,7 @@ for (const language of ['en', 'bg'] as const) {
       await expectSignedIn(rep, ui.welcome)
 
       // Capture with a company name only (FR-LEAD-01).
-      await rep.getByRole('link', { name: ui.leads, exact: true }).click()
+      await mainNav(rep).getByRole('link', { name: ui.leads, exact: true }).click()
       await rep.getByRole('link', { name: ui.newLead }).click()
       await expect(rep.getByRole('heading', { name: ui.newLead })).toBeVisible()
       await rep.getByLabel(ui.title, { exact: true }).fill(`Fibre ${token}`)
