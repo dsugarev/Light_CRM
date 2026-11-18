@@ -33,6 +33,9 @@ class Settings(BaseSettings):
 
     # Signs opaque tokens such as sync cursors. Must be a long random value in production.
     app_secret_key: str = f"{INSECURE_PLACEHOLDER}-secret-key"
+    # Encrypts secrets the application must read back, such as webhook signing secrets
+    # (architecture 4.5). Changing it makes stored webhook secrets unreadable.
+    app_encryption_key: str = f"{INSECURE_PLACEHOLDER}-encryption-key"
 
     # The application connects with a DML-only role; migrations use a separate
     # DDL role (architecture section 7, "Database").
@@ -62,6 +65,10 @@ class Settings(BaseSettings):
     rate_limit_password_per_15_minutes: int = Field(default=5, ge=1)
     rate_limit_user_per_minute: int = Field(default=600, ge=1)
 
+    # Webhooks (API spec 19.6): hosts subscriptions may target, as exact names or
+    # "*.suffix", separated by commas or spaces. Empty: no webhook URL is allowed.
+    webhook_allowed_hosts: str = ""
+
     # Optional SMTP (A6): every flow works without it.
     smtp_host: str | None = None
     smtp_port: int = 587
@@ -82,6 +89,14 @@ class Settings(BaseSettings):
         )
 
     @property
+    def webhook_host_patterns(self) -> tuple[str, ...]:
+        return tuple(
+            h.strip().lower().rstrip(".")
+            for h in self.webhook_allowed_hosts.replace(",", " ").split()
+            if h.strip()
+        )
+
+    @property
     def is_production(self) -> bool:
         return self.env is Environment.PRODUCTION
 
@@ -98,6 +113,7 @@ class Settings(BaseSettings):
             "MIGRATION_DATABASE_URL": str(self.migration_database_url or ""),
             "SMTP_PASSWORD": self.smtp_password or "",
             "APP_SECRET_KEY": self.app_secret_key,
+            "APP_ENCRYPTION_KEY": self.app_encryption_key,
         }
         insecure = sorted(name for name, value in secrets.items() if INSECURE_PLACEHOLDER in value)
         if insecure:

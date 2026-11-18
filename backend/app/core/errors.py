@@ -52,6 +52,7 @@ class ErrorCode(StrEnum):
     LEAD_NOT_CONVERTIBLE = "lead.not_convertible"
     LEAD_READ_ONLY = "lead.read_only"
     OWNER_REQUIRED = "owner.required"
+    WEBHOOK_URL_NOT_ALLOWED = "webhook.url_not_allowed"
     PERMISSION_DENIED = "permission.denied"
     PERMISSION_LAST_ADMIN = "permission.last_admin"
     PERMISSION_NOT_FOR_INTEGRATIONS = "permission.not_for_integrations"

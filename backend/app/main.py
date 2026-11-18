@@ -26,6 +26,7 @@ from app.modules.identity import router as identity_router
 from app.modules.identity import service as identity_service
 from app.modules.integration import router as integration_router
 from app.modules.integration import service as integration_service
+from app.modules.integration import webhooks as integration_webhooks
 from app.modules.integration.middleware import IntegrationMiddleware
 from app.modules.party import router as party_router
 from app.modules.party import service as party_service
@@ -38,10 +39,11 @@ OPENAPI_PATH = f"{API_V1_PREFIX}/openapi.json"
 
 
 def create_event_bus() -> EventBus:
-    """Subscribers to domain events. Phase 6 adds the integration outbox here."""
+    """Subscribers to domain events, all in the business transaction."""
     bus = EventBus()
     bus.subscribe(audit_service.record)
     bus.subscribe(activity_service.record_event)  # record timelines (ADR 0020)
+    bus.subscribe(integration_webhooks.record_event)  # webhook outbox (FR-INT-07 AC1)
     return bus
 
 

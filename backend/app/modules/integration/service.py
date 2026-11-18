@@ -49,6 +49,7 @@ from app.modules.integration.schemas import (
     Resource,
     SystemSummary,
     UsageFigures,
+    WebhookFigures,
 )
 from app.modules.party import service as party
 from app.modules.sales import service as sales
@@ -209,9 +210,9 @@ async def authenticate_bearer(request: Request, session: AsyncSession) -> Princi
 async def _clients_out(
     ctx: Context, clients: list[IntegrationClient]
 ) -> list[IntegrationClientOut]:
-    usage = await repository.usage_since(
-        ctx.session, [c.id for c in clients], ctx.now - timedelta(hours=24)
-    )
+    since = ctx.now - timedelta(hours=24)
+    usage = await repository.usage_since(ctx.session, [c.id for c in clients], since)
+    webhooks = await repository.webhook_figures(ctx.session, [c.id for c in clients], since)
     owners = await identity.user_names(
         ctx.session, {c.default_owner_id for c in clients if c.default_owner_id}
     )
@@ -220,6 +221,7 @@ async def _clients_out(
         keys = await repository.keys_of(ctx.session, client.id)
         used = [k.last_used_at for k in keys if k.last_used_at]
         requests, errors = usage.get(client.id, (0, 0))
+        subscriptions, failing, suspended = webhooks.get(client.id, (0, 0, 0))
         out.append(
             IntegrationClientOut(
                 id=client.id,
@@ -238,6 +240,11 @@ async def _clients_out(
                 last_used_at=max(used) if used else None,
                 usage=UsageFigures(requests_24h=requests, errors_24h=errors),
                 active_keys=sum(1 for k in keys if k.revoked_at is None and k.expires_at > ctx.now),
+                webhooks=WebhookFigures(
+                    subscriptions=subscriptions,
+                    failing_deliveries=failing,
+                    suspended_subscriptions=suspended,
+                ),
                 created_at=client.created_at,
                 updated_at=client.updated_at,
             )

@@ -59,8 +59,36 @@ const UI = {
   },
 } as const
 
+const HOOKS = {
+  en: {
+    newSubscription: 'New subscription',
+    url: 'Endpoint URL',
+    subscribe: 'Subscribe',
+    secretOnce: 'Copy the signing secret now',
+    secret: 'Signing secret',
+    test: 'Send test event',
+    failed: 'Failed',
+    dns: 'Host name not found',
+    log: 'Delivery log',
+    deliveries: 'Webhook deliveries',
+  },
+  bg: {
+    newSubscription: 'Нов абонамент',
+    url: 'Адрес на получателя',
+    subscribe: 'Абонирай',
+    secretOnce: 'Копирайте ключа за подпис сега',
+    secret: 'Ключ за подпис',
+    test: 'Изпрати тестово събитие',
+    failed: 'Неуспешна',
+    dns: 'Името на хоста не е намерено',
+    log: 'Журнал на доставките',
+    deliveries: 'Доставки на уебхукове',
+  },
+} as const
+
 for (const language of ['en', 'bg'] as const) {
   const ui = UI[language]
+  const hooks = HOOKS[language]
 
   test.describe(`Integrations in ${language}`, () => {
     test.use({ locale: ui.locale })
@@ -143,6 +171,41 @@ for (const language of ['en', 'bg'] as const) {
       } finally {
         await erp.dispose()
       }
+    })
+    test('FR-INT-07, 12 subscription with secret shown once, test event through the worker, delivery log', async ({
+      page,
+    }, testInfo) => {
+      const token = `${String(Date.now()).slice(-6)}${testInfo.project.name.slice(0, 1)}${language}`
+      const credentials = admin(language)
+      await signIn(page, credentials.email, credentials.password, ui.signIn)
+      await expectSignedIn(page, ui.welcome)
+      await page.getByRole('link', { name: ui.nav }).first().click()
+      const form = page.getByRole('form', { name: ui.newClient })
+      await form.getByLabel(ui.name, { exact: true }).fill(`E2E hooks ${token}`)
+      await form.getByLabel(ui.system, { exact: true }).selectOption('billing')
+      await form.getByRole('checkbox', { name: 'opportunities:read' }).check()
+      await form.getByRole('button', { name: ui.create }).click()
+      await expect(page.getByRole('heading', { name: `E2E hooks ${token}` })).toBeVisible()
+
+      // The stack allows hooks.example.test (WEBHOOK_ALLOWED_HOSTS); it never resolves.
+      const url = `https://hooks.example.test/${token}`
+      const subscribe = page.getByRole('form', { name: hooks.newSubscription })
+      await subscribe.getByLabel(hooks.url).fill(url)
+      await subscribe.getByRole('checkbox', { name: 'opportunity.closed_won' }).check()
+      await subscribe.getByRole('button', { name: hooks.subscribe }).click()
+      await expect(page.getByText(hooks.secretOnce)).toBeVisible()
+      await expect(page.getByLabel(hooks.secret)).toHaveValue(/^whsec_/)
+
+      // The worker sends the test event (even for an inactive client) and records it.
+      const item = page.getByRole('listitem', { name: url })
+      await item.getByRole('button', { name: hooks.test }).click()
+      await expect(page.getByText(hooks.failed, { exact: true })).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByText(hooks.dns)).toBeVisible()
+      await expect(page.getByText(url)).toBeVisible()
+
+      await page.goBack()
+      await page.getByRole('link', { name: hooks.log }).click()
+      await expect(page.getByRole('table', { name: hooks.deliveries })).toContainText('ping')
     })
   })
 }

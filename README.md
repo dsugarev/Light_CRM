@@ -2,7 +2,7 @@
 
 A light B2B CRM for the Commercial team: lead and opportunity management, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, Docker Compose.
 
-Status: **Phase 6a (integration API: clients, keys, external IDs)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records; webhooks follow in Phase 6b. See [`docs/Plan.md`](docs/Plan.md) for what is built.
+Status: **Phase 6 (integration API with webhooks)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records, and receive signed webhooks with a delivery log; see the [integration guide](docs/integration-guide.md). See [`docs/Plan.md`](docs/Plan.md) for what is built.
 
 ## Documentation
 
@@ -13,6 +13,7 @@ Status: **Phase 6a (integration API: clients, keys, external IDs)**. Users sign 
 | [`docs/03-implementation-plan.md`](docs/03-implementation-plan.md) | Phases and definition of done |
 | [`docs/04-test-strategy.md`](docs/04-test-strategy.md) | Required tests |
 | [`docs/05-api-specification.md`](docs/05-api-specification.md) | Every REST endpoint, error codes, integration API |
+| [`docs/integration-guide.md`](docs/integration-guide.md) | For the Conclusion, ERP and Billing teams: keys, sync, external IDs, webhooks, samples, Postman collection |
 | [`docs/adr/`](docs/adr/README.md) | Architecture decision records |
 | [`docs/Plan.md`](docs/Plan.md) | Implementation log: what was built, with code excerpts |
 | [`docs/Test_strategy.md`](docs/Test_strategy.md) | Test record: strategy per phase, test cases performed and results |
@@ -47,6 +48,8 @@ Integration clients for Conclusion, ERP and Billing (read-only profiles, API spe
 ```bash
 docker compose exec backend python -m app.cli create-integration-client   # --system erp|billing|conclusion|all
 ```
+
+Webhooks are sent by the `worker` service only to hosts listed in `WEBHOOK_ALLOWED_HOSTS` (`.env`, comma-separated, exact names or `*.suffix`); the worker needs outbound HTTPS to them. Webhook signing secrets are encrypted with `APP_ENCRYPTION_KEY`, which the start script generates: keep it with the database backups, because without it stored secrets must be rotated.
 
 ## Develop
 

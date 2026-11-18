@@ -17,7 +17,8 @@ if (-not (Test-Path .env)) {
         -replace '^POSTGRES_PASSWORD=.*', "POSTGRES_PASSWORD=$(New-Secret)" `
         -replace '^CRM_MIGRATOR_PASSWORD=.*', "CRM_MIGRATOR_PASSWORD=$(New-Secret)" `
         -replace '^CRM_APP_PASSWORD=.*', "CRM_APP_PASSWORD=$(New-Secret)" `
-        -replace '^APP_SECRET_KEY=.*', "APP_SECRET_KEY=$(New-Secret)$(New-Secret)" |
+        -replace '^APP_SECRET_KEY=.*', "APP_SECRET_KEY=$(New-Secret)$(New-Secret)" `
+        -replace '^APP_ENCRYPTION_KEY=.*', "APP_ENCRYPTION_KEY=$(New-Secret)$(New-Secret)" |
         Set-Content -Encoding utf8 .env
     Write-Host 'Created .env with generated passwords and secret key.'
 }
@@ -25,6 +26,10 @@ if (-not (Test-Path .env)) {
 if (-not (Select-String -Path .env -Pattern '^APP_SECRET_KEY=' -Quiet)) {
     Add-Content -Path .env -Value "`n# Added by start script`nAPP_SECRET_KEY=$(New-Secret)$(New-Secret)"
     Write-Host 'Added APP_SECRET_KEY to .env.'
+}
+if (-not (Select-String -Path .env -Pattern '^APP_ENCRYPTION_KEY=' -Quiet)) {
+    Add-Content -Path .env -Value "`n# Added by start script`nAPP_ENCRYPTION_KEY=$(New-Secret)$(New-Secret)"
+    Write-Host 'Added APP_ENCRYPTION_KEY to .env.'
 }
 
 docker compose up --build --detach

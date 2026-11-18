@@ -1,6 +1,6 @@
 # 05 — API Specification (Release 1)
 
-Status: Draft v0.9 (updated after Phase 6a, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+Status: Draft v0.10 (updated after Phase 6b, 2026-11-18) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
 
 This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
 
@@ -30,7 +30,7 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | 16 Audit log | 1, 5 | Built; `/audit-log/export` since Phase 5a |
 | 17 AI assistant | 7 | Pending |
 | 18 Rate limits | 1, 6 | Built for sign-in, password endpoints, per user and per integration client (Phase 6a); others with their features |
-| 19 Integration API | 6 | Phase 6a built: API keys (19.2), scopes (19.3), external references and their list filters (19.4), idempotency (19.5), client and key administration (19.7, first nine rows), the initial profiles as a CLI command (19.9). Webhooks (19.6, 19.7 subscription and delivery rows) and the integration guide (19.10): Phase 6b |
+| 19 Integration API | 6 | Built: API keys (19.2), scopes (19.3), external references and filters (19.4), idempotency (19.5) in Phase 6a; webhooks with the outbox, signing, retries, suspension and the delivery log (19.6, 19.7), the integration guide and collection (19.10) in Phase 6b; the initial profiles as a CLI command (19.9) |
 
 `backend/tests/api/catalog_pending.py` lists every endpoint not yet built; the route catalog test fails if this document and the code disagree.
 
@@ -979,6 +979,17 @@ Contact events for an anonymized contact carry the anonymized object. The `objec
 
 **URL rules.** HTTPS only (HTTP allowed only when `ENV` is not `production`), host must match the `WEBHOOK_ALLOWED_HOSTS` allowlist, no credentials in the URL. This prevents the CRM being used to reach arbitrary internal addresses.
 
+As built (Phase 6b, ADR 0025):
+
+- **Outbox.** The integration module subscribes to the domain event bus and writes an `outbox_event` row in the business transaction for each mapped action. Actions without an event type of their own (`<record>.archived` for leads and opportunities, `.restored`, `.owner_changed`) are sent as `<record>.updated`; audit-only actions (sign-in, exports, imports' own events, user administration) are not sent. `contact.anonymized` is accepted in subscriptions and sent once GDPR anonymization exists (Phase 8). `changes` lists the fields whose values differ between before and after (empty for creations). `actor` is `{ "type": "user" | "integration" | "system", "id", "name" }`, plus `client_id` for integrations.
+- **Fan-out.** The worker (every `WORKER_POLL_INTERVAL_SECONDS`, default 5) turns new events into one delivery per active, non-suspended subscription whose `event_types` match (`*`, `<record>.*` or the exact type) and whose client may read the record type (AC4); it then attempts what is due, four at a time. Deliveries for a deactivated client wait and are sent once it is active again.
+- **Object and version.** `data.object` is built when the delivery is attempted, through the same service functions as `GET` (so retries carry current data); `null` if the record no longer exists. `data.version` is the record's `version` for leads and opportunities and `null` for organizations and contacts, which have none. For `external_reference.updated`, `data.system` is the system code and `object` is the reference (`null` after removal).
+- **Request.** Body is compact UTF-8 JSON; headers as above plus `User-Agent: LightCRM-Webhooks/1`. The host is resolved, and the delivery is refused (`address_not_allowed`) if any address is loopback, link-local, unspecified, multicast, reserved or a cloud metadata address; otherwise the connection goes to the vetted address (no second lookup) while TLS still verifies the certificate for the URL's host. Private ranges (on-premises systems) are allowed. The URL is re-checked against the allowlist at each attempt. 10 seconds in total; redirects are failures; at most 4 KB of the response is read and 1,000 characters stored.
+- **Ordering.** A delivery waits while an earlier one (by event time, then event ID) for the same record and subscription is pending or retrying.
+- **Retry and suspension.** Delays after attempts 1–5 are 1 min, 5 min, 30 min, 2 h, 6 h (±10 % jitter), then every 6 h; after 72 hours from the first attempt the delivery is `failed`. A subscription whose deliveries have failed without a success for 72 hours is suspended (`suspended_at`); `PATCH ... {"is_active": true}` resumes it. Test events (`ping`) are attempted once, whatever the client, subscription or suspension state, and never count towards suspension or the failing figure.
+- **Error names** recorded for attempts without an HTTP status: `timeout`, `connection_failed`, `dns_failed`, `address_not_allowed`, `url_not_allowed`, `secret_unreadable` (the encryption key changed).
+- **Housekeeping.** Events older than 30 days are deleted with their deliveries and attempts.
+
 ### 19.7 Integration administration (Admin)
 
 | Method | Path | Purpose | Access | Req. |
@@ -997,14 +1008,14 @@ Contact events for an anonymized contact carry the anonymized object. The `objec
 | PATCH | `/api/v1/webhook-subscriptions/{subscription_id}` | Change URL, event types, active flag | Admin | FR-INT-07 |
 | DELETE | `/api/v1/webhook-subscriptions/{subscription_id}` | Remove | Admin | FR-INT-07 |
 | POST | `/api/v1/webhook-subscriptions/{subscription_id}/rotate-secret` | New secret, returned once; old one valid for 24 hours | Admin | FR-INT-07 |
-| POST | `/api/v1/webhook-subscriptions/{subscription_id}/test` | Send a `ping` event and return the receiver's status code and timing | Admin | FR-INT-07 |
+| POST | `/api/v1/webhook-subscriptions/{subscription_id}/test` | Queue a `ping` event (`202` with the delivery); the worker sends it once, and the receiver's status code and timing appear in the delivery (no outbound call inside a request) | Admin | FR-INT-07 |
 | GET | `/api/v1/webhook-deliveries` | Delivery log. Filters: `subscription_id`, `client_id`, `event_type`, `status` (`pending`, `succeeded`, `retrying`, `failed`), `created_at_from/to` | Admin | FR-INT-07, 08 |
 | GET | `/api/v1/webhook-deliveries/{delivery_id}` | Attempts with status codes, timings and truncated response bodies | Admin | FR-INT-07 |
 | POST | `/api/v1/webhook-deliveries/{delivery_id}/redeliver` | Queue the event again | Admin | FR-INT-07 |
 
 Delivery log entries are kept 30 days. Creating, changing, deactivating clients, keys and subscriptions is audited.
 
-As built (Phase 6a): the client and key rows above; the subscription and delivery rows follow in Phase 6b. `GET /integration-clients` returns a plain array (a few clients, no paging). `POST /integration-clients` creates the client **inactive** unless `is_active: true` is sent, because clients are switched on only after the owner confirms the data flow (19.9); the web UI always creates inactive clients. `ip_allowlist` takes up to 50 CIDR ranges; `rate_limit_per_minute` defaults to 300. The service user is named `<name> (integration)` and never appears in user lists or owner pickers. Audit actions: `integration_client.created`, `.updated`, `.activated`, `.deactivated`, `api_key.created`, `api_key.revoked` (never with the key).
+As built (Phase 6a for clients and keys, Phase 6b for webhooks): `GET /integration-clients` returns a plain array (a few clients, no paging). `POST /integration-clients` creates the client **inactive** unless `is_active: true` is sent, because clients are switched on only after the owner confirms the data flow (19.9); the web UI always creates inactive clients. `ip_allowlist` takes up to 50 CIDR ranges; `rate_limit_per_minute` defaults to 300. The service user is named `<name> (integration)` and never appears in user lists or owner pickers. Audit actions: `integration_client.created`, `.updated`, `.activated`, `.deactivated`, `api_key.created`, `api_key.revoked` (never with the key).
 
 ```json
 // POST /api/v1/integration-clients  →  201
@@ -1023,7 +1034,33 @@ As built (Phase 6a): the client and key rows above; the subscription and deliver
   "last_used_at": null, "last_used_ip": null, "created_by": { "id": "...", "full_name": "Ada Admin" } }
 ```
 
-`usage` counts the client's requests and error responses (status 400 and above) over the last 24 hours, from hourly counters kept in PostgreSQL for 30 days.
+`usage` counts the client's requests and error responses (status 400 and above) over the last 24 hours, from hourly counters kept in PostgreSQL for 30 days. `webhooks` gives `subscriptions`, `failing_deliveries` (now retrying, or failed in the last 24 hours, test events excluded) and `suspended_subscriptions`; the web UI shows a banner in the admin area and a badge on the Integrations link while either of the last two is above zero (FR-INT-08).
+
+Webhook administration (Phase 6b):
+
+- Subscriptions: `url` (≤ 500 characters, URL rules of 19.6, else `422 webhook.url_not_allowed` with field `url`), `event_types` (1–40 of the types of 19.6, `<record>.*` or `*`; others `422` with `validation.value_error` on `event_types.<n>`; duplicates removed), `is_active` (default `true`). The secret (`whsec_` + 43 characters) is returned by `POST` and `rotate-secret` only, stored encrypted with `APP_ENCRYPTION_KEY`. `previous_secret_valid_until` is set for 24 hours after a rotation. `DELETE` removes the subscription with its deliveries.
+- `POST .../test` returns `202` with the queued `ping` delivery; its attempt appears in `GET /webhook-deliveries/{id}` within one worker poll.
+- `GET /webhook-deliveries` is paginated (`page`, `page_size` ≤ 100), newest first; `status` must be one of the four statuses (`422` otherwise). `POST .../redeliver` returns `202` with a new delivery of the same event to the same subscription; the receiver sees the same event `id`.
+- Audit actions: `webhook_subscription.created`, `.updated`, `.deleted`, `.secret_rotated`, `.test_sent`, `webhook_delivery.redelivered` (never with a secret). Automatic suspension is logged by the worker (`webhook_subscription_suspended`).
+
+```json
+// POST /api/v1/integration-clients/{client_id}/webhook-subscriptions  →  201
+// body: { "url": "https://erp.internal/hooks/crm", "event_types": ["opportunity.closed_won", "organization.*"] }
+{ "id": "0193...", "client_id": "0193...", "url": "https://erp.internal/hooks/crm",
+  "event_types": ["opportunity.closed_won", "organization.*"], "is_active": true,
+  "suspended_at": null, "failing_since": null, "previous_secret_valid_until": null,
+  "deliveries_24h": { "succeeded": 0, "pending": 0, "retrying": 0, "failed": 0 },
+  "created_at": "...", "updated_at": "...", "secret": "whsec_<43 characters, shown only here>" }
+
+// GET /api/v1/webhook-deliveries/{delivery_id}
+{ "id": "0193...", "subscription_id": "0193...", "client_id": "0193...", "event_id": "evt_0193f1c2...",
+  "event_type": "opportunity.closed_won", "entity_type": "opportunity", "entity_id": "0193...",
+  "occurred_at": "...", "status": "retrying", "attempt_count": 1, "next_attempt_at": "...",
+  "last_status_code": 503, "last_error": null, "delivered_at": null, "created_at": "...",
+  "url": "https://erp.internal/hooks/crm",
+  "attempts": [ { "number": 1, "attempted_at": "...", "duration_ms": 87, "status_code": 503,
+                  "error": null, "response_excerpt": "Service Unavailable" } ] }
+```
 
 ### 19.8 Versioning and change policy for integrators
 
@@ -1047,7 +1084,9 @@ Typical ERP flow under these assumptions: receive `opportunity.closed_won` → r
 
 ### 19.10 Integration guide deliverable
 
-Phase 6 produces `docs/integration-guide.md` for the Conclusion, ERP and Billing teams: how to obtain a key, authentication, scopes, sync mode, external references, idempotency, webhook verification with code samples (Python, C#, Java), error codes, rate limits, the versioning policy, and a ready-to-import Postman or Bruno collection in `docs/integration/`.
+Delivered in Phase 6b: [`integration-guide.md`](integration-guide.md), the Postman v2.1 collection [`integration/light-crm.postman_collection.json`](integration/light-crm.postman_collection.json) (checked against the routes by a test) and the reference receiver `deploy/examples/webhook_receiver.py`. Only the Python verification sample is executed by the test suite (owner decision); the C# and Java samples are marked untested.
+
+Original scope: Phase 6 produces `docs/integration-guide.md` for the Conclusion, ERP and Billing teams: how to obtain a key, authentication, scopes, sync mode, external references, idempotency, webhook verification with code samples (Python, C#, Java), error codes, rate limits, the versioning policy, and a ready-to-import Postman or Bruno collection in `docs/integration/`.
 
 ## 20. Future extensions (not in R1)
 

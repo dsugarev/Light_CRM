@@ -1,7 +1,7 @@
 """Background worker: `python -m app.worker`.
 
-Runs registered jobs in a loop until SIGTERM/SIGINT. Webhook delivery from the
-outbox (Phase 6) and housekeeping jobs are registered here as they are built.
+Runs registered jobs in a loop until SIGTERM/SIGINT: webhook fan-out and delivery
+from the outbox on every poll (API spec 19.6), housekeeping once an hour.
 """
 
 import asyncio
@@ -22,6 +22,7 @@ from app.core.logging import configure_logging
 from app.modules.dataimport import service as dataimport_service
 from app.modules.identity import service as identity_service
 from app.modules.integration import service as integration_service
+from app.modules.integration import webhooks
 
 Job = Callable[[AsyncEngine], Awaitable[None]]
 
@@ -46,18 +47,33 @@ def every(interval: timedelta, job: Job) -> Job:
 async def purge_expired(engine: AsyncEngine) -> None:
     """Housekeeping: expired sessions, stale password tokens, old rate-limit windows and
     uploaded import files older than 7 days (API spec 15), idempotency records after
-    24 hours and integration usage counters after 30 days (architecture 4.5)."""
+    24 hours, integration usage counters and webhook events with their deliveries after
+    30 days (architecture 4.5)."""
     now = SystemClock().now()
     async with create_session_factory(engine)() as session:
         removed = await identity_service.purge_expired(session, now)
         removed.update(await dataimport_service.purge_expired(session, now))
         removed.update(await integration_service.purge_expired(session, now))
+        removed.update(await webhooks.purge(session, now))
     removed["rate_limit_windows"] = await ratelimit.purge_expired(engine, now)
     logger.info("housekeeping_done", extra=removed)
 
 
-# Jobs run once per poll interval, in order. Phase 6 adds webhook delivery.
-JOBS: Sequence[Job] = (every(timedelta(hours=1), purge_expired),)
+async def deliver_webhooks(engine: AsyncEngine) -> None:
+    """Fan new outbox events out to subscriptions, then send what is due (NFR-13: first
+    attempt within one poll interval of the change)."""
+    sessions = create_session_factory(engine)
+    clock = SystemClock()
+    async with sessions() as session:
+        while await webhooks.dispatch(session, clock.now()):
+            pass
+    sent = await webhooks.deliver_due(sessions, get_settings(), clock.now())
+    if sent:
+        logger.info("webhooks_attempted", extra={"deliveries": sent})
+
+
+# Jobs run once per poll interval, in order.
+JOBS: Sequence[Job] = (deliver_webhooks, every(timedelta(hours=1), purge_expired))
 
 
 async def run_once(engine: AsyncEngine, jobs: Sequence[Job]) -> None:

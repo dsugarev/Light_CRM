@@ -28,6 +28,18 @@ Scope = Literal[
 Resource = Literal["organizations", "contacts", "leads", "opportunities"]
 EntityType = Literal["organization", "contact", "lead", "opportunity"]
 
+# Webhook event types of API spec 19.6 (`ping` is the test event, sent on request only).
+EVENT_TYPES = (
+    "organization.created", "organization.updated", "organization.archived",
+    "contact.created", "contact.updated", "contact.archived", "contact.anonymized",
+    "lead.created", "lead.updated", "lead.status_changed", "lead.converted",
+    "opportunity.created", "opportunity.updated", "opportunity.stage_changed",
+    "opportunity.closed_won", "opportunity.closed_lost", "opportunity.reopened",
+    "external_reference.updated",
+)  # fmt: skip
+_EVENT_PATTERNS = frozenset({"*", *EVENT_TYPES, *(f"{t.split('.')[0]}.*" for t in EVENT_TYPES)})
+DeliveryStatus = Literal["pending", "retrying", "succeeded", "failed"]
+
 
 def _cidr(value: str) -> str:
     return str(ipaddress.ip_network(value.strip(), strict=False))
@@ -39,7 +51,18 @@ def _https(value: str) -> str:
     return value
 
 
+def _event_pattern(value: str) -> str:
+    if value not in _EVENT_PATTERNS:
+        raise ValueError("unknown event type")
+    return value
+
+
 Cidr = Annotated[str, Field(max_length=50), AfterValidator(_cidr)]
+EventPattern = Annotated[
+    str,
+    Field(max_length=60, description="An event type, `<record>.*` or `*`"),
+    AfterValidator(_event_pattern),
+]
 HttpsUrl = Annotated[str, Field(max_length=500), AfterValidator(_https)]
 
 
@@ -59,6 +82,17 @@ class UsageFigures(BaseModel):
     errors_24h: int
 
 
+class WebhookFigures(BaseModel):
+    subscriptions: int
+    failing_deliveries: int = Field(
+        description=(
+            "Deliveries now retrying, or failed in the last 24 hours, test events excluded "
+            "(FR-INT-08)"
+        )
+    )
+    suspended_subscriptions: int
+
+
 class IntegrationClientOut(BaseModel):
     id: UUID
     name: str
@@ -72,6 +106,7 @@ class IntegrationClientOut(BaseModel):
     last_used_at: datetime | None
     usage: UsageFigures
     active_keys: int
+    webhooks: WebhookFigures
     created_at: datetime
     updated_at: datetime
 
@@ -134,3 +169,86 @@ class ExternalReferenceOut(BaseModel):
 class ExternalReferencePut(_Request):
     external_id: Annotated[str, Field(min_length=1, max_length=200)]
     url: HttpsUrl | None = None
+
+
+class WebhookSubscriptionCreate(_Request):
+    url: Annotated[str, Field(min_length=1, max_length=500)]
+    event_types: Annotated[list[EventPattern], Field(min_length=1, max_length=40)]
+    is_active: bool = True
+
+
+class WebhookSubscriptionUpdate(_Request):
+    url: Annotated[str, Field(min_length=1, max_length=500)] | None = None
+    event_types: Annotated[list[EventPattern], Field(min_length=1, max_length=40)] | None = None
+    is_active: bool | None = Field(
+        default=None, description="true also lifts an automatic suspension"
+    )
+
+
+class DeliveryCounts(BaseModel):
+    succeeded: int
+    pending: int
+    retrying: int
+    failed: int
+
+
+class WebhookSubscriptionOut(BaseModel):
+    id: UUID
+    client_id: UUID
+    url: str
+    event_types: list[str]
+    is_active: bool
+    suspended_at: datetime | None
+    failing_since: datetime | None
+    previous_secret_valid_until: datetime | None
+    deliveries_24h: DeliveryCounts
+    created_at: datetime
+    updated_at: datetime
+
+
+class WebhookSubscriptionCreated(WebhookSubscriptionOut):
+    secret: str = Field(description="The signing secret, shown only in this response")
+
+
+class WebhookSecret(BaseModel):
+    secret: str = Field(description="The new signing secret, shown only in this response")
+    previous_secret_valid_until: datetime
+
+
+class WebhookAttemptOut(BaseModel):
+    number: int
+    attempted_at: datetime
+    duration_ms: int
+    status_code: int | None
+    error: str | None
+    response_excerpt: str | None
+
+
+class WebhookDeliveryOut(BaseModel):
+    id: UUID
+    subscription_id: UUID
+    client_id: UUID
+    event_id: str = Field(description="evt_<hex>, as sent in X-CRM-Event-Id")
+    event_type: str
+    entity_type: str | None
+    entity_id: UUID | None
+    occurred_at: datetime
+    status: DeliveryStatus
+    attempt_count: int
+    next_attempt_at: datetime | None
+    last_status_code: int | None
+    last_error: str | None
+    delivered_at: datetime | None
+    created_at: datetime
+
+
+class WebhookDeliveryDetail(WebhookDeliveryOut):
+    url: str
+    attempts: list[WebhookAttemptOut]
+
+
+class WebhookDeliveryPage(BaseModel):
+    items: list[WebhookDeliveryOut]
+    total: int
+    page: int
+    page_size: int
