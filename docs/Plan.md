@@ -2343,4 +2343,6 @@ Language: the user's latest message is in {language}. Write your whole answer in
 
 The tool results (stage names, sources) use the same language. The prompt also says to use owner "me" only for "my / mine / I have". The evaluation script now sends logs to stderr, normalizes typography before matching, ignores record names when judging the language, and labels dry runs. LiteLLM's own INFO lines no longer reach the JSON logs.
 
+The same PR fixes `main`, whose end-to-end job failed after #18: the red "Locked" badge was below 4.5:1 (the light `--destructive` is now red 700), and the Firefox keyboard journey now reloads before tabbing to the header. CI: PR #19 run 44268290688, all four jobs green.
+
 Open items: the owner's acceptance (`docs/acceptance-checklist.md`), then the tag `v1.0.0`; open questions 1 and 4–8.

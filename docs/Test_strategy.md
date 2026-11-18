@@ -897,6 +897,7 @@ NFR-01 measurement (milliseconds):
 | 2026-11-18 10:22 | Same | Run 3, after the checker fixes | **20/20**; median 1.3 s per answer |
 | 2026-11-18 | Developer Mac | ruff, mypy, import-linter, pytest | 1297 passed, 95.6% coverage; clean |
 | 2026-11-18 | Docker Desktop, rebuilt stack with `docker-compose.e2e.yml` | Full Chromium suite with the contrast and keyboard fixes | First run: 9 sign-in timeouts right after the rebuild (backend busy); rerun 39/39 |
+| 2026-11-18 | GitHub Actions, PR #19 run 44268290688 | All four jobs | Green; Playwright on Chromium and Firefox, including the accessibility and keyboard journeys |
 
 ### Defects found by testing and fixed
 
