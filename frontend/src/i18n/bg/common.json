@@ -82,7 +82,16 @@
     "summary": "Страница {{page}} от {{pages}} · общо {{total}}"
   },
   "home": {
-    "title": "Добре дошли, {{name}}"
+    "title": "Добре дошли, {{name}}",
+    "recent": {
+      "title": "Последно отваряни",
+      "types": {
+        "organization": "Организация",
+        "contact": "Контакт",
+        "lead": "Потенциален клиент",
+        "opportunity": "Възможност"
+      }
+    }
   },
   "breadcrumbs": {
     "label": "Навигационна пътека"

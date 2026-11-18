@@ -26,6 +26,7 @@ import { referenceName, useReferenceList } from '@/features/reference/useReferen
 import { formatDate, formatMoney } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useLocale } from '@/lib/useLocale'
+import { useTrackRecent } from '@/features/recent/useRecentRecords'
 
 import { LeadStatusBadge } from './LeadStatusBadge'
 import { BANT_ITEMS, BANT_STATUSES, type Lead } from './leadValues'
@@ -45,6 +46,7 @@ export function LeadPage() {
     queryKey: ['leads', leadId],
     queryFn: () => call(api.GET('/api/v1/leads/{lead_id}', path)),
   })
+  useTrackRecent('lead', leadId, lead.data?.title, lead.error)
   if (lead.isError)
     return (
       <ErrorState

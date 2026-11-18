@@ -10,6 +10,7 @@ import { Sheet } from '@/components/ui/sheet'
 import { AssistantLauncher } from '@/features/assistant/AssistantLauncher'
 import { IdleWarning } from '@/features/auth/IdleWarning'
 import { broadcastSignOut } from '@/features/auth/sessionActivity'
+import { clearAllRecent } from '@/features/recent/recentRecords'
 import { ME_QUERY_KEY, useMe } from '@/features/auth/useMe'
 import { useWebhookHealth } from '@/features/integrations/useWebhookHealth'
 import { WebhookAlert } from '@/features/integrations/WebhookAlert'
@@ -39,6 +40,7 @@ export function AppLayout() {
     onSettled: async () => {
       // FN-05: the other open tabs sign out too.
       broadcastSignOut()
+      clearAllRecent()
       queryClient.setQueryData(ME_QUERY_KEY, null)
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== ME_QUERY_KEY[0] })
       await navigate('/sign-in', { replace: true })

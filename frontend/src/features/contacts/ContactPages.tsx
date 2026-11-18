@@ -27,6 +27,7 @@ import { RecordTimeline } from '@/features/activities/RecordTimeline'
 import { ExternalReferences } from '@/features/integrations/ExternalReferences'
 import { ExportMenu } from '@/features/reports/ExportMenu'
 import { useNotify } from '@/lib/notify'
+import { useTrackRecent } from '@/features/recent/useRecentRecords'
 
 import { ContactForm } from './ContactForm'
 import { contactDefaults, contactPayload, type ContactValues } from './contactValues'
@@ -309,6 +310,7 @@ export function ContactPage() {
     queryKey: ['contacts', contactId],
     queryFn: () => call(api.GET('/api/v1/contacts/{contact_id}', path)),
   })
+  useTrackRecent('contact', contactId, contact.data?.full_name, contact.error)
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['contacts'] })
   const archive = useMutation({
     mutationFn: () => call(api.DELETE('/api/v1/contacts/{contact_id}', path)),

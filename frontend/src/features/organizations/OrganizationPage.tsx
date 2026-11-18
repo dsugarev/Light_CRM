@@ -26,6 +26,7 @@ import { formatDate, formatMoney, formatNumber } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useLocale } from '@/lib/useLocale'
 import { useNotify } from '@/lib/notify'
+import { useTrackRecent } from '@/features/recent/useRecentRecords'
 
 type Contact = Schemas['ContactOut']
 
@@ -46,6 +47,7 @@ export function OrganizationPage() {
     queryKey: ['organizations', orgId],
     queryFn: () => call(api.GET('/api/v1/organizations/{org_id}', path)),
   })
+  useTrackRecent('organization', orgId, organization.data?.name, organization.error)
   const contacts = useQuery({
     queryKey: ['organizations', orgId, 'contacts'],
     queryFn: async () =>

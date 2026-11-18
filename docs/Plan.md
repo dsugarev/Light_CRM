@@ -2465,3 +2465,11 @@ export function websiteHref(website: string): string | null {
   }
 }
 ```
+- **Iteration 2:** a **Recently viewed** card on the home page (`features/recent/`): the last 8 records per user, kept in this browser only, synced across tabs, cleared on sign-out, a deleted record dropped when opened.
+
+```ts
+export function rememberRecent(userId: string, record: Omit<RecentRecord, 'at'>, at = Date.now()) {
+  const others = readRecent(userId).filter((r) => !(r.type === record.type && r.id === record.id))
+  write(userId, [{ ...record, at }, ...others].slice(0, MAX_RECENT))
+}
+```

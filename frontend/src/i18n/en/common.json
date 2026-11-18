@@ -82,7 +82,16 @@
     "summary": "Page {{page}} of {{pages}} · {{total}} in total"
   },
   "home": {
-    "title": "Welcome, {{name}}"
+    "title": "Welcome, {{name}}",
+    "recent": {
+      "title": "Recently viewed",
+      "types": {
+        "organization": "Organization",
+        "contact": "Contact",
+        "lead": "Lead",
+        "opportunity": "Opportunity"
+      }
+    }
   },
   "breadcrumbs": {
     "label": "Breadcrumbs"

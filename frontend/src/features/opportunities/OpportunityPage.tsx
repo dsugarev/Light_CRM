@@ -22,6 +22,7 @@ import { referenceName } from '@/features/reference/useReferenceList'
 import { formatDate, formatDateTime, formatDay, formatMoney } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useLocale } from '@/lib/useLocale'
+import { useTrackRecent } from '@/features/recent/useRecentRecords'
 
 import { CloseForm } from './CloseForm'
 import { stageName, type Opportunity } from './opportunityValues'
@@ -43,6 +44,7 @@ export function OpportunityPage() {
         }),
       ),
   })
+  useTrackRecent('opportunity', opportunityId, opportunity.data?.name, opportunity.error)
   if (opportunity.isError)
     return (
       <ErrorState

@@ -31,3 +31,36 @@ A loop applying CRM UI best practices to Light CRM after the UI polish (PR #22).
 - Frontend: lint, prettier, typecheck, Vitest 270/270, i18n 1200 keys.
 - Playwright Chromium: 45/48 in a run that took 4.1 minutes under host load. The 3 failures were timeouts in the accessibility, assistant and identity specs, which this change does not touch; they passed alone (10/10).
 - Visual 4/4 (no baseline changed); backend pytest 1305 passed.
+
+## Iteration 2 — recently viewed records (2026-11-18)
+
+| Best practice | Before | After |
+|---|---|---|
+| Get back to what you were working on in one click | Users had to search or browse lists again | A **Recently viewed** card on the home page: the last 8 organizations, contacts, leads and opportunities this user opened, newest first, with type and "x minutes ago", kept current across tabs |
+| Shared-computer privacy | — | Kept per user in this browser only (`localStorage`, never sent to the server), cleared on sign-out |
+| No dead links | — | A record that answers 404 (deleted) is dropped from the list when it is opened |
+
+**Code:**
+- `frontend/src/features/recent/`:
+  - `recentRecords.ts`: the per-user store (max 8, deduplicated, `clearAllRecent`);
+  - `useRecentRecords.ts`: `useSyncExternalStore` over the `storage` event and a same-tab event, plus `useTrackRecent`, called by the organization, contact, lead and opportunity pages once the record has loaded;
+  - `RecentlyViewed.tsx`: the home page card.
+- `AppLayout` clears the list on sign-out.
+- New texts `home.recent.*` in en/bg.
+
+**Tests:**
+- `src/features/recent/recentlyViewed.test.tsx`, 7 cases:
+  - nothing shown before a record is opened;
+  - opened records are listed newest first without duplicates, with the right links and types;
+  - only the latest 8 are kept;
+  - each user's records stay apart;
+  - a 404 record is forgotten;
+  - sign-out clears the list;
+  - Bulgarian type labels.
+- The two 768 px home baselines were updated: the visual test opens records before that pass, so the (masked) card now appears there. The visual suite then passed twice in a row.
+
+**Gate:**
+- Frontend: lint, prettier, typecheck, Vitest 277/277, i18n 1205 keys.
+- Playwright Chromium 48/48. Visual 4/4 (twice).
+- Axe on the home page with the card, en/bg at 1440 and 768 px: no violations.
+- Backend: pytest 1305 passed.
