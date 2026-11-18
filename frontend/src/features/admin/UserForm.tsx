@@ -36,9 +36,17 @@ interface UserFormProps {
   pending: boolean
   /** Resolve on success; reject with the API error to show it. */
   onSubmit: (values: UserValues) => Promise<unknown>
+  /** FN-08: when set, the role cannot be changed and this says why. */
+  roleLockedReason?: string | undefined
 }
 
-export function UserForm({ defaultValues, submitLabel, pending, onSubmit }: UserFormProps) {
+export function UserForm({
+  defaultValues,
+  submitLabel,
+  pending,
+  onSubmit,
+  roleLockedReason,
+}: UserFormProps) {
   const { t } = useTranslation('admin')
   const { t: tc } = useTranslation()
   const form = useForm<UserValues>({ resolver: zodResolver(userSchema), defaultValues })
@@ -69,16 +77,28 @@ export function UserForm({ defaultValues, submitLabel, pending, onSubmit }: User
       >
         {(control) => <Input {...control} {...form.register('full_name')} />}
       </FormField>
-      <FormField label={t('userForm.role')} required error={form.formState.errors.role?.message}>
-        {(control) => (
-          <NativeSelect {...control} {...form.register('role')}>
-            {HUMAN_ROLES.map((role) => (
-              <option key={role} value={role}>
-                {tc(`roles.${role}`)}
-              </option>
-            ))}
-          </NativeSelect>
-        )}
+      <FormField
+        label={t('userForm.role')}
+        required
+        error={form.formState.errors.role?.message}
+        hint={roleLockedReason}
+      >
+        {(control) =>
+          roleLockedReason ? (
+            // Not registered: the form keeps the current role from its default values.
+            <NativeSelect {...control} value={defaultValues.role} disabled>
+              <option value={defaultValues.role}>{tc(`roles.${defaultValues.role}`)}</option>
+            </NativeSelect>
+          ) : (
+            <NativeSelect {...control} {...form.register('role')}>
+              {HUMAN_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {tc(`roles.${role}`)}
+                </option>
+              ))}
+            </NativeSelect>
+          )
+        }
       </FormField>
       <FormField label={t('userForm.language')}>
         {(control) => (

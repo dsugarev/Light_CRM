@@ -10,6 +10,7 @@ import { useLocale } from '@/lib/useLocale'
 
 import { PasswordLinkPanel } from './PasswordLinkPanel'
 import { UserForm, type UserValues } from './UserForm'
+import { useLastAdmin } from './useLastAdmin'
 
 type User = Schemas['UserOut']
 
@@ -78,6 +79,8 @@ export function EditUserSheet({ user, onClose }: { user: User | null; onClose: (
   const { t: tc } = useTranslation()
   const notify = useNotify()
   const queryClient = useQueryClient()
+  const isLastAdmin = useLastAdmin()
+  const { t: te } = useTranslation('errors')
   const save = useMutation({
     mutationFn: ({ id, values }: { id: string; values: UserValues }) =>
       call(
@@ -112,6 +115,7 @@ export function EditUserSheet({ user, onClose }: { user: User | null; onClose: (
           submitLabel={tc('actions.save')}
           pending={save.isPending}
           onSubmit={(values) => save.mutateAsync({ id: user.id, values })}
+          roleLockedReason={isLastAdmin(user) ? te('permission.last_admin') : undefined}
         />
       ) : null}
     </Sheet>

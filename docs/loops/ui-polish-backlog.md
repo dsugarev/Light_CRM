@@ -36,7 +36,7 @@ Build these only through endpoints already specified in `docs/05-api-specificati
 - [!] **FN-05 Idle-timeout warning.** A dialog appears 5 minutes before the idle timeout with "Stay signed in" (calls `GET /me`) and "Sign out"; it works across several open tabs of the app.
 - [x] **FN-06 Language preference.** Switching language saves it to the profile (`PATCH /me`) and it is applied at the next sign-in on any device.
 - [x] **FN-07 Audit log export** button using `GET /audit-log/export` with the current filters.
-- [ ] **FN-08 Last-admin protection in the UI.** Deactivating or demoting the last active Admin is disabled with an explanation; the backend returns `409 permission.last_admin` (add the code to the error-code table in `05-api-specification.md` if missing) with a test.
+- [x] **FN-08 Last-admin protection in the UI.** Deactivating or demoting the last active Admin is disabled with an explanation; the backend returns `409 permission.last_admin` (add the code to the error-code table in `05-api-specification.md` if missing) with a test.
 
 ## C. Proposals for owner decision (do NOT build in the loop)
 

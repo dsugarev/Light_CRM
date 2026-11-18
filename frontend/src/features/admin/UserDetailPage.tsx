@@ -17,6 +17,7 @@ import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 
 import { PasswordLinkPanel } from './PasswordLinkPanel'
+import { useLastAdmin } from './useLastAdmin'
 import { UserStatus } from './UsersPage'
 import { EditUserSheet } from './UserSheets'
 
@@ -31,6 +32,8 @@ export function UserDetailPage() {
   const locale = useLocale()
   const { data: me } = useMe()
   const queryClient = useQueryClient()
+  const isLastAdmin = useLastAdmin()
+  const { t: te } = useTranslation('errors')
   const [message, setMessage] = useState<string | null>(null)
   const path = { params: { path: { user_id: userId } } }
   const key = ['users', userId]
@@ -78,6 +81,13 @@ export function UserDetailPage() {
   if (!user.data) return <Loading />
   const u = user.data
   const isSelf = me?.id === u.id
+  // FN-08: say why Deactivate is not available.
+  const lastAdmin = isLastAdmin(u)
+  const deactivateBlocked = lastAdmin
+    ? te('permission.last_admin')
+    : isSelf
+      ? t('userDetail.notSelf')
+      : null
   const actionError = [act.error, reset.error, revoke.error].find((e) => e instanceof ApiError)
 
   return (
@@ -129,6 +139,9 @@ export function UserDetailPage() {
               </>
             ) : null}
           </dl>
+          {u.is_active && deactivateBlocked ? (
+            <p className="text-sm text-muted-foreground">{deactivateBlocked}</p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {u.is_active ? (
               <ConfirmButton
@@ -136,7 +149,7 @@ export function UserDetailPage() {
                 title={t('userDetail.deactivate')}
                 description={t('userDetail.confirmDeactivate', { name: u.full_name })}
                 variant="destructive"
-                disabled={isSelf || act.isPending}
+                disabled={isSelf || lastAdmin || act.isPending}
                 onConfirm={() => {
                   act.mutate('deactivate')
                 }}

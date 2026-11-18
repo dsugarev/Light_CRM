@@ -355,3 +355,19 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
 - **Found: already built (Phase 5a).** The audit log header has the shared `ExportMenu` (XLSX, CSV) calling `GET /audit-log/export` with the same `filterQuery` as the list. Since UX-10 that includes the user, record type, action and the Sofia-day date range. It had no test.
 - **Added:** `FN-07 exports the log with the current filters and without paging` (`src/features/admin/auditViewer.test.tsx`). From a filtered URL on page 3, the export request carries `actor_id`, `entity_type`, `action`, `occurred_at_from`/`to` as UTC instants of the Sofia days, and `format=csv`, and no `page`. The file is downloaded. No code change was needed.
 - **Gate:** lint, prettier, typecheck, Vitest 247/247; Playwright Chromium 46/46; backend pytest 1304 passed.
+
+## FN-08 — 2026-11-18 20:55
+
+- **Found:** the backend part was already done and specified. `409 permission.last_admin` blocks demoting or deactivating the last active Admin (`identity/service.py::_ensure_not_last_admin`), it is in the error-code table of `05-api-specification.md` and the user rules (section 5), and it is tested (`test_last_admin_cannot_be_demoted_or_deactivated`). Deactivating yourself was already refused (`403`) and hidden in the UI. Because a last active Admin is necessarily the viewer, the UI cases are demoting yourself and deactivating yourself.
+- **What changed:**
+  - New `features/admin/useLastAdmin.ts` counts active Admins (`GET /users?role=admin&is_active=true&page_size=1`).
+  - In the edit sheet (row menu and user page), the last active Admin's **Role** is a disabled select with the reason "At least one active administrator must remain." as its description. It is not registered with the form, so other changes still save with the role unchanged.
+  - On the user page, an unavailable **Deactivate** now says why: the last-admin reason, or "You cannot deactivate your own account."
+  - If the count was out of date, the server's 409 is shown translated in the sheet.
+- **Tests:** `src/features/admin/lastAdmin.test.tsx`, 4 `FN-08 …` cases:
+  - the last Admin's role is locked with the reason, and a name change saves with `role: admin`;
+  - with two Admins the role is editable;
+  - Deactivate is disabled on the page with the reason;
+  - the server's 409 is explained.
+- **Looked at:** the own user page with the reason, en/bg at 1440 and 768 px; axe: no violations. The last-Admin state itself cannot occur on the E2E stack, which has two Admins; component tests cover it.
+- **Gate:** lint, prettier, typecheck, Vitest 251/251, i18n 1197 keys; Playwright Chromium 46/46 + 2 screenshot specs; visual 4/4; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
