@@ -81,6 +81,6 @@ Answered by the owner on 2026-11-18; recorded in `docs/01-requirements.md` and A
 
 | Role | Name | Date | Decision |
 |---|---|---|---|
-| Owner | | | Accept / accept with listed items / not accepted |
+| Owner | | 2026-11-18 | Accepted with the listed items: open question 7 (team addresses and detailed flows), the off-server backup copy and production restore drill, the ASVS and manual accessibility items. `v1.0.0` tagged |
 
-On acceptance the release is tagged `v1.0.0` (`docs/release-notes.md`).
+Tagged `v1.0.0` on 2026-11-18 (`docs/release-notes.md`; GitHub release `v1.0.0`).

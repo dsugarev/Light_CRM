@@ -1,6 +1,6 @@
 # Release notes
 
-## v1.0.0: Release 1 (to be tagged on the owner's acceptance)
+## v1.0.0: Release 1 (tagged 2026-11-18 on `main` 026719d after the owner's acceptance)
 
 The first release of Light CRM: lead and opportunity management for the Commercial team, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, one Docker Compose stack.
 
@@ -21,7 +21,7 @@ The assistant's data flow is approved; a documented import format with samples r
 - The integrating teams' addresses and detailed flows (open question 7).
 - The ASVS open items (`docs/security/asvs-l1.md`) and the manual accessibility checks (`docs/accessibility.md`).
 - The live assistant evaluation passed 20/20 on 2026-11-18 (`docs/assistant-eval.md`); rerun it before switching the assistant on in production.
-- The user acceptance checklist (`docs/acceptance-checklist.md`), then tag `v1.0.0`.
+- The user acceptance checklist (`docs/acceptance-checklist.md`): accepted by the owner on 2026-11-18; `v1.0.0` tagged.
 
 ### Upgrading from a pre-release build
 Follow the operations guide, section 4. After this release's upgrade, restart `proxy` and `backup` (`docker compose restart proxy backup`): the Content-Security-Policy and the certificate mount changed.

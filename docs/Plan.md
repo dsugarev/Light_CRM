@@ -2374,3 +2374,9 @@ async def _notify(mailer: Mailer, user: User, kind: str, at: datetime) -> None:
 ```
 
 Called after `change_password`, a password set from a reset link (not from an invitation), `mfa_confirm`, `mfa_disabled` and the CLI `reset-mfa`.
+
+## Release v1.0.0 (2026-11-18)
+
+The owner accepted Release 1 and asked for the tag. `v1.0.0` is an annotated tag on `main` 026719d (the merge of #20; CI run 44277448331 green on all four jobs), published as the GitHub release `v1.0.0`. The local stack was rebuilt from that commit following the upgrade procedure (images rebuilt, `proxy` and `backup` restarted).
+
+Open after the release (none blocking): the integrating teams' addresses and detailed flows (open question 7); the off-server backup copy and a restore drill on the production server; the ASVS open items 2.1.8, 2.1.12 and 8.3.3; the manual accessibility checks. Work beyond Release 1 (implementation plan, "After R1") needs the owner's go-ahead.
