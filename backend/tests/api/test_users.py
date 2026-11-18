@@ -1,5 +1,6 @@
 """User administration (FR-ADM-01, FR-AUTH-02; API spec section 5)."""
 
+import asyncio
 from uuid import uuid4
 
 from app.core.principal import RoleCode
@@ -204,3 +205,17 @@ async def test_roles_list_permissions(test_app: TestApp) -> None:
     assert set(roles) == {"admin", "sales_manager", "sales_rep", "viewer"}
     assert "users.manage" in roles["admin"]["permissions"]
     assert roles["viewer"]["permissions"] == ["records.read"]
+
+
+async def test_FR_ADM_01_simultaneous_creation_with_one_email_is_a_conflict(
+    test_app: TestApp,
+) -> None:
+    """Found by the Phase 8a journeys: the losing request of a race got a 500."""
+    admin, _ = await test_app.signed_in(RoleCode.ADMIN)
+    body = {"email": "race@example.test", "full_name": "Race", "role": "sales_rep"}
+    first, second = await asyncio.gather(
+        admin.post("/api/v1/users", json=body), admin.post("/api/v1/users", json=body)
+    )
+    assert sorted([first.status_code, second.status_code]) == [201, 409]
+    loser = first if first.status_code == 409 else second
+    assert loser.json()["code"] == "conflict.duplicate"
