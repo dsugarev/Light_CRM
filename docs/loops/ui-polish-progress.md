@@ -102,3 +102,11 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
 - Blocked by the host environment, work kept on branches: UX-05 (`wip/ux-05-feedback`), UX-06 (`wip/ux-06-sign-in`).
 - Open: UX-07 to UX-14 and FN-01 to FN-08. The loop is not complete. The final summary will be written when no `[ ]` items remain.
 - Section C additions so far: C-07 (dashboard chart polish).
+
+## UX-05 — 2026-11-18 16:15 — unblocked, done
+
+- The owner freed memory on the host (swap went from 9–13 GB to about 3 GB). `wip/ux-05-feedback` was rebased onto `ui-polish` and the full gate rerun with no code change:
+  - lint, prettier, typecheck, Vitest 168/168, i18n 1078 keys;
+  - Playwright Chromium 41/41 (default workers, 1.1 min);
+  - backend ruff, mypy, import-linter 14/14, pytest 1303 passed (95.56%).
+- Merged into `ui-polish` as `feat(ui): UX-05 …`; the `[!]` became `[x]`. What was built is in the blocked entry above.
