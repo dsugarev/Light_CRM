@@ -36,3 +36,5 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+# TLS certificate and key from IT (CRM_CERTS_DIR)
+certs/

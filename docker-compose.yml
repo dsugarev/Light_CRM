@@ -95,6 +95,8 @@ services:
       - "${CRM_HTTPS_PORT:-443}:443"
     volumes:
       - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The certificate from IT for CRM_TLS="/certs/crm.crt /certs/crm.key" (A5).
+      - ${CRM_CERTS_DIR:-./certs}:/certs:ro
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
