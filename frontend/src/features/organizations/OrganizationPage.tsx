@@ -71,7 +71,15 @@ export function OrganizationPage() {
     },
   })
 
-  if (organization.isError) return <ErrorState error={organization.error} />
+  if (organization.isError)
+    return (
+      <ErrorState
+        error={organization.error}
+        onRetry={() => {
+          void organization.refetch()
+        }}
+      />
+    )
   if (!organization.data) return <Loading />
   const org = organization.data
   const editable = canEdit(org.owner.id)
@@ -229,7 +237,7 @@ export function OrganizationPage() {
                   onSort={() => undefined}
                 />
               ) : (
-                <Loading />
+                <Loading variant="table" />
               )}
             </CardContent>
           </Card>

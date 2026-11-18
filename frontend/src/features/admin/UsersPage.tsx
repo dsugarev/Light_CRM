@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 
 import { api, call, type Schemas } from '@/api/client'
+import { EmptyState } from '@/components/EmptyState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
@@ -135,8 +136,8 @@ export function UsersPage() {
             <TableBody>
               {users.data.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
-                    {tc('states.empty')}
+                  <TableCell colSpan={5}>
+                    <EmptyState />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -176,7 +177,7 @@ export function UsersPage() {
           />
         </>
       ) : (
-        <Loading />
+        <Loading variant="table" />
       )}
     </section>
   )

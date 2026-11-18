@@ -123,7 +123,14 @@ function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
         ))}
       </nav>
       <FormMessage error={error instanceof ApiError ? error.code : null} />
-      {items.isError ? <ErrorState error={items.error} /> : null}
+      {items.isError ? (
+        <ErrorState
+          error={items.error}
+          onRetry={() => {
+            void items.refetch()
+          }}
+        />
+      ) : null}
       {items.data ? (
         <Table>
           <TableHeader>
@@ -196,7 +203,7 @@ function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
           </TableBody>
         </Table>
       ) : (
-        <Loading />
+        <Loading variant="table" />
       )}
       <AddValue list={LIST} onAdded={refresh} />
     </section>

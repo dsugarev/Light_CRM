@@ -65,9 +65,25 @@ export function ConvertPage() {
     queryKey: ['leads', leadId, 'conversion-preview'],
     queryFn: () => call(api.GET('/api/v1/leads/{lead_id}/conversion-preview', path)),
   })
-  if (lead.isError) return <ErrorState error={lead.error} />
-  if (preview.isError) return <ErrorState error={preview.error} />
-  if (!lead.data || !preview.data) return <Loading />
+  if (lead.isError)
+    return (
+      <ErrorState
+        error={lead.error}
+        onRetry={() => {
+          void lead.refetch()
+        }}
+      />
+    )
+  if (preview.isError)
+    return (
+      <ErrorState
+        error={preview.error}
+        onRetry={() => {
+          void preview.refetch()
+        }}
+      />
+    )
+  if (!lead.data || !preview.data) return <Loading variant="form" />
   return <ConvertForm lead={lead.data} preview={preview.data} />
 }
 

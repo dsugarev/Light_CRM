@@ -172,7 +172,14 @@ export function BoardPage() {
         }
       />
       <p className="text-sm text-muted-foreground">{t('board.help')}</p>
-      {board.isError ? <ErrorState error={board.error} /> : null}
+      {board.isError ? (
+        <ErrorState
+          error={board.error}
+          onRetry={() => {
+            void board.refetch()
+          }}
+        />
+      ) : null}
       {board.data?.truncated ? (
         <Alert>
           <AlertDescription>{t('board.truncated')}</AlertDescription>

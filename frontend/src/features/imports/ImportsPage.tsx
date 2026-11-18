@@ -70,7 +70,14 @@ export function ImportsPage() {
     <section className="mx-auto flex max-w-5xl flex-col gap-6">
       <PageHeader title={t('title')} />
       <NewImport />
-      {batches.isError ? <ErrorState error={batches.error} /> : null}
+      {batches.isError ? (
+        <ErrorState
+          error={batches.error}
+          onRetry={() => {
+            void batches.refetch()
+          }}
+        />
+      ) : null}
       {batches.data ? (
         <>
           <DataTable
@@ -90,7 +97,7 @@ export function ImportsPage() {
           />
         </>
       ) : batches.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )

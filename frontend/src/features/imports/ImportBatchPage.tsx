@@ -53,7 +53,15 @@ export function ImportBatchPage() {
     queryFn: () =>
       call(api.GET('/api/v1/imports/{batch_id}', { params: { path: { batch_id: batchId } } })),
   })
-  if (batch.isError) return <ErrorState error={batch.error} />
+  if (batch.isError)
+    return (
+      <ErrorState
+        error={batch.error}
+        onRetry={() => {
+          void batch.refetch()
+        }}
+      />
+    )
   if (!batch.data) return <Loading />
   const b = batch.data
   const editable = b.status === 'uploaded' || b.status === 'mapped' || b.status === 'validated'
@@ -384,7 +392,7 @@ function Preview({ batch }: { batch: ImportBatch }) {
             />
           </>
         ) : (
-          <Loading />
+          <Loading variant="table" />
         )}
       </CardContent>
     </Card>

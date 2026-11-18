@@ -52,7 +52,15 @@ export function ClientPage() {
         }),
       ),
   })
-  if (client.isError) return <ErrorState error={client.error} />
+  if (client.isError)
+    return (
+      <ErrorState
+        error={client.error}
+        onRetry={() => {
+          void client.refetch()
+        }}
+      />
+    )
   if (!client.data) return <Loading />
   const c = client.data
   return (
@@ -366,7 +374,7 @@ function Keys({ client }: { client: IntegrationClient }) {
             </TableBody>
           </Table>
         ) : (
-          <Loading />
+          <Loading variant="table" />
         )}
         <form
           aria-label={t('keys.create')}

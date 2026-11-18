@@ -66,7 +66,7 @@ export function Webhooks({ client }: { client: IntegrationClient }) {
             </ul>
           )
         ) : (
-          <Loading />
+          <Loading variant="table" />
         )}
         <NewSubscription clientId={client.id} onSecret={setSecret} />
       </CardContent>

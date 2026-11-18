@@ -44,7 +44,15 @@ export function LeadPage() {
     queryKey: ['leads', leadId],
     queryFn: () => call(api.GET('/api/v1/leads/{lead_id}', path)),
   })
-  if (lead.isError) return <ErrorState error={lead.error} />
+  if (lead.isError)
+    return (
+      <ErrorState
+        error={lead.error}
+        onRetry={() => {
+          void lead.refetch()
+        }}
+      />
+    )
   if (!lead.data) return <Loading />
   const l = lead.data
   const rows: [string, React.ReactNode][] = [

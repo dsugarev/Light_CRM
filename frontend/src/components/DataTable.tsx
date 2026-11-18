@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { useTranslation } from 'react-i18next'
 
+import { EmptyState } from '@/components/EmptyState'
 import {
   Table,
   TableBody,
@@ -44,7 +44,6 @@ export function DataTable<T>({
   empty,
   caption,
 }: DataTableProps<T>) {
-  const { t } = useTranslation()
   const descending = sort.startsWith('-')
   const active = sort.replace(/^-/, '')
   return (
@@ -86,8 +85,12 @@ export function DataTable<T>({
       <TableBody>
         {rows.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={columns.length} className="py-8 text-center text-muted-foreground">
-              {empty ?? t('states.empty')}
+            <TableCell colSpan={columns.length}>
+              {typeof empty === 'string' || empty === undefined ? (
+                <EmptyState message={empty} />
+              ) : (
+                empty
+              )}
             </TableCell>
           </TableRow>
         ) : (

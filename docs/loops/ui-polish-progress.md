@@ -43,3 +43,25 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
 - **Gate:** lint, prettier, typecheck, Vitest 156/156, i18n 1073 keys; Playwright Chromium 41/41 (with `--workers=2`); backend ruff, mypy, import-linter 14/14, pytest 1303 passed. No backend or API change.
 - **Environment note:** the first three Playwright runs failed at random (timeouts on "Welcome", the assistant stuck on "Thinking…"). The Mac was out of memory: swap nearly full, load average up to 171 from macOS storage services and Time Machine, and Docker Desktop crashed during the third run. After restarting Docker and waiting for the load to drop, the suite passed 41/41 in 1.0 min with 2 workers. If E2E runs look flaky on this machine, check `uptime` and swap first.
 - **For later (UX-11):** pages that space their children with `gap-6` add it on top of the header's `mb-6`, so the space under the header is doubled (visible on the opportunity page). The header spacing should have one owner.
+
+## UX-04 — 2026-11-18 14:50
+
+- **Found:** pages already used a shared `Loading` (a line of "Loading…" text) and `ErrorState` (translated message only, no retry). Tables showed "Nothing to show." as plain text; three pages had their own empty rows. The route error boundary showed a message and a link home.
+- **What changed:**
+  - `Loading` now draws skeletons (new `components/ui/skeleton.tsx`) in three shapes: `table` (lists), `form` (editors), `page` (records and sections, the default). It is announced once through `role="status"` with an accessible name; there is no visible "Loading…" text.
+  - Each of the 60 call sites now picks its variant.
+  - New `EmptyState` (inline icon, message, optional action): `DataTable` uses it, and so do the users, audit-log and deliveries tables.
+  - `ErrorState` shows the server's request ID ("Reference for support: …"). `ApiError` gained `requestId`, taken from the problem body or the `X-Request-ID` header. Every query error on a page passes `onRetry`, which refetches (27 places).
+  - The user-detail and audit-entry pages now use `ErrorState` instead of a fixed not-found message.
+  - The route error boundary (`RouteError`/`ErrorMessage`) adds **Try again**, which reloads the page through the new `lib/reload.ts`, and the request ID when the error came from the API.
+- **Files:** `frontend/src/components/{Loading,EmptyState,ErrorState,DataTable}.tsx`, `components/ui/skeleton.tsx`, `src/api/client.ts`, `src/app/{RouteError,ErrorMessage}.tsx`, `src/lib/reload.ts`, `src/i18n/{en,bg}/common.json` (`states.retry`, `states.requestId`), and 34 feature files (variants, retry, empty rows).
+- **Tests:** `src/components/states.test.tsx`, 7 cases:
+  - a scan that fails if any file outside `components/` uses `states.loading`/`states.empty`;
+  - each skeleton variant announced without visible text;
+  - an empty leads list;
+  - a failed leads list showing the request ID and recovering on **Try again**;
+  - the route boundary in Bulgarian with retry and request ID.
+- **Looked at:** the leads list empty, failing (forced 500 with a request ID) and loading (delayed response), in en/bg at 1440 and 768 px, with axe on each state: no violations. I made the skeletons a little stronger (`bg-foreground/10`) because `bg-muted` was barely visible on white.
+- **Gate:** lint, prettier, typecheck, Vitest 163/163, i18n 1075 keys; Playwright Chromium 41/41 (2 workers, 1.3 min); backend ruff, mypy, import-linter 14/14, pytest 1303 passed. No backend or API change.
+- **Environment note:** the host is still short of memory (swap 9–10 GB). Earlier runs in this iteration had timeouts in Vitest (3 different tests, each passing alone) and in Playwright (assistant, accessibility). The backend logged 7–12 s on simple requests (for example creating a conversation). Every one passed on rerun, and the final full runs above are clean.
+- **For later (UX-13):** at 768 px the Bulgarian lead filters shrink to unreadable stubs ("Вс⌄"); the filter row needs to wrap.

@@ -178,7 +178,14 @@ export function LeadsPage() {
           {t('list.archived')}
         </label>
       </div>
-      {leads.isError ? <ErrorState error={leads.error} /> : null}
+      {leads.isError ? (
+        <ErrorState
+          error={leads.error}
+          onRetry={() => {
+            void leads.refetch()
+          }}
+        />
+      ) : null}
       {leads.data ? (
         <>
           <DataTable
@@ -201,7 +208,7 @@ export function LeadsPage() {
           />
         </>
       ) : leads.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )
@@ -234,7 +241,7 @@ export function LeadNewPage() {
       await navigate(`/leads/${lead.id}`)
     },
   })
-  if (organizationId && organization.isPending) return <Loading />
+  if (organizationId && organization.isPending) return <Loading variant="form" />
   const preset = organization.data
     ? { id: organization.data.id, name: organization.data.name }
     : null
@@ -282,8 +289,16 @@ export function LeadEditPage() {
       await navigate(`/leads/${leadId}`)
     },
   })
-  if (lead.isError) return <ErrorState error={lead.error} />
-  if (!lead.data) return <Loading />
+  if (lead.isError)
+    return (
+      <ErrorState
+        error={lead.error}
+        onRetry={() => {
+          void lead.refetch()
+        }}
+      />
+    )
+  if (!lead.data) return <Loading variant="form" />
   return (
     <section className="mx-auto max-w-3xl">
       <PageHeader

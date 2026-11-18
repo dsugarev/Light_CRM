@@ -114,7 +114,14 @@ export function StagesPage() {
       <PageHeader title={t('stages.title')} />
       <p className="text-sm text-muted-foreground">{t('stages.help')}</p>
       <FormMessage error={error instanceof ApiError ? error.code : null} />
-      {pipeline.isError ? <ErrorState error={pipeline.error} /> : null}
+      {pipeline.isError ? (
+        <ErrorState
+          error={pipeline.error}
+          onRetry={() => {
+            void pipeline.refetch()
+          }}
+        />
+      ) : null}
       {pipeline.data ? (
         <Table>
           <TableHeader>
@@ -149,7 +156,7 @@ export function StagesPage() {
           </TableBody>
         </Table>
       ) : (
-        <Loading />
+        <Loading variant="table" />
       )}
       {pipeline.data ? <AddStage pipelineId={pipeline.data.id} onAdded={refresh} /> : null}
     </section>

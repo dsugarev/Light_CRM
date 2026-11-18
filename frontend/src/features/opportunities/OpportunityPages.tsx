@@ -194,7 +194,14 @@ export function OpportunitiesPage() {
           {t('list.archived')}
         </label>
       </div>
-      {opportunities.isError ? <ErrorState error={opportunities.error} /> : null}
+      {opportunities.isError ? (
+        <ErrorState
+          error={opportunities.error}
+          onRetry={() => {
+            void opportunities.refetch()
+          }}
+        />
+      ) : null}
       {opportunities.data ? (
         <>
           <DataTable
@@ -217,7 +224,7 @@ export function OpportunitiesPage() {
           />
         </>
       ) : opportunities.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )
@@ -254,7 +261,7 @@ export function OpportunityNewPage() {
       await navigate(`/opportunities/${opportunity.id}`)
     },
   })
-  if (organizationId && organization.isPending) return <Loading />
+  if (organizationId && organization.isPending) return <Loading variant="form" />
   const preset = organization.data
     ? { id: organization.data.id, name: organization.data.name }
     : null
@@ -303,8 +310,16 @@ export function OpportunityEditPage() {
       await navigate(`/opportunities/${opportunityId}`)
     },
   })
-  if (opportunity.isError) return <ErrorState error={opportunity.error} />
-  if (!opportunity.data) return <Loading />
+  if (opportunity.isError)
+    return (
+      <ErrorState
+        error={opportunity.error}
+        onRetry={() => {
+          void opportunity.refetch()
+        }}
+      />
+    )
+  if (!opportunity.data) return <Loading variant="form" />
   return (
     <section className="mx-auto max-w-3xl">
       <PageHeader

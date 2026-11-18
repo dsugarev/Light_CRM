@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { api, ApiError, call } from '@/api/client'
+import { EmptyState } from '@/components/EmptyState'
 import { ErrorState } from '@/components/ErrorState'
 import { FormField } from '@/components/FormField'
 import { Loading } from '@/components/Loading'
@@ -45,7 +46,6 @@ function StatusBadge({ status }: { status: DeliveryStatus }) {
 export function DeliveriesPage() {
   const { t } = useTranslation('integrations')
   const crumbs = useSectionCrumbs()
-  const { t: tc } = useTranslation()
   const locale = useLocale()
   const [params, setParams] = useSearchParams()
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
@@ -141,7 +141,14 @@ export function DeliveriesPage() {
           )}
         </FormField>
       </div>
-      {deliveries.isError ? <ErrorState error={deliveries.error} /> : null}
+      {deliveries.isError ? (
+        <ErrorState
+          error={deliveries.error}
+          onRetry={() => {
+            void deliveries.refetch()
+          }}
+        />
+      ) : null}
       {deliveries.data ? (
         <>
           <Table>
@@ -159,8 +166,8 @@ export function DeliveriesPage() {
             <TableBody>
               {deliveries.data.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    {tc('states.empty')}
+                  <TableCell colSpan={6}>
+                    <EmptyState />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -198,7 +205,7 @@ export function DeliveriesPage() {
           />
         </>
       ) : deliveries.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )
@@ -240,7 +247,15 @@ export function DeliveryPage() {
       toast.error(errorText(error instanceof ApiError ? error.code : undefined))
     },
   })
-  if (delivery.isError) return <ErrorState error={delivery.error} />
+  if (delivery.isError)
+    return (
+      <ErrorState
+        error={delivery.error}
+        onRetry={() => {
+          void delivery.refetch()
+        }}
+      />
+    )
   if (!delivery.data) return <Loading />
   const d = delivery.data
   return (

@@ -33,14 +33,17 @@ export class ApiError extends Error {
   readonly code: string
   readonly errors: FieldError[]
   readonly problem: Problem
+  /** The server's request ID (problem body or X-Request-ID header), for support. */
+  readonly requestId: string | null
 
-  constructor(status: number, problem: Problem) {
+  constructor(status: number, problem: Problem, requestId: string | null = null) {
     super(problem.code ?? `http.${String(status)}`)
     this.name = 'ApiError'
     this.status = status
     this.code = problem.code ?? 'unknown'
     this.errors = problem.errors ?? []
     this.problem = problem
+    this.requestId = typeof problem['request_id'] === 'string' ? problem['request_id'] : requestId
   }
 }
 
@@ -51,7 +54,7 @@ export async function call<T>(
   const { data, error, response } = await request
   if (!response.ok) {
     const problem = (error && typeof error === 'object' ? error : {}) as Problem
-    throw new ApiError(response.status, problem)
+    throw new ApiError(response.status, problem, response.headers.get('X-Request-ID'))
   }
   return data as T
 }

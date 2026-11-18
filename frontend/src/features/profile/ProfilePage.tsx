@@ -296,7 +296,7 @@ function SessionsCard() {
             </TableBody>
           </Table>
         ) : (
-          <Loading />
+          <Loading variant="table" />
         )}
       </CardContent>
     </Card>

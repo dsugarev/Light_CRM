@@ -43,7 +43,15 @@ export function OpportunityPage() {
         }),
       ),
   })
-  if (opportunity.isError) return <ErrorState error={opportunity.error} />
+  if (opportunity.isError)
+    return (
+      <ErrorState
+        error={opportunity.error}
+        onRetry={() => {
+          void opportunity.refetch()
+        }}
+      />
+    )
   if (!opportunity.data) return <Loading />
   const o = opportunity.data
   const probability = o.probability_overridden

@@ -52,7 +52,14 @@ export function Dashboard() {
           </Link>
         </div>
       </div>
-      {dashboard.isError ? <ErrorState error={dashboard.error} /> : null}
+      {dashboard.isError ? (
+        <ErrorState
+          error={dashboard.error}
+          onRetry={() => {
+            void dashboard.refetch()
+          }}
+        />
+      ) : null}
       {dashboard.data ? (
         <Figures data={dashboard.data} />
       ) : dashboard.isPending ? (

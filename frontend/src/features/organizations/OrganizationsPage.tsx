@@ -131,7 +131,14 @@ export function OrganizationsPage() {
           {t('organizations.filters.archived')}
         </label>
       </div>
-      {organizations.isError ? <ErrorState error={organizations.error} /> : null}
+      {organizations.isError ? (
+        <ErrorState
+          error={organizations.error}
+          onRetry={() => {
+            void organizations.refetch()
+          }}
+        />
+      ) : null}
       {organizations.data ? (
         <>
           <DataTable
@@ -154,7 +161,7 @@ export function OrganizationsPage() {
           />
         </>
       ) : organizations.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )

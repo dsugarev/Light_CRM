@@ -76,8 +76,16 @@ export function OrganizationEditPage() {
       ),
     onSuccess: (org) => afterSave(org, t('organization.toasts.saved')),
   })
-  if (organization.isError) return <ErrorState error={organization.error} />
-  if (!organization.data) return <Loading />
+  if (organization.isError)
+    return (
+      <ErrorState
+        error={organization.error}
+        onRetry={() => {
+          void organization.refetch()
+        }}
+      />
+    )
+  if (!organization.data) return <Loading variant="form" />
   return (
     <section className="mx-auto max-w-3xl">
       <PageHeader

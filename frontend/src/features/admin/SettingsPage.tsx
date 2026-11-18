@@ -50,7 +50,7 @@ export function SettingsPage() {
   return (
     <section className="mx-auto flex max-w-xl flex-col gap-6">
       <PageHeader title={t('settings.title')} />
-      {settings.data ? <SettingsForm current={settings.data} /> : <Loading />}
+      {settings.data ? <SettingsForm current={settings.data} /> : <Loading variant="form" />}
     </section>
   )
 }

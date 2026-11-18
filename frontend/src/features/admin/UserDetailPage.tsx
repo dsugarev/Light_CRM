@@ -6,6 +6,7 @@ import { useParams } from 'react-router'
 import { api, ApiError, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { FormMessage } from '@/components/FormMessage'
+import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
 import { useSectionCrumbs } from '@/components/useSectionCrumbs'
@@ -78,7 +79,8 @@ export function UserDetailPage() {
     },
   })
 
-  if (!user.data) return user.isError ? <FormMessage error="resource.not_found" /> : <Loading />
+  if (user.isError) return <ErrorState error={user.error} />
+  if (!user.data) return <Loading />
   const u = user.data
   const isSelf = me?.id === u.id
   const actionError = [act.error, reset.error, revoke.error].find((e) => e instanceof ApiError)

@@ -86,7 +86,14 @@ export function IntegrationsPage() {
           </Link>
         }
       />
-      {clients.isError ? <ErrorState error={clients.error} /> : null}
+      {clients.isError ? (
+        <ErrorState
+          error={clients.error}
+          onRetry={() => {
+            void clients.refetch()
+          }}
+        />
+      ) : null}
       {clients.data ? (
         <DataTable
           caption={t('title')}
@@ -98,7 +105,7 @@ export function IntegrationsPage() {
           empty={t('list.none')}
         />
       ) : clients.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
       <NewClient />
     </section>

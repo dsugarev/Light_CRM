@@ -71,7 +71,9 @@
   "states": {
     "loading": "Loading…",
     "empty": "Nothing to show.",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "retry": "Try again",
+    "requestId": "Reference for support:"
   },
   "pagination": {
     "summary": "Page {{page}} of {{pages}} · {{total}} in total"

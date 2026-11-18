@@ -54,7 +54,7 @@ export function SetPasswordPage() {
 
   let body
   if (token === '') body = <FormMessage error="auth.token_invalid" />
-  else if (check.isPending) body = <Loading />
+  else if (check.isPending) body = <Loading variant="form" />
   else if (check.isError)
     body = <FormMessage error={check.error instanceof ApiError ? check.error.code : 'unknown'} />
   else {

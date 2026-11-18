@@ -124,7 +124,14 @@ export function ContactsPage() {
           {t('organizations.filters.archived')}
         </label>
       </div>
-      {contacts.isError ? <ErrorState error={contacts.error} /> : null}
+      {contacts.isError ? (
+        <ErrorState
+          error={contacts.error}
+          onRetry={() => {
+            void contacts.refetch()
+          }}
+        />
+      ) : null}
       {contacts.data ? (
         <>
           <DataTable
@@ -147,7 +154,7 @@ export function ContactsPage() {
           />
         </>
       ) : contacts.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )
@@ -189,7 +196,7 @@ export function ContactNewPage() {
       ),
     onSuccess: (contact) => afterSave(contact, t('contact.toasts.created')),
   })
-  if (organizationId && organization.isPending) return <Loading />
+  if (organizationId && organization.isPending) return <Loading variant="form" />
   const preset = organization.data
     ? { id: organization.data.id, name: organization.data.name }
     : null
@@ -232,8 +239,16 @@ export function ContactEditPage() {
       ),
     onSuccess: (c) => afterSave(c, t('contact.toasts.saved')),
   })
-  if (contact.isError) return <ErrorState error={contact.error} />
-  if (!contact.data) return <Loading />
+  if (contact.isError)
+    return (
+      <ErrorState
+        error={contact.error}
+        onRetry={() => {
+          void contact.refetch()
+        }}
+      />
+    )
+  if (!contact.data) return <Loading variant="form" />
   return (
     <section className="mx-auto max-w-3xl">
       <PageHeader
@@ -287,7 +302,15 @@ export function ContactPage() {
       toast.success(t('contact.toasts.restored'))
     },
   })
-  if (contact.isError) return <ErrorState error={contact.error} />
+  if (contact.isError)
+    return (
+      <ErrorState
+        error={contact.error}
+        onRetry={() => {
+          void contact.refetch()
+        }}
+      />
+    )
   if (!contact.data) return <Loading />
   const c = contact.data
   const mayManageGdpr = can('gdpr.manage')

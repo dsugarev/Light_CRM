@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
 
 import { api, call } from '@/api/client'
-import { FormMessage } from '@/components/FormMessage'
+import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
 import { useSectionCrumbs } from '@/components/useSectionCrumbs'
@@ -36,7 +36,8 @@ export function AuditEntryPage() {
     queryFn: () =>
       call(api.GET('/api/v1/audit-log/{entry_id}', { params: { path: { entry_id: entryId } } })),
   })
-  if (!entry.data) return entry.isError ? <FormMessage error="resource.not_found" /> : <Loading />
+  if (entry.isError) return <ErrorState error={entry.error} />
+  if (!entry.data) return <Loading />
   const e = entry.data
   const sections = [
     ['before', e.before],

@@ -5,6 +5,7 @@ import { Link, useSearchParams } from 'react-router'
 
 import { api, call } from '@/api/client'
 import { FormField } from '@/components/FormField'
+import { EmptyState } from '@/components/EmptyState'
 import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
 import { Pagination } from '@/components/Pagination'
@@ -40,7 +41,6 @@ function sofiaDayBoundary(date: string, end: boolean): string {
 /** FR-ADM-03: browse and filter by user, record, action and date. Read-only. */
 export function AuditLogPage() {
   const { t } = useTranslation('admin')
-  const { t: tc } = useTranslation()
   const locale = useLocale()
   const labels = useAuditLabels()
   const [params, setParams] = useSearchParams()
@@ -146,8 +146,8 @@ export function AuditLogPage() {
             <TableBody>
               {entries.data.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
-                    {tc('states.empty')}
+                  <TableCell colSpan={5}>
+                    <EmptyState />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -182,7 +182,7 @@ export function AuditLogPage() {
           />
         </>
       ) : (
-        <Loading />
+        <Loading variant="table" />
       )}
     </section>
   )
