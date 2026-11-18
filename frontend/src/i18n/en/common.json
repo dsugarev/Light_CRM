@@ -88,5 +88,14 @@
     "show": "Show password",
     "hide": "Hide password",
     "capsLock": "Caps Lock is on."
+  },
+  "passwordRules": {
+    "label": "Password rules",
+    "length": "At least {{min}} characters",
+    "maxLength": "At most {{max}} characters",
+    "common": "Not a commonly used password (checked when you save)",
+    "match": "Both entries match",
+    "met": "(done)",
+    "notMet": "(not yet)"
   }
 }

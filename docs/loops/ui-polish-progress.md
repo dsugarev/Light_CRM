@@ -118,3 +118,20 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - Playwright Chromium 41/41 (default workers, 52 s);
   - backend ruff, mypy, import-linter 14/14, pytest 1303 passed.
 - Merged as `feat(ui): UX-06 improve sign-in page`; the `[!]` became `[x]`. What was built is in the blocked entry above.
+
+## UX-07 — 2026-11-18 16:45
+
+- **What changed:**
+  - New `components/PasswordChecklist.tsx`, a live list of the backend policy (`identity/passwords.py`): at least 12, at most 128 characters, not a common password, both entries match. Each item has a check mark and a screen-reader state ("done" / "not yet"). The common-password list stays on the server, so that rule says "checked when you save", and the server's `password.too_common` still shows on the field. It exports `PASSWORD_MIN_LENGTH`/`PASSWORD_MAX_LENGTH` for the zod schema; FN-01 will reuse it.
+  - The set/reset page uses `PasswordInput` (show/hide, Caps Lock) for both fields and `useWatch` for the live values; the static rules hint was removed.
+  - A missing, used or expired link now gets its own page ("This link can no longer be used"): what happened, what to do next, **Request a new link** (to forgot-password) and **Back to sign-in**, with no form. Other errors (such as rate limiting) still show as an alert.
+- **Files:** `frontend/src/components/PasswordChecklist.tsx`, `src/features/auth/SetPasswordPage.tsx`, `src/i18n/{en,bg}/{common,auth}.json`.
+- **Tests:** `src/features/auth/passwordRules.test.tsx`, 10 `UX-07 ...` cases:
+  - each rule met and not met (min, max, match), and the common-password rule's wording;
+  - the checklist updating while typing;
+  - the expired-token page with its links;
+  - the incomplete link in Bulgarian.
+
+  `setPassword.test.tsx` now expects the invalid-link page instead of an alert.
+- **Looked at:** the set page with a half-typed repeat, and the expired-link page, in en/bg at 1440 and 768 px; axe: no violations. I shortened the invalid-link text because it repeated the next-step advice.
+- **Gate:** lint (no warnings), prettier, typecheck, Vitest 186/186, i18n 1093 keys; Playwright Chromium 41/41 (plus the 2 screenshot specs); backend ruff, mypy, import-linter 14/14, pytest 1303 passed.
