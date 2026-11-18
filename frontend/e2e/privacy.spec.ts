@@ -97,6 +97,7 @@ for (const language of ['en', 'bg'] as const) {
       await codes.getByRole('button', { name: ui.saved }).click()
 
       await page.getByRole('button', { name: ui.signOut }).click()
+      await expect(page).toHaveURL(/\/sign-in(\?|$)/) // sign-out finished (the session is gone)
       await signIn(page, rep, password, ui.signIn)
       await expect(page.getByRole('heading', { name: ui.codeStep })).toBeVisible()
       await page.getByLabel(ui.code, { exact: true }).fill(recoveryCode)

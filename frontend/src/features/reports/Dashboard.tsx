@@ -147,9 +147,10 @@ function Figures({ data }: { data: DashboardData }) {
             <CardTitle>{t('dashboard.pipelineByStage')}</CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Hidden from assistive technology and not focusable: the table below has the figures. */}
             <div aria-hidden="true" style={{ height: CHART_HEIGHT }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stages}>
+                <BarChart data={stages} accessibilityLayer={false}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" fontSize={12} />
                   <YAxis fontSize={12} />
@@ -192,9 +193,10 @@ function Figures({ data }: { data: DashboardData }) {
             <CardTitle>{t('dashboard.forecast')}</CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Hidden from assistive technology and not focusable: the table below has the figures. */}
             <div aria-hidden="true" style={{ height: CHART_HEIGHT }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={months}>
+                <BarChart data={months} accessibilityLayer={false}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" fontSize={12} />
                   <YAxis fontSize={12} />

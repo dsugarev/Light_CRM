@@ -39,7 +39,8 @@
     "imports": "Импорт",
     "integrations": "Интеграции",
     "failingDeliveries_one": "{{count}} проблем с уебхукове",
-    "failingDeliveries_other": "{{count}} проблема с уебхукове"
+    "failingDeliveries_other": "{{count}} проблема с уебхукове",
+    "skipToContent": "Към основното съдържание"
   },
   "roles": {
     "admin": "Администратор",
