@@ -82,3 +82,12 @@ async def count(session: AsyncSession, statement: Select[AuditLog]) -> int:
 async def all_rows(session: AsyncSession, statement: Select[AuditLog]) -> list[AuditLog]:
     ordered = statement.order_by(AuditLog.occurred_at.desc(), AuditLog.id.desc())
     return list((await session.execute(ordered)).scalars())
+
+
+async def count_for(session: AsyncSession, entity_type: str, entity_id: UUID) -> int:
+    statement = (
+        select(func.count())
+        .select_from(AuditLog)
+        .where(AuditLog.entity_type == entity_type, AuditLog.entity_id == entity_id)
+    )
+    return int((await session.execute(statement)).scalar_one())

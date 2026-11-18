@@ -3,7 +3,7 @@
 Other modules and the router import only from here.
 """
 
-from app.modules.sales.service import links, opportunities, reports
+from app.modules.sales.service import gdpr, links, opportunities, reports
 from app.modules.sales.service.common import Context
 from app.modules.sales.service.leads import (
     LEAD_SORT,
@@ -46,12 +46,16 @@ REFERENCE_LISTS = (*_LEAD_REFERENCE_LISTS, *opportunities.REFERENCE_LISTS)
 SEARCH_PROVIDERS = (*_LEAD_SEARCH_PROVIDERS, *opportunities.SEARCH_PROVIDERS)
 ORGANIZATION_STATS = (organization_lead_stats, organization_opportunity_stats)
 ORGANIZATION_ARCHIVE_GUARDS = (organization_archive_guard,)
+PERSONAL_DATA_PROVIDERS = (gdpr.personal_data,)
+CONTACT_ANONYMIZERS = (gdpr.anonymize,)
 
 __all__ = [
+    "CONTACT_ANONYMIZERS",
     "LEAD_SORT",
     "OPPORTUNITY_SORT",
     "ORGANIZATION_ARCHIVE_GUARDS",
     "ORGANIZATION_STATS",
+    "PERSONAL_DATA_PROVIDERS",
     "REFERENCE_LISTS",
     "SEARCH_PROVIDERS",
     "Context",
@@ -66,6 +70,7 @@ __all__ = [
     "delete_stage",
     "disqualify",
     "export_leads",
+    "gdpr",
     "get_lead",
     "get_pipeline",
     "import_create_lead",

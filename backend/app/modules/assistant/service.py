@@ -47,6 +47,7 @@ from app.modules.assistant.schemas import (
     SaveAsNote,
 )
 from app.modules.identity import service as identity
+from app.modules.party import service as party
 
 logger = logging.getLogger(__name__)
 
@@ -652,3 +653,37 @@ async def save_as_note(
     return await activity.create_activity(
         activity.Context(ctx.session, ctx.events, ctx.settings, ctx.now), principal, note
     )
+
+
+# --- GDPR (FR-ADM-04) ---------------------------------------------------------------------
+
+
+def _excerpt(text: str, terms: list[str], width: int = 120) -> str:
+    lowered = text.casefold()
+    position = min((p for t in terms if (p := lowered.find(t.casefold())) >= 0), default=0)
+    start = max(0, position - width // 2)
+    return (
+        ("…" if start else "")
+        + text[start : start + width]
+        + ("…" if start + width < len(text) else "")
+    )
+
+
+async def personal_data(session: AsyncSession, subject: party.DataSubject) -> Mapping[str, Any]:
+    """Assistant chats that mention the contact, for manual review: who, when, an excerpt.
+    Chats are not changed by anonymization (ADR 0027)."""
+    terms = [t for t in (subject.full_name, subject.email) if t]
+    found = await repository.messages_mentioning(session, terms)
+    names = await identity.user_names(session, {user_id for _, user_id in found})
+    return {
+        "assistant_chats_mentioning_the_contact": [
+            {
+                "conversation_id": str(message.conversation_id),
+                "user": names.get(user_id, ""),
+                "role": message.role,
+                "created_at": message.created_at.isoformat(),
+                "excerpt": _excerpt(message.content, terms),
+            }
+            for message, user_id in found
+        ]
+    }

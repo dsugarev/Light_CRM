@@ -54,6 +54,7 @@ class Permission(StrEnum):
     USERS_MANAGE = "users.manage"
     SETTINGS_MANAGE = "settings.manage"
     AUDIT_READ = "audit.read"
+    GDPR_MANAGE = "gdpr.manage"  # FR-ADM-04: personal-data export and anonymization
 
 
 ROLE_PERMISSIONS: dict[RoleCode, frozenset[Permission]] = {

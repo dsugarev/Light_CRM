@@ -68,6 +68,29 @@ OrganizationArchiveGuard = Callable[[AsyncSession, UUID], Awaitable[ErrorCode | 
 
 
 @dataclass(frozen=True, slots=True)
+class DataSubject:
+    """A contact as a GDPR data subject (FR-ADM-04): what other modules look for."""
+
+    contact_id: UUID
+    full_name: str
+    email: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class AnonymizeContext:
+    session: AsyncSession
+    events: EventBus
+    now: datetime
+    principal: Principal
+
+
+# Other modules contribute to the GDPR export and to anonymization (ADR 0018 pattern):
+# a provider returns {section: data}; an anonymizer clears what its module holds.
+PersonalDataProvider = Callable[[AsyncSession, DataSubject], Awaitable[Mapping[str, Any]]]
+ContactAnonymizer = Callable[[AnonymizeContext, DataSubject], Awaitable[None]]
+
+
+@dataclass(frozen=True, slots=True)
 class Context:
     session: AsyncSession
     events: EventBus
@@ -76,6 +99,8 @@ class Context:
     organization_stats: Sequence[OrganizationStats] = ()
     external_filter: ExternalFilter | None = None
     organization_archive_guards: Sequence[OrganizationArchiveGuard] = ()
+    personal_data_providers: Sequence[PersonalDataProvider] = ()
+    contact_anonymizers: Sequence[ContactAnonymizer] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -772,6 +797,7 @@ async def update_contact(
 ) -> ContactOut:
     contact = await _load_contact_for_change(ctx, principal, contact_id)
     _ensure_not_archived(contact.archived_at)
+    _ensure_not_anonymized(contact)
     changes = data.model_dump(exclude_unset=True, exclude={"confirm_duplicate"})
     for required in ("first_name", "last_name"):
         if required in changes and changes[required] is None:
@@ -1123,3 +1149,71 @@ async def record_stamps(
         else await repository.get_contacts(session, ids)
     )
     return {r.id: r.updated_at for r in records}
+
+
+# --- GDPR (FR-ADM-04) --------------------------------------------------------------------
+
+ANONYMIZED_FIRST_NAME = "Anonymized"
+
+
+def _ensure_not_anonymized(contact: Contact) -> None:
+    if contact.anonymized_at is not None:
+        raise AppError(ErrorCode.CONTACT_ANONYMIZED, HTTPStatus.CONFLICT)
+
+
+def _subject(contact: Contact) -> DataSubject:
+    return DataSubject(
+        contact_id=contact.id,
+        full_name=f"{contact.first_name} {contact.last_name}",
+        email=contact.email,
+    )
+
+
+async def personal_data(ctx: Context, principal: Principal, contact_id: UUID) -> dict[str, Any]:
+    """Everything the CRM holds about the contact as a person, as one JSON document.
+    Sections from other modules list linked records and, for manual review, free text
+    that mentions the name or email. The export itself is audited (NFR-05)."""
+    contact = await repository.get_contact(ctx.session, contact_id)
+    if contact is None:
+        raise _not_found()
+    [out] = await _contacts_out(ctx, [contact])
+    sections: dict[str, Any] = {}
+    subject = _subject(contact)
+    for provider in ctx.personal_data_providers:
+        sections.update(await provider(ctx.session, subject))
+    await _publish(ctx, "contact.personal_data_exported", "contact", contact.id, principal)
+    await ctx.session.commit()
+    return {
+        "generated_at": ctx.now.isoformat(),
+        "contact": out.model_dump(mode="json"),
+        **sections,
+    }
+
+
+async def anonymize_contact(ctx: Context, principal: Principal, contact_id: UUID) -> ContactOut:
+    """Irreversibly replace the contact's personal fields, keeping the record and its
+    commercial history; linked records in other modules are cleared by their anonymizers.
+    The audit entry records only the result, never the old values."""
+    contact = await repository.get_contact(ctx.session, contact_id, for_update=True)
+    if contact is None:
+        raise _not_found()
+    _ensure_not_anonymized(contact)
+    subject = _subject(contact)
+    contact.first_name = ANONYMIZED_FIRST_NAME
+    contact.last_name = f"#{contact.id.hex[-6:]}"
+    contact.job_title = None
+    contact.email = None
+    contact.phone = None
+    contact.preferred_locale = None
+    contact.notes = None
+    contact.anonymized_at = ctx.now
+    contact.search_text = _contact_search_text(contact)
+    contact.updated_by = principal.user_id
+    anonymize_ctx = AnonymizeContext(ctx.session, ctx.events, ctx.now, principal)
+    for anonymizer in ctx.contact_anonymizers:
+        await anonymizer(anonymize_ctx, subject)
+    await _publish(
+        ctx, "contact.anonymized", "contact", contact.id, principal, after=_contact_view(contact)
+    )
+    await ctx.session.commit()
+    return await _fresh_contact(ctx, contact.id)

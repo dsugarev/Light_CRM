@@ -766,3 +766,27 @@ async def record_event(session: AsyncSession, event: DomainEvent) -> None:
             data=_event_data_from(verb, event),
         )
     )
+
+
+# --- GDPR (FR-ADM-04) ---------------------------------------------------------------------
+
+
+def _activity_entry(activity: Activity) -> dict[str, Any]:
+    return {
+        "id": str(activity.id),
+        "type": activity.type,
+        "subject": activity.subject,
+        "body": activity.body,
+        "occurred_at": activity.occurred_at.isoformat(),
+    }
+
+
+async def personal_data(session: AsyncSession, subject: party.DataSubject) -> Mapping[str, Any]:
+    """Activities linked to the contact, and, for manual review, other activities whose
+    text mentions the contact's name or email (free text is not anonymized)."""
+    terms = [t for t in (subject.full_name, subject.email) if t]
+    linked, mentioned = await repository.activities_of_person(session, subject.contact_id, terms)
+    return {
+        "activities": [_activity_entry(a) for a in linked],
+        "activities_mentioning_the_contact": [_activity_entry(a) for a in mentioned],
+    }

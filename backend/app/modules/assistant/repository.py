@@ -4,9 +4,10 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Select, func, select, update
+from sqlalchemy import Select, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.text import escape_like
 from app.modules.assistant.models import AssistantUsage, ChatConversation, ChatMessage
 
 
@@ -88,3 +89,19 @@ async def tokens_used(session: AsyncSession, user_id: UUID, since: datetime) -> 
         )
     ).scalar_one()
     return int(total)
+
+
+async def messages_mentioning(
+    session: AsyncSession, terms: list[str]
+) -> list[tuple[ChatMessage, UUID]]:
+    """Chat messages whose text contains a term, with the conversation owner."""
+    if not terms:
+        return []
+    patterns = [f"%{escape_like(term)}%" for term in terms]
+    rows = await session.execute(
+        select(ChatMessage, ChatConversation.user_id)
+        .join(ChatConversation, ChatConversation.id == ChatMessage.conversation_id)
+        .where(or_(*(ChatMessage.content.ilike(p, escape="\\") for p in patterns)))
+        .order_by(ChatMessage.created_at, ChatMessage.id)
+    )
+    return [(message, user_id) for message, user_id in rows]

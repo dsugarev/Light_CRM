@@ -39,6 +39,7 @@ class RequestContextMiddleware:
         client = scope.get("client")
         ip_token = client_ip_var.set(client[0] if client else None)
         started = time.perf_counter()
+        is_api = scope["path"].startswith("/api/")
         status_code = HTTPStatus.INTERNAL_SERVER_ERROR.value
         response_started = False
 
@@ -47,7 +48,12 @@ class RequestContextMiddleware:
             if message["type"] == "http.response.start":
                 response_started = True
                 status_code = message["status"]
-                MutableHeaders(scope=message)[REQUEST_ID_HEADER] = request_id
+                headers = MutableHeaders(scope=message)
+                headers[REQUEST_ID_HEADER] = request_id
+                # ASVS 8.2.1: API responses carry personal and business data; no browser
+                # or proxy may keep them unless a route says otherwise.
+                if is_api and "cache-control" not in headers:
+                    headers["Cache-Control"] = "no-store"
             await send(message)
 
         try:

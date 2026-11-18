@@ -639,3 +639,16 @@ async def _system_usage(session: AsyncSession, item_id: UUID) -> int:
 REFERENCE_LISTS = (
     ReferenceList("external-systems", "external_system", ExternalSystem, _system_usage),
 )
+
+
+# --- GDPR (FR-ADM-04) ---------------------------------------------------------------------
+
+
+async def personal_data(session: AsyncSession, subject: party.DataSubject) -> Mapping[str, Any]:
+    """The contact's identifiers in other systems (Conclusion, ERP, Billing)."""
+    return {
+        "ids_in_other_systems": [
+            {"system": ref.system.code, "external_id": ref.external_id, "url": ref.url}
+            for ref in await repository.references_of(session, "contact", subject.contact_id)
+        ]
+    }

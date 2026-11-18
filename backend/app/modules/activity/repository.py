@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.listing import search_condition
+from app.core.text import escape_like
 from app.modules.activity.models import Activity, TimelineEvent
 
 
@@ -153,3 +154,30 @@ async def open_task_counts(session: AsyncSession, user_id: UUID, now: datetime) 
     )
     open_count, overdue = (await session.execute(statement)).one()
     return open_count, overdue
+
+
+# --- GDPR (FR-ADM-04) ---------------------------------------------------------------------
+
+
+def _mentions(terms: Sequence[str]) -> ColumnElement[bool]:
+    patterns = [f"%{escape_like(term)}%" for term in terms]
+    return or_(
+        *(Activity.subject.ilike(p, escape="\\") for p in patterns),
+        *(Activity.body.ilike(p, escape="\\") for p in patterns),
+    )
+
+
+async def activities_of_person(
+    session: AsyncSession, contact_id: UUID, terms: Sequence[str]
+) -> tuple[list[Activity], list[Activity]]:
+    """(activities linked to the contact, other activities whose text mentions a term)."""
+    linked = select(Activity).where(Activity.contact_id == contact_id)
+    mentioned = select(Activity).where(
+        or_(Activity.contact_id.is_(None), Activity.contact_id != contact_id),
+        _mentions(terms) if terms else false(),
+    )
+    order = (Activity.occurred_at, Activity.id)
+    return (
+        list((await session.execute(linked.order_by(*order))).unique().scalars()),
+        list((await session.execute(mentioned.order_by(*order))).unique().scalars()),
+    )
