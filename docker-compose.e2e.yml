@@ -1,0 +1,21 @@
+# End-to-end test stack: the production-like stack plus a scripted model provider.
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.e2e.yml docker compose up --build -d
+# The backend keeps ENV=production; only LLM_API_BASE points the real LiteLLM client at
+# app.llm.fake_server instead of OpenRouter (ADR 0026). Never use this file in production.
+services:
+  fake-llm:
+    image: light-crm-backend:${CRM_VERSION:-local}
+    command: ["python", "-m", "app.llm.fake_server", "--port", "8080"]
+    restart: unless-stopped
+    read_only: true
+    healthcheck:
+      disable: true
+
+  backend:
+    environment:
+      AI_ENABLED: "true"
+      OPENROUTER_API_KEY: e2e-placeholder-not-a-key
+      LLM_API_BASE: http://fake-llm:8080/v1
+    depends_on:
+      fake-llm:
+        condition: service_started
