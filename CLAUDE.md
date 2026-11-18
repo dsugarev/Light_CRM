@@ -20,6 +20,8 @@ A light B2B CRM for a telecom Commercial team (about 20 internal users, on-premi
 | `docs/Test_strategy.md` | Test record: per phase, the test strategy applied, test cases added, runs performed with results, defects found; generated inventory (`python3 scripts/test_inventory.py`) |
 | `docs/api/` | OpenAPI snapshot (`openapi.json`, checked by CI) and how to view the API documentation |
 | `docs/integration-guide.md`, `docs/integration/` | Guide and Postman collection for the Conclusion, ERP and Billing teams; tests run its Python sample and check the collection against the routes |
+| `docs/operations-guide.md`, `docs/user-guide.*.md`, `docs/integration-readiness.md` | Operator, user and integrating-team guides; keep them current with behaviour and configuration |
+| `docs/accessibility.md`, `docs/acceptance-checklist.md`, `docs/release-notes.md` | Accessibility record, user acceptance checklist, release notes |
 | `docs/security/asvs-l1.md` | OWASP ASVS Level 1 checklist (NFR-04): status and evidence per requirement; keep it current when security behaviour changes |
 | `docs/assistant-eval.md` | Live evaluation of the AI assistant (cases, results); rerun when the prompt, tools or model change |
 
@@ -63,6 +65,8 @@ Established in Phase 0; keep this section current.
 scripts/start-mac.sh        scripts/stop-mac.sh
 scripts/start-linux.sh      scripts/stop-linux.sh
 scripts/start-windows.ps1   scripts/stop-windows.ps1
+scripts/restore.sh backups/<file>.dump   # replace the stack's data with a backup (asks to type RESTORE)
+scripts/staging.sh init|up|seed|cli|down|destroy   # second stack on 8080/8443 for teams and UAT
 
 # Development stack: backend with hot reload on http://localhost:8000 (/api/docs),
 # PostgreSQL on localhost:5432 with a crm_test database (ADR 0011)

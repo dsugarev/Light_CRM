@@ -2232,3 +2232,85 @@ app.state.contact_anonymizers = sales_service.CONTACT_ANONYMIZERS   # clears per
 
 1. ASVS open items for the owner: password strength meter and show-password toggle (2.1.8, 2.1.12), email notices after credential changes once SMTP is confirmed (2.2.3, 2.5.5), the privacy notice (8.3.3).
 2. Phase 8b: accessibility, restore drill, integration readiness kit, guides, acceptance checklist, live assistant evaluation (OpenRouter credits), `v1.0.0`.
+
+## Phase 8b — Accessibility, restore drill, integration readiness, guides, release
+
+Requirements: NFR-03 (recovery objectives), NFR-05 (documented data flows), NFR-06, NFR-07 (tested restore), NFR-10 (accessibility), NFR-11, NFR-14; the implementation plan's Phase 8 items. Owner decisions (2026-11-18): `@axe-core/playwright` 4.14.0 (dev); no staging server, a second stack on the same host instead.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 8b.1 | axe checks on every main page in Playwright; fixes | Done: no violations (`docs/accessibility.md`) |
+| 8b.2 | Keyboard walkthroughs, automated; skip link; focus return from the assistant drawer | Done |
+| 8b.3 | `scripts/restore.sh` and the restore drill into a fresh second stack | Done: 41 s from an empty server, counts identical |
+| 8b.4 | `scripts/staging.sh`: the second stack for the teams; certificate mount for IT's TLS certificate | Done |
+| 8b.5 | Operations guide (install, configuration reference, network rules, upgrade, backup and restore, security tasks, data flows and retention, staging, troubleshooting) | Done (`docs/operations-guide.md`) |
+| 8b.6 | User guide in English and Bulgarian | Done (`docs/user-guide.en.md`, `docs/user-guide.bg.md`) |
+| 8b.7 | Integration readiness kit (staging, network rules, key handover, checklist per team) | Done (`docs/integration-readiness.md`); the teams' runs wait for open questions 7 and 8 |
+| 8b.8 | User acceptance checklist and release notes | Done; `v1.0.0` is tagged on acceptance |
+| 8b.9 | Live assistant evaluation | Not run: the OpenRouter account still returns `402 Insufficient credits` |
+
+### Accessibility fixes
+
+```tsx
+{/* WCAG 2.4.1: keyboard users skip the navigation. Visible when focused. */}
+<a href="#main" className="sr-only focus:not-sr-only …">{t('nav.skipToContent')}</a>
+<main id="main" tabIndex={-1} …>
+
+<BarChart data={stages} accessibilityLayer={false}>   // hidden chart, figures in a table: not focusable
+
+// destructive buttons: red text 20 % darker on the light tint (contrast 4.5:1)
+'bg-destructive/10 text-[color-mix(in_oklch,var(--destructive),black_20%)] … dark:text-destructive'
+```
+
+The assistant launcher takes focus back when the drawer closes.
+
+### Restore (`scripts/restore.sh`)
+
+```bash
+"${compose[@]}" stop backend worker proxy backup
+"${compose[@]}" exec -T db psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS crm WITH (FORCE)"
+"${compose[@]}" exec -T -e CRM_MIGRATOR_PASSWORD=… -e CRM_APP_PASSWORD=… db bash /docker-entrypoint-initdb.d/10-init-roles.sh
+"${compose[@]}" exec -T db pg_restore --exit-on-error --no-owner -U crm_migrator -d crm < "$dump"
+"${compose[@]}" up --detach --wait        # pending migrations run first
+```
+
+It asks for the word RESTORE, and works on any stack through `CRM_ENV_FILE` and `COMPOSE_PROJECT_NAME`. The drill: a fresh stack `light-crm-drill` on ports 8080/8443 with the main stack's `APP_SECRET_KEY` and `APP_ENCRYPTION_KEY`, restored from that morning's backup (3.4 MB). Row counts of nine tables and the migration version were identical, and a restored Admin signed in and read data. The whole drill took 41 s against a recovery time objective of 4 hours.
+
+### Found during the operations work
+
+- The `proxy` service did not mount a directory for IT's certificate, although `.env.example` described `CRM_TLS=/certs/…`: added `CRM_CERTS_DIR` (default `./certs`, read-only, git-ignored).
+- Single-file bind mounts (`Caddyfile`, `backup.sh`) keep pointing at the old file after a `git checkout`: the backup service could not run an on-demand backup, and an earlier Caddyfile change needed a proxy restart. The upgrade procedure restarts `proxy` and `backup`.
+- The user guides first said error messages show a request ID and that managers roll imports back; neither is true (request IDs are in the `X-Request-ID` header and the audit log; rollback is Admin only). Corrected.
+
+### Verification (2026-11-18)
+
+| Check | Result |
+|---|---|
+| Playwright Chromium, accessibility and keyboard specs | 5/5 |
+| Playwright Chromium, full suite on the rebuilt stack | 39/39, twice |
+| ESLint, Prettier, tsc, Vitest (144), i18n (1,065 keys), build, `pnpm audit` | clean |
+| Restore drill | 41 s, counts identical (operations guide 5.3) |
+| Staging stack (`init`, `up`, `seed`) | Started, seeded (10,000 organizations, the three clients), removed |
+
+### Definition of done (Phase 8)
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | NFR-10 journeys; FR-ADM-04, FR-AUTH-07 (8a) |
+| 2 | `docker compose up` works | Done; also as a second stack (drill, staging) |
+| 3 | Lint, types, suites green | Done locally; CI on the PRs |
+| 4 | Permission checks + matrix | No new endpoints in 8b |
+| 5 | UI text en + bg | Done (skip link) |
+| 6 | Additive migrations + tests | No migration in 8b |
+| 7 | Audit | No new changes |
+| 8 | Frontend types regenerated | No API change in 8b |
+| 9 | Endpoints match the spec | Unchanged; all specified endpoints built |
+| Exit | Security pass, accessibility pass, backup and restore drill, guides, acceptance checklist, `v1.0.0` | Done except: the teams' staging runs (open questions 7 and 8), the live assistant evaluation (credits), the owner's acceptance and the tag |
+
+### Open items
+
+1. Owner: the acceptance checklist, open questions 1 and 4–8, the ASVS open items, the manual accessibility checks, and the tag `v1.0.0` after acceptance.
+2. OpenRouter credits, then the live evaluation.
+3. The restore drill repeated on the production server.

@@ -2,7 +2,7 @@
 
 A light B2B CRM for the Commercial team: lead and opportunity management, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, Docker Compose.
 
-Status: **Phase 8 (hardening and release)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records, and receive signed webhooks with a delivery log; see the [integration guide](docs/integration-guide.md). An AI assistant (a chat drawer on every page that answers from CRM data through read-only tools, with record context, history and drafts saved as notes on request) is built and off by default. Users can turn on two-factor sign-in (it can be required for Admins), and Admins can export or anonymize a contact's personal data (GDPR). See [`docs/Plan.md`](docs/Plan.md) for what is built.
+Status: **Release 1 complete, awaiting the owner's acceptance** (`v1.0.0` is tagged on acceptance; see the [acceptance checklist](docs/acceptance-checklist.md)). Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records, and receive signed webhooks with a delivery log; see the [integration guide](docs/integration-guide.md). An AI assistant (a chat drawer on every page that answers from CRM data through read-only tools, with record context, history and drafts saved as notes on request) is built and off by default. Users can turn on two-factor sign-in (it can be required for Admins), and Admins can export or anonymize a contact's personal data (GDPR). See [`docs/Plan.md`](docs/Plan.md) for what is built.
 
 ## Documentation
 
@@ -18,6 +18,11 @@ Status: **Phase 8 (hardening and release)**. Users sign in; Admins manage users,
 | [`docs/Plan.md`](docs/Plan.md) | Implementation log: what was built, with code excerpts |
 | [`docs/Test_strategy.md`](docs/Test_strategy.md) | Test record: strategy per phase, test cases performed and results |
 | [`docs/api/`](docs/api/README.md) | OpenAPI snapshot and how to open the interactive API docs |
+| [`docs/operations-guide.md`](docs/operations-guide.md) | Install, configuration reference, network rules, upgrade, backup and restore, security tasks, data flows, staging, troubleshooting |
+| [`docs/user-guide.en.md`](docs/user-guide.en.md), [`docs/user-guide.bg.md`](docs/user-guide.bg.md) | Short user guide in English and Bulgarian |
+| [`docs/integration-readiness.md`](docs/integration-readiness.md) | Staging, network rules, key handover and a checklist per integrating team |
+| [`docs/accessibility.md`](docs/accessibility.md) | Accessibility checks, keyboard walkthroughs and the manual checks still to do |
+| [`docs/acceptance-checklist.md`](docs/acceptance-checklist.md), [`docs/release-notes.md`](docs/release-notes.md) | User acceptance checklist for the owner; release notes |
 | [`docs/security/asvs-l1.md`](docs/security/asvs-l1.md) | OWASP ASVS Level 1 checklist with evidence and open items |
 | [`docs/assistant-eval.md`](docs/assistant-eval.md) | Live evaluation of the AI assistant: cases, how to run, results |
 
@@ -50,6 +55,8 @@ Integration clients for Conclusion, ERP and Billing (read-only profiles, API spe
 ```bash
 docker compose exec backend python -m app.cli create-integration-client   # --system erp|billing|conclusion|all
 ```
+
+Backups run nightly into `backups/`; restore one with `scripts/restore.sh backups/<file>.dump`. A second stack for the integrating teams and acceptance tests runs with `scripts/staging.sh` (ports 8080/8443). After an upgrade, restart `proxy` and `backup`. Details: [operations guide](docs/operations-guide.md).
 
 Webhooks are sent by the `worker` service only to hosts listed in `WEBHOOK_ALLOWED_HOSTS` (`.env`, comma-separated, exact names or `*.suffix`); the worker needs outbound HTTPS to them. Webhook signing secrets are encrypted with `APP_ENCRYPTION_KEY`, which the start script generates: keep it with the database backups, because without it stored secrets must be rotated.
 
