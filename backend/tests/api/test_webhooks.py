@@ -723,3 +723,20 @@ async def test_NFR_13_worker_job_dispatches_and_attempts_on_each_poll(
         1,
         "dns_failed",
     )
+
+
+def test_FR_INT_10_integration_guide_python_sample_verifies_crm_signatures() -> None:
+    """The Python sample in docs/integration-guide.md, run against the CRM's signer."""
+    guide = (Path(__file__).parents[3] / "docs" / "integration-guide.md").read_text()
+    sample = guide.split("```python verify\n", 1)[1].split("```", 1)[0]
+    namespace: dict[str, Any] = {}
+    exec(compile(sample, "integration-guide.md", "exec"), namespace)  # noqa: S102 - our own doc
+    verify = namespace["verify_signature"]
+    body = json.dumps({"id": "evt_1", "type": "ping"}).encode()
+    now = int(datetime.now(UTC).timestamp())
+    header = webhooks.sign(["whsec_old", "whsec_new"], now, body)
+    assert verify("whsec_new", header, body)
+    assert verify("whsec_old", header, body)
+    assert not verify("whsec_other", header, body)
+    assert not verify("whsec_new", header, body + b"x")
+    assert not verify("whsec_new", webhooks.sign(["whsec_new"], now - 301, body), body)
