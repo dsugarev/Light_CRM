@@ -426,3 +426,8 @@ C-03 (two-factor sign-in) was built in Phase 8a. C-07 (chart polish) and C-08 (a
 - **Gate:** lint, prettier, typecheck, Vitest 257/257, i18n 1200 keys, API types regenerated; Playwright Chromium 47/47; visual 4/4; backend ruff, mypy, import-linter 14/14, pytest 1305 passed (95.55%).
 
 **Addendum (21:55):** FN-05 is done after the owner approved the API addition, so all 22 items in sections A and B are now done. The second additive API change is `GET /me` → `session`.
+
+**Final gate after rebasing on `main` (loop restart, 2026-11-18 22:30):** no `[ ]` or `[!]` items remain in sections A and B. On branch `ui-polish` (PR #22):
+- frontend: lint, prettier, typecheck, Vitest 257/257, i18n 1200 keys, API types up to date;
+- Playwright Chromium 47/47, visual 4/4;
+- backend: ruff, mypy, import-linter 14/14, pytest 1305 passed (95.55%), OpenAPI snapshot up to date.
