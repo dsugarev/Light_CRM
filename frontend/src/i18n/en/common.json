@@ -83,5 +83,10 @@
   },
   "breadcrumbs": {
     "label": "Breadcrumbs"
+  },
+  "password": {
+    "show": "Show password",
+    "hide": "Hide password",
+    "capsLock": "Caps Lock is on."
   }
 }

@@ -83,5 +83,10 @@
   },
   "breadcrumbs": {
     "label": "Навигационна пътека"
+  },
+  "password": {
+    "show": "Покажи паролата",
+    "hide": "Скрий паролата",
+    "capsLock": "Caps Lock е включен."
   }
 }

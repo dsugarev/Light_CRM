@@ -12,6 +12,8 @@ import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/PasswordInput'
+import { Spinner } from '@/components/Spinner'
 import { isLocale } from '@/i18n'
 import { formatDateTime } from '@/lib/format'
 import { storeLocale } from '@/lib/locale'
@@ -50,11 +52,19 @@ export function SignInPage() {
     await queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY })
     await navigate(next, { replace: true })
   }
+  // UX-06: how long until the next try, rounded up to whole minutes (set when the error arrives).
+  const [lockedMinutes, setLockedMinutes] = useState(0)
   const signIn = useMutation({
     mutationFn: (values: Values) => call(api.POST('/api/v1/auth/login', { body: values })),
     onSuccess: finish,
     onError: (failure) => {
       if (failure instanceof ApiError && failure.code === 'auth.mfa_required') setCodeStep(true)
+      const until = failure instanceof ApiError ? failure.problem['locked_until'] : undefined
+      setLockedMinutes(
+        typeof until === 'string'
+          ? Math.max(0, Math.ceil((new Date(until).getTime() - Date.now()) / 60_000))
+          : 0,
+      )
     },
   })
   const verify = useMutation({
@@ -84,6 +94,7 @@ export function SignInPage() {
           }}
         >
           <FormMessage
+            focusOnError
             error={codeError instanceof ApiError ? codeError.code : codeError ? 'unknown' : null}
           />
           <FormField label={t('mfa.code')}>
@@ -101,7 +112,12 @@ export function SignInPage() {
               />
             )}
           </FormField>
-          <Button type="submit" disabled={verify.isPending || code.trim() === ''}>
+          <Button
+            type="submit"
+            disabled={verify.isPending || code.trim() === ''}
+            aria-busy={verify.isPending}
+          >
+            {verify.isPending ? <Spinner /> : null}
             {t('mfa.verify')}
           </Button>
           <Button
@@ -120,10 +136,11 @@ export function SignInPage() {
   }
 
   const error = signIn.error
-  const lockedUntil =
+  const lockedAt =
     error instanceof ApiError && typeof error.problem['locked_until'] === 'string'
-      ? formatDateTime(error.problem['locked_until'], locale)
+      ? error.problem['locked_until']
       : undefined
+  const lockedUntil = lockedAt ? formatDateTime(lockedAt, locale) : undefined
 
   return (
     <AuthCard title={t('signIn.title')}>
@@ -140,9 +157,15 @@ export function SignInPage() {
           <FormMessage success={t('signIn.passwordSet')} />
         ) : null}
         <FormMessage
+          focusOnError
           error={error instanceof ApiError ? error.code : error ? 'unknown' : null}
           {...(lockedUntil ? { values: { time: lockedUntil } } : {})}
         />
+        {lockedMinutes > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t('signIn.lockedRemaining', { count: lockedMinutes })}
+          </p>
+        ) : null}
         <FormField label={t('signIn.email')} error={form.formState.errors.email?.message}>
           {(control) => (
             <Input {...control} type="email" autoComplete="username" {...form.register('email')} />
@@ -150,15 +173,15 @@ export function SignInPage() {
         </FormField>
         <FormField label={t('signIn.password')} error={form.formState.errors.password?.message}>
           {(control) => (
-            <Input
+            <PasswordInput
               {...control}
-              type="password"
               autoComplete="current-password"
               {...form.register('password')}
             />
           )}
         </FormField>
-        <Button type="submit" disabled={signIn.isPending}>
+        <Button type="submit" disabled={signIn.isPending} aria-busy={signIn.isPending}>
+          {signIn.isPending ? <Spinner /> : null}
           {signIn.isPending ? t('signIn.submitting') : t('signIn.submit')}
         </Button>
         <Link className="text-sm text-primary underline underline-offset-4" to="/forgot-password">
