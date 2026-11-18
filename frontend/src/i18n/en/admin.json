@@ -148,7 +148,8 @@
       "industries": "Industries",
       "lead-sources": "Lead sources",
       "disqualification-reasons": "Disqualification reasons",
-      "loss-reasons": "Loss reasons"
+      "loss-reasons": "Loss reasons",
+      "external-systems": "External systems"
     }
   }
 }

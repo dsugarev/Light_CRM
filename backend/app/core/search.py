@@ -15,11 +15,13 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.access import AccessLevel
-from app.core.auth import endpoint
+from app.core.auth import CurrentPrincipal, endpoint
 from app.core.db import DbSession
+from app.core.policy import has_scope
 from app.core.text import search_terms
 
 RESULTS_PER_TYPE = 5
+_READ_SCOPE = {"opportunity": "opportunities:read"}
 SearchType = Literal["organization", "contact", "lead", "opportunity"]
 
 
@@ -54,11 +56,18 @@ router = APIRouter(prefix="/search", tags=["search"])
 async def search(
     request: Request,
     session: DbSession,
+    principal: CurrentPrincipal,
     q: Annotated[str, Query(min_length=2, max_length=200)],
     types: Annotated[list[SearchType] | None, Query()] = None,
 ) -> SearchResults:
     providers: Mapping[str, SearchProvider] = request.app.state.search_providers
-    wanted = [t for t in providers if types is None or t in types]
+    wanted = [
+        t
+        for t in providers
+        if (types is None or t in types)
+        # Integration clients get only the record types their scopes let them read.
+        and has_scope(principal, _READ_SCOPE.get(t, f"{t}s:read"))
+    ]
     terms = search_terms(q)
     hits: list[SearchHit] = []
     for name in wanted:

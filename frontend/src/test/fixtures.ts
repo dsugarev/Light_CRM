@@ -25,6 +25,7 @@ export const ADMIN_ME: Schemas['Me'] = {
     'settings.manage',
     'users.manage',
   ],
+  scopes: [],
 }
 
 export const REP_ME: Schemas['Me'] = {

@@ -9,11 +9,15 @@
     "password_policy": "The password does not meet the requirements.",
     "csrf_failed": "The request was blocked for security reasons. Reload the page and try again.",
     "mixed_credentials": "The request was rejected.",
-    "api_key_invalid": "The request was rejected."
+    "api_key_invalid": "The request was rejected.",
+    "client_inactive": "The integration client is deactivated.",
+    "ip_not_allowed": "Requests from this address are not allowed."
   },
   "permission": {
     "denied": "You are not allowed to do this.",
-    "last_admin": "At least one active administrator must remain."
+    "last_admin": "At least one active administrator must remain.",
+    "scope_missing": "The integration client lacks the permission for this.",
+    "not_for_integrations": "Not available to integration clients."
   },
   "conflict": {
     "duplicate": "A record with these details already exists.",
@@ -91,7 +95,8 @@
     "ambiguous": "More than one organization matches; use the registration number."
   },
   "owner": {
-    "invalid": "Choose an active user as owner."
+    "invalid": "Choose an active user as owner.",
+    "required": "Choose an owner for the record."
   },
   "lead": {
     "bant_incomplete": "To qualify, every BANT item must be known.",
@@ -142,5 +147,18 @@
     "field_mapped_twice": "This field is chosen for two columns.",
     "required_field": "A required field has no column.",
     "duplicate_in_file": "Repeats an earlier row of the file."
+  },
+  "api_key": {
+    "limit": "A client can have at most two active keys. Revoke one first.",
+    "expiry_past": "The expiry must be in the future.",
+    "expiry_too_long": "Keys can be valid for at most 24 months."
+  },
+  "external_reference": {
+    "conflict": "This ID is already linked to another record.",
+    "system_mismatch": "A client can only set IDs of its own system."
+  },
+  "idempotency": {
+    "key_reused": "The same request key was used with different data.",
+    "in_progress": "The same request is still being processed."
   }
 }

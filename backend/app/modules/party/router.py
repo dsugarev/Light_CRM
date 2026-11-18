@@ -12,6 +12,7 @@ from app.core.clock import Clock
 from app.core.db import DbSession
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.export import EXPORT_PARAMS, EXPORT_RESPONSES, ExportOptions, export_options
+from app.core.external import EXTERNAL_PARAMS, External
 from app.core.listing import ListQuery, Page, SyncPage, list_query
 from app.core.principal import Principal
 from app.modules.party import service
@@ -38,6 +39,7 @@ async def context(request: Request, session: DbSession) -> service.Context:
         events=request.app.state.event_bus,
         settings=request.app.state.settings,
         now=clock.now(),
+        external_filter=request.app.state.external_filter,
         organization_stats=request.app.state.organization_stats,
         organization_archive_guards=request.app.state.organization_archive_guards,
     )
@@ -74,7 +76,7 @@ OrganizationList = Annotated[
             "organizations",
             sortable=tuple(service.ORGANIZATION_SORT),
             default_sort="name",
-            filters=("owner_id", "industry_id", "city", "country", "size_band"),
+            filters=(*EXTERNAL_PARAMS, "owner_id", "industry_id", "city", "country", "size_band"),
         )
     ),
 ]
@@ -89,6 +91,7 @@ async def list_organizations(
     ctx: Ctx,
     principal: CurrentPrincipal,
     query: OrganizationList,
+    external: External,
     owner_id: Repeated = None,
     industry_id: Annotated[list[UUID] | None, Query()] = None,
     city: Repeated = None,
@@ -101,6 +104,7 @@ async def list_organizations(
         cities=tuple(city or ()),
         countries=tuple(country or ()),
         size_bands=tuple(size_band or ()),
+        external=external,
     )
     return await service.list_organizations(ctx, query, filters)
 
@@ -140,7 +144,15 @@ OrganizationExportList = Annotated[
             "organizations-export",
             sortable=tuple(service.ORGANIZATION_SORT),
             default_sort="name",
-            filters=("owner_id", "industry_id", "city", "country", "size_band", *EXPORT_PARAMS),
+            filters=(
+                *EXTERNAL_PARAMS,
+                "owner_id",
+                "industry_id",
+                "city",
+                "country",
+                "size_band",
+                *EXPORT_PARAMS,
+            ),
         )
     ),
 ]
@@ -157,6 +169,7 @@ async def export_organizations(
     ctx: Ctx,
     principal: CurrentPrincipal,
     query: OrganizationExportList,
+    external: External,
     options: Annotated[ExportOptions, Depends(export_options)],
     owner_id: Repeated = None,
     industry_id: Annotated[list[UUID] | None, Query()] = None,
@@ -170,6 +183,7 @@ async def export_organizations(
         cities=tuple(city or ()),
         countries=tuple(country or ()),
         size_bands=tuple(size_band or ()),
+        external=external,
     )
     file = await service.export_organizations(ctx, principal, query, filters, options)
     return file.response()
@@ -246,7 +260,7 @@ ContactList = Annotated[
             "contacts",
             sortable=tuple(service.CONTACT_SORT),
             default_sort="last_name",
-            filters=("organization_id", "owner_id"),
+            filters=(*EXTERNAL_PARAMS, "organization_id", "owner_id"),
         )
     ),
 ]
@@ -261,11 +275,14 @@ async def list_contacts(
     ctx: Ctx,
     principal: CurrentPrincipal,
     query: ContactList,
+    external: External,
     organization_id: Annotated[list[UUID] | None, Query()] = None,
     owner_id: Repeated = None,
 ) -> Page[ContactOut] | SyncPage[ContactOut]:
     filters = service.ContactFilters(
-        organization_ids=tuple(organization_id or ()), owner_ids=_owner_ids(owner_id, principal)
+        organization_ids=tuple(organization_id or ()),
+        owner_ids=_owner_ids(owner_id, principal),
+        external=external,
     )
     return await service.list_contacts(ctx, query, filters)
 
@@ -291,7 +308,7 @@ ContactExportList = Annotated[
             "contacts-export",
             sortable=tuple(service.CONTACT_SORT),
             default_sort="last_name",
-            filters=("organization_id", "owner_id", *EXPORT_PARAMS),
+            filters=(*EXTERNAL_PARAMS, "organization_id", "owner_id", *EXPORT_PARAMS),
         )
     ),
 ]
@@ -308,12 +325,15 @@ async def export_contacts(
     ctx: Ctx,
     principal: CurrentPrincipal,
     query: ContactExportList,
+    external: External,
     options: Annotated[ExportOptions, Depends(export_options)],
     organization_id: Annotated[list[UUID] | None, Query()] = None,
     owner_id: Repeated = None,
 ) -> Response:
     filters = service.ContactFilters(
-        organization_ids=tuple(organization_id or ()), owner_ids=_owner_ids(owner_id, principal)
+        organization_ids=tuple(organization_id or ()),
+        owner_ids=_owner_ids(owner_id, principal),
+        external=external,
     )
     file = await service.export_contacts(ctx, principal, query, filters, options)
     return file.response()

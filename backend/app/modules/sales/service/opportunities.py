@@ -28,8 +28,9 @@ from app.core.export import (
     reference_name,
 )
 from app.core.export import Locale as ExportLocale
+from app.core.external import ExternalQuery, apply_external
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
-from app.core.policy import can_edit_owned, check_owner
+from app.core.policy import can_edit_owned, check_owner, record_owner
 from app.core.principal import Principal
 from app.core.reference import ReferenceList, is_active_item
 from app.core.search import SearchHit, SearchProvider
@@ -93,6 +94,7 @@ class OpportunityFilters:
     amount_from: Decimal | None = None
     amount_to: Decimal | None = None
     is_stale: bool | None = None
+    external: ExternalQuery | None = None
 
 
 # --- Helpers ------------------------------------------------------------------------------
@@ -313,7 +315,7 @@ async def create_opportunity(
     import_batch_id: UUID | None = None,
 ) -> Opportunity:
     """FR-OPP-01: stage defaults to the first open stage, probability to its default."""
-    owner_id = data.owner_id or principal.user_id
+    owner_id = record_owner(principal, data.owner_id)
     await check_owner_choice(ctx, principal, owner_id)
     problem = await party.check_organization_link(ctx.session, data.organization_id)
     if problem:
@@ -367,7 +369,7 @@ async def _statement(ctx: Context, query: ListQuery | None, filters: Opportunity
     stale = None
     if filters.is_stale is not None:
         stale = (filters.is_stale, await _stale_cutoff(ctx), today(ctx))
-    return repository.opportunities_statement(
+    statement = repository.opportunities_statement(
         search=search_terms(query.q) if query and query.q else None,
         include_archived=query.include_archived if query else False,
         stage_ids=filters.stage_ids,
@@ -380,6 +382,9 @@ async def _statement(ctx: Context, query: ListQuery | None, filters: Opportunity
         amount_from=filters.amount_from,
         amount_to=filters.amount_to,
         stale=stale,
+    )
+    return apply_external(
+        statement, ctx.external_filter, "opportunity", Opportunity.id, filters.external
     )
 
 

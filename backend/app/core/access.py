@@ -27,6 +27,15 @@ class AccessLevel(StrEnum):
     # Activities (API spec 11): the record rule involves the task assignee.
     OWNER_PLUS_OR_TASK_ASSIGNEE = "Owner+ (owner = activity owner; assignee may update a task)"
     OWNER_PLUS_OR_ASSIGNEE = "Owner+ or assignee"
+    # External references (API spec 19.4): people by role, integrations by the scope of
+    # the record type or of their own system, checked by the service where it depends
+    # on the record.
+    SIGNED_IN_OR_TYPE_SCOPE = "Signed-in; Integration: read scope of the resolved type"
+    SIGNED_IN_OR_RESOURCE_SCOPE = "Signed-in; Integration: read scope of {resource}"
+    ADMIN_OR_OWN_SYSTEM = (
+        "Admin; Integration: external-references:write and {system} equals the client's system"
+    )
+    ADMIN_OR_OWN_SYSTEM_DELETE = "Admin; Integration: as for PUT"
     MANAGER_PLUS = "Manager+"
     ADMIN = "Admin"
 

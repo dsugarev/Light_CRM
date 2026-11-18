@@ -14,6 +14,7 @@ from app.core.clock import Clock
 from app.core.db import DbSession
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.export import EXPORT_PARAMS, EXPORT_RESPONSES, ExportOptions, export_options
+from app.core.external import EXTERNAL_PARAMS, External
 from app.core.listing import ListQuery, Page, SyncPage, list_query
 from app.core.principal import Principal
 from app.modules.sales import service
@@ -55,6 +56,7 @@ async def context(request: Request, session: DbSession) -> service.Context:
         events=request.app.state.event_bus,
         settings=request.app.state.settings,
         now=clock.now(),
+        external_filter=request.app.state.external_filter,
     )
 
 
@@ -85,7 +87,7 @@ LeadList = Annotated[
             "leads",
             sortable=tuple(service.LEAD_SORT),
             default_sort="-created_at",
-            filters=(
+            filters=(*EXTERNAL_PARAMS,
                 "status", "owner_id", "source_id", "created_at_from", "created_at_to",
                 "fits_target_profile",
             ),
@@ -101,6 +103,7 @@ async def list_leads(
     ctx: Ctx,
     principal: CurrentPrincipal,
     query: LeadList,
+    external: External,
     lead_status: Annotated[list[LeadStatus] | None, Query(alias="status")] = None,
     owner_id: Annotated[list[str] | None, Query(max_length=50)] = None,
     source_id: Annotated[list[UUID] | None, Query()] = None,
@@ -115,6 +118,7 @@ async def list_leads(
         created_from=created_at_from,
         created_to=created_at_to,
         fits_target_profile=fits_target_profile,
+        external=external,
     )
     return await service.list_leads(ctx, query, filters)
 
@@ -140,7 +144,7 @@ LeadExportList = Annotated[
             "leads-export",
             sortable=tuple(service.LEAD_SORT),
             default_sort="-created_at",
-            filters=(
+            filters=(*EXTERNAL_PARAMS,
                 "status", "owner_id", "source_id", "created_at_from", "created_at_to",
                 "fits_target_profile", *EXPORT_PARAMS,
             ),
@@ -160,6 +164,7 @@ async def export_leads(
     ctx: Ctx,
     principal: CurrentPrincipal,
     query: LeadExportList,
+    external: External,
     options: Annotated[ExportOptions, Depends(export_options)],
     lead_status: Annotated[list[LeadStatus] | None, Query(alias="status")] = None,
     owner_id: Annotated[list[str] | None, Query(max_length=50)] = None,
@@ -175,6 +180,7 @@ async def export_leads(
         created_from=created_at_from,
         created_to=created_at_to,
         fits_target_profile=fits_target_profile,
+        external=external,
     )
     file = await service.export_leads(ctx, principal, query, filters, options)
     return file.response()
@@ -391,7 +397,7 @@ OpportunityList = Annotated[
             "opportunities",
             sortable=tuple(service.OPPORTUNITY_SORT),
             default_sort="-updated_at",
-            filters=(
+            filters=(*EXTERNAL_PARAMS,
                 "stage_id", "stage_type", "owner_id", "organization_id",
                 "expected_close_date_from", "expected_close_date_to", "amount_from", "amount_to",
                 "is_stale",
@@ -410,6 +416,7 @@ async def list_opportunities(
     ctx: Ctx,
     principal: CurrentPrincipal,
     query: OpportunityList,
+    external: External,
     stage_id: Annotated[list[UUID] | None, Query()] = None,
     stage_type: Annotated[list[StageType] | None, Query()] = None,
     owner_id: Annotated[list[str] | None, Query(max_length=50)] = None,
@@ -430,6 +437,7 @@ async def list_opportunities(
         amount_from=amount_from,
         amount_to=amount_to,
         is_stale=is_stale,
+        external=external,
     )
     return await opps.list_opportunities(ctx, query, filters)
 
@@ -455,7 +463,7 @@ OpportunityExportList = Annotated[
             "opportunities-export",
             sortable=tuple(service.OPPORTUNITY_SORT),
             default_sort="-updated_at",
-            filters=(
+            filters=(*EXTERNAL_PARAMS,
                 "stage_id", "stage_type", "owner_id", "organization_id",
                 "expected_close_date_from", "expected_close_date_to", "amount_from", "amount_to",
                 "is_stale", *EXPORT_PARAMS,
@@ -476,6 +484,7 @@ async def export_opportunities(
     ctx: Ctx,
     principal: CurrentPrincipal,
     query: OpportunityExportList,
+    external: External,
     options: Annotated[ExportOptions, Depends(export_options)],
     stage_id: Annotated[list[UUID] | None, Query()] = None,
     stage_type: Annotated[list[StageType] | None, Query()] = None,
@@ -497,6 +506,7 @@ async def export_opportunities(
         amount_from=amount_from,
         amount_to=amount_to,
         is_stale=is_stale,
+        external=external,
     )
     file = await opps.export_opportunities(ctx, principal, query, filters, options)
     return file.response()

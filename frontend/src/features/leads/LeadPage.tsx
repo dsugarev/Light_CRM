@@ -16,6 +16,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { RecordTimeline } from '@/features/activities/RecordTimeline'
+import { ExternalReferences } from '@/features/integrations/ExternalReferences'
 import { AssignControl } from '@/features/auth/AssignControl'
 import { useMe } from '@/features/auth/useMe'
 import { useCanEditOwned } from '@/features/auth/useOwnership'
@@ -108,6 +109,7 @@ export function LeadPage() {
         <BantCard key={`${l.id}-${String(l.version)}`} lead={l} />
       </div>
       <div className="grid gap-6">
+        <ExternalReferences resource="leads" id={l.id} />
         <RecordTimeline record={{ kind: 'lead', id: l.id }} canLog={!l.archived_at} />
       </div>
     </section>

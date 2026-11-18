@@ -32,6 +32,12 @@ class Principal:
     scopes: frozenset[str] = field(default_factory=frozenset)
     # The session the request was authenticated with (users only).
     session_id: UUID | None = None
+    # Integration clients only (API spec 19): the client, its system code, the owner of
+    # records it creates when the request names none, and its requests per minute.
+    client_id: UUID | None = None
+    system: str | None = None
+    default_owner_id: UUID | None = None
+    rate_limit_per_minute: int | None = None
 
     @property
     def is_integration(self) -> bool:
