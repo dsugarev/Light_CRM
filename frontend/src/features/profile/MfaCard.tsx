@@ -123,7 +123,7 @@ export function MfaCard({ me }: { me: Me }) {
             }}
           >
             <p className="text-sm">{t('mfa.scan')}</p>
-            <div className="self-start rounded-lg bg-white p-3">
+            <div className="self-start rounded-lg bg-qr-surface p-3">
               <QRCodeSVG value={setup.provisioning_uri} size={176} title={t('mfa.qrTitle')} />
             </div>
             <p className="text-sm">

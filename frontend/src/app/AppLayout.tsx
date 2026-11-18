@@ -102,7 +102,7 @@ export function AppLayout() {
                   {t('nav.integrations')}
                   {webhookProblems > 0 ? (
                     <span
-                      className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-white"
+                      className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground"
                       aria-label={t('nav.failingDeliveries', { count: webhookProblems })}
                     >
                       {webhookProblems}

@@ -274,7 +274,7 @@ function DropArea({ id, label, tone }: { id: string; label: string; tone: 'won' 
       data-testid={id}
       className={cn(
         'rounded-lg border-2 border-dashed p-4 text-center text-sm',
-        tone === 'won' ? 'border-emerald-500/60' : 'border-destructive/60',
+        tone === 'won' ? 'border-success/60' : 'border-destructive/60',
         isOver && 'bg-muted',
       )}
     >

@@ -26,8 +26,8 @@ import { useReportScope } from './useReportScope'
 
 type DashboardData = Schemas['Dashboard']
 const CHART_HEIGHT = 260
-const TOTAL_COLOR = 'var(--color-chart-2, #94a3b8)'
-const WEIGHTED_COLOR = 'var(--color-chart-1, #2563eb)'
+const TOTAL_COLOR = 'var(--color-chart-2)'
+const WEIGHTED_COLOR = 'var(--color-chart-1)'
 
 /** FR-REP-01: pipeline, forecast, conversion and win rates, my open tasks. */
 export function Dashboard() {
