@@ -1747,3 +1747,140 @@ A pure ASGI middleware in front of the request context middleware. For an integr
 1. Phase 6b: outbox, webhook delivery, subscriptions, delivery log, alerts, integration guide, Postman collection, receiver example, exit test.
 2. Requirements open questions 7 and 8 (data flows and write scopes for ERP, Billing, Conclusion) remain with the owner; clients stay inactive until answered.
 3. PR #11 (Phase 5 to `main`) is still open; this PR stacks on it.
+
+## Phase 6b — Webhooks, delivery log, integration guide
+
+Requirements: FR-INT-07 (AC1–AC5), FR-INT-08 (failing deliveries and the alert), FR-INT-10 (guide, samples, collection), FR-INT-12 (subscriptions, delivery log, test event, redeliver), NFR-13 (first attempt within 30 s), NFR-14 (events raised during an outage are delivered afterwards). Owner decisions used here (2026-11-17): `cryptography` 50.0.2 for secret encryption with `APP_ENCRYPTION_KEY`; `httpx` 0.28.1 moved to the runtime dependencies; `WEBHOOK_ALLOWED_HOSTS` with exact hosts or `*.suffix`, resolved and pinned, loopback, link-local and metadata always refused; banner and badge instead of email; a Postman collection; only the Python sample tested.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 6b.1 | Dependencies and settings (`APP_ENCRYPTION_KEY`, `WEBHOOK_ALLOWED_HOSTS`) in settings, `.env.example`, compose, start scripts and CI | Done |
+| 6b.2 | Schema: `outbox_event`, `webhook_subscription`, `webhook_delivery`, `webhook_attempt` | Done: migration `0009` |
+| 6b.3 | Outbox subscriber on the event bus; event mapping | Done (ADR 0025) |
+| 6b.4 | Worker: fan-out with scope filtering, claim with lease and per-record ordering, signed delivery, retries, suspension, purge | Done |
+| 6b.5 | Network guard: URL rules, DNS check, pinned connection, no redirects, 10 s | Done |
+| 6b.6 | Admin API: subscriptions (secret once, rotate, test), delivery log, redeliver; webhook figures on clients | Done (9 endpoints) |
+| 6b.7 | Admin screens: subscriptions on the client page, delivery log and detail, failing-delivery banner and badge (en, bg) | Done |
+| 6b.8 | Reference receiver, integration guide (Python, C#, Java samples), Postman collection | Done |
+| 6b.9 | Tests: webhook suite, Phase 6 exit test, guide sample and collection checks, Vitest, Playwright | Done |
+| 6b.10 | Documentation (spec v0.10, architecture tables, ADR 0025, snapshot, this log, test record, README, CLAUDE.md), gate, PR | Done |
+
+### Endpoints built (9)
+
+`GET|POST /integration-clients/{client_id}/webhook-subscriptions`, `PATCH|DELETE /webhook-subscriptions/{subscription_id}`, `POST /webhook-subscriptions/{subscription_id}/rotate-secret`, `POST /webhook-subscriptions/{subscription_id}/test`, `GET /webhook-deliveries`, `GET /webhook-deliveries/{delivery_id}`, `POST /webhook-deliveries/{delivery_id}/redeliver`. `IntegrationClientOut` gained `webhooks` (additive). The route catalog's pending list now holds only the assistant (Phase 7) and MFA/GDPR (Phase 8).
+
+### Backend
+
+#### The outbox is one more event-bus subscriber (`app/main.py`, `integration/webhooks.py`)
+
+```python
+bus.subscribe(audit_service.record)
+bus.subscribe(activity_service.record_event)        # record timelines (ADR 0020)
+bus.subscribe(integration_webhooks.record_event)    # webhook outbox (FR-INT-07 AC1)
+
+async def record_event(session: AsyncSession, event: DomainEvent) -> None:
+    event_type = event_type_for(event)             # 19.6 types; archived/restored/owner_changed -> <record>.updated
+    if event_type is None or event.entity_id is None:
+        return
+    session.add(OutboxEvent(event_type=event_type, entity_type=event.entity_type,
+                            entity_id=event.entity_id, actor=_actor(event.actor),
+                            changes=_changes(event), details=..., occurred_at=event.occurred_at))
+```
+
+#### Fan-out and delivery in the worker (`app/worker.py`)
+
+```python
+async def deliver_webhooks(engine: AsyncEngine) -> None:
+    sessions = create_session_factory(engine)
+    async with sessions() as session:
+        while await webhooks.dispatch(session, clock.now()):   # deliveries for matching, readable subscriptions
+            pass
+    await webhooks.deliver_due(sessions, get_settings(), clock.now())
+
+JOBS = (deliver_webhooks, every(timedelta(hours=1), purge_expired))
+```
+
+`deliver_due` claims due deliveries (`FOR UPDATE SKIP LOCKED`, 5-minute lease) in a short transaction, builds each payload with the owning modules' `get` functions, signs it, sends it with no transaction open, and records the attempt:
+
+```python
+if outcome.succeeded:
+    delivery.status, delivery.delivered_at, delivery.next_attempt_at = "succeeded", now, None
+elif is_ping or now - delivery.first_attempt_at >= RETRY_WINDOW:      # 72 h
+    delivery.status, delivery.next_attempt_at = "failed", None
+else:
+    delivery.status, delivery.next_attempt_at = "retrying", now + backoff(number)  # 1m, 5m, 30m, 2h, 6h ±10 %
+```
+
+The claim query skips a delivery while an earlier one for the same record and subscription is open (event time, then UUIDv7 event ID), and passes test events whatever the client or subscription state.
+
+#### Signing and the network guard (`webhooks.sign`, `integration/netguard.py`)
+
+```python
+def sign(signing_secrets, timestamp, body) -> str:   # old secret first for 24 h after rotation
+    message = f"{timestamp}.".encode() + body
+    return ",".join([f"t={timestamp}", *(f"v1={hmac.new(s.encode(), message, sha256).hexdigest()}"
+                                         for s in signing_secrets)])
+
+addresses = await network.resolve(host, port)
+if not addresses or not all(network.address_allowed(a) for a in addresses):
+    return failed("address_not_allowed")       # loopback, link-local, metadata, multicast, reserved
+async with pinned_client(addresses[0], TIMEOUT_SECONDS) as client, client.stream("POST", url, ...) as r:
+    ...                                         # connects to the vetted address; TLS checks the URL host
+```
+
+`pinned_client` installs an httpcore network backend that connects every stream to the vetted address, with `follow_redirects=False`, no proxy environment and a 10-second limit around the whole attempt. Secrets are Fernet-encrypted with an HKDF-derived key (`app/core/crypto.py`).
+
+#### Reference receiver (`deploy/examples/webhook_receiver.py`)
+
+Standard library only: `verify_signature` (constant-time, 5-minute window, any `v1`), an HTTP(S) server that deduplicates on the event ID and answers 204, 401 or 400. The webhook tests and the exit test deliver to it over real HTTP.
+
+### Frontend
+
+- `features/integrations/Webhooks.tsx` on the client page: subscriptions with URL, event types, state (active, paused, suspended), 24-hour counts, previous-secret validity; subscribe form (URL, event-type checkboxes including "all events"); the secret shown once after creation or rotation; send test event (opens the delivery, which refreshes until attempted), pause/resume, rotate, remove.
+- `DeliveriesPage.tsx`: the delivery log with client, status and event-type filters in the URL; delivery detail with every attempt (status or translated error, duration, response excerpt) and redeliver.
+- `useWebhookHealth` and `WebhookAlert`: a badge on the Integrations link and a banner in the admin area while deliveries are failing or subscriptions are suspended; the client list shows failing counts.
+
+### Verification (2026-11-18)
+
+| Check | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| Migration 0009 up → down → up; `alembic check` | OK, no drift |
+| pytest (scratch PostgreSQL 18.7) | 1171 passed, 96% coverage (webhooks 91%, netguard 97%) |
+| pip-audit (with `cryptography` 50.0.2, `httpx` 0.28.1) | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n (959 keys) | clean |
+| Vitest | 122 passed |
+| `pnpm audit --audit-level high` | passes (ADR 0022 ignore); `--prod` clean |
+| OpenAPI snapshot and generated types | up to date |
+| Playwright Chromium vs. rebuilt stack (`WEBHOOK_ALLOWED_HOSTS=hooks.example.test`) | 26/26, including the webhook journey through the real worker in en and bg |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | Done for FR-INT-07 AC1–AC5, FR-INT-08, 10, 12, NFR-13 |
+| 2 | `docker compose up` works | Done (rebuilt with migration 0009 and the new settings) |
+| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 4 | Permission checks + matrix | Done for all 135 routes (all Admin; closed to integration clients) |
+| 5 | UI text en + bg | Done |
+| 6 | Additive migrations + tests | Done (0009) |
+| 7 | Audit | `webhook_subscription.*`, `webhook_delivery.redelivered`; never secrets |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.10 |
+| Exit | API-key client syncs, receives a signed `opportunity.closed_won`, writes back an ERP reference, is refused outside its scopes | Done: `tests/api/test_phase6_exit.py` (plus the integration scope matrix for every route) |
+
+### Decisions and deviations
+
+- `POST /webhook-subscriptions/{id}/test` queues the ping and returns `202` instead of the receiver's status: a synchronous call would make the request reach an external system, which CLAUDE.md forbids. Spec updated in the same change.
+- The outbox stores no `entity_version`; payloads take `version` from the record at delivery time. Added columns `dispatched_at`, `details`, `first_attempt_at`, `failing_since` and the `webhook_attempt` table; architecture section 4 updated (ADR 0025).
+- Test events never count towards suspension or the failing figure, so checking an endpoint cannot raise an alert.
+- Suspension is logged by the worker rather than audited: the audit log records changes made by users and integration clients, and the worker has no actor.
+- The Bulgarian UI uses „уебхук" for webhook.
+
+### Open items
+
+1. Owner review of Phase 6 (PR #12 for 6a, the 6b PR stacked on it; PR #11 brings Phase 5 to `main` first).
+2. Requirements open questions 7 and 8 (data flows and write scopes) remain; the ERP, Billing and Conclusion clients stay inactive until answered.
+3. The network team needs the webhook hosts for `WEBHOOK_ALLOWED_HOSTS` and outbound HTTPS from the worker (operations guide, Phase 8).

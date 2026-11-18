@@ -740,3 +740,46 @@ def test_FR_INT_10_integration_guide_python_sample_verifies_crm_signatures() -> 
     assert not verify("whsec_other", header, body)
     assert not verify("whsec_new", header, body + b"x")
     assert not verify("whsec_new", webhooks.sign(["whsec_new"], now - 301, body), body)
+
+
+async def test_FR_INT_04_reference_changes_are_sent_with_the_reference(
+    test_app: TestApp, receivers: list[Receiver]
+) -> None:
+    erp = await test_app.integration_client(["organizations:read"])
+    sink = Receiver([])
+    receivers.append(sink)
+    created = await subscribe(test_app, erp.client_id, sink.url, ["external_reference.updated"])
+    sink.secrets.append(created["secret"])
+    rep, _ = await test_app.signed_in()
+    org = await create_org(rep)
+    admin, _ = await test_app.signed_in(RoleCode.ADMIN)
+    path = f"/api/v1/organizations/{org['id']}/external-references/erp"
+    assert (await admin.put(path, json={"external_id": "C-1"})).status_code == 200
+    await run_worker(test_app, real_now())
+    assert (await admin.delete(path)).status_code == 204
+    await run_worker(test_app, real_now())
+    set_event, removed_event = sink.events
+    assert set_event["type"] == "external_reference.updated"
+    assert set_event["data"]["system"] == "erp"
+    assert set_event["data"]["entity_id"] == org["id"]
+    assert set_event["data"]["object"]["external_id"] == "C-1"
+    assert (removed_event["data"]["system"], removed_event["data"]["object"]) == ("erp", None)
+
+
+async def test_FR_INT_07_connection_failures_are_recorded(test_app: TestApp) -> None:
+    import socket
+
+    with socket.socket() as probe:  # a port with nothing listening
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    erp = await test_app.integration_client(["organizations:read"])
+    await subscribe(test_app, erp.client_id, f"http://127.0.0.1:{port}/hooks")
+    rep, _ = await test_app.signed_in()
+    await create_org(rep)
+    await run_worker(test_app, test_app.clock.now())
+    [delivery] = await deliveries(test_app)
+    assert (delivery.status, delivery.last_error, delivery.last_status_code) == (
+        "retrying",
+        "connection_failed",
+        None,
+    )
