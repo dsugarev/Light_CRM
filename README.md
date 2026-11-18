@@ -2,7 +2,7 @@
 
 A light B2B CRM for the Commercial team: lead and opportunity management, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, Docker Compose.
 
-Status: **Phase 7 (AI assistant)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records, and receive signed webhooks with a delivery log; see the [integration guide](docs/integration-guide.md). An AI assistant (a chat drawer on every page that answers from CRM data through read-only tools, with record context, history and drafts saved as notes on request) is built and off by default. See [`docs/Plan.md`](docs/Plan.md) for what is built.
+Status: **Phase 8 (hardening and release)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records, and receive signed webhooks with a delivery log; see the [integration guide](docs/integration-guide.md). An AI assistant (a chat drawer on every page that answers from CRM data through read-only tools, with record context, history and drafts saved as notes on request) is built and off by default. Users can turn on two-factor sign-in (it can be required for Admins), and Admins can export or anonymize a contact's personal data (GDPR). See [`docs/Plan.md`](docs/Plan.md) for what is built.
 
 ## Documentation
 
@@ -18,6 +18,7 @@ Status: **Phase 7 (AI assistant)**. Users sign in; Admins manage users, lists, p
 | [`docs/Plan.md`](docs/Plan.md) | Implementation log: what was built, with code excerpts |
 | [`docs/Test_strategy.md`](docs/Test_strategy.md) | Test record: strategy per phase, test cases performed and results |
 | [`docs/api/`](docs/api/README.md) | OpenAPI snapshot and how to open the interactive API docs |
+| [`docs/security/asvs-l1.md`](docs/security/asvs-l1.md) | OWASP ASVS Level 1 checklist with evidence and open items |
 | [`docs/assistant-eval.md`](docs/assistant-eval.md) | Live evaluation of the AI assistant: cases, how to run, results |
 
 ## Run it
@@ -74,6 +75,7 @@ uv run python -m app.cli export-openapi --output openapi.json
 uv run python -m app.cli create-admin --email admin@example.test --full-name "Admin"
 uv run python -m app.cli create-integration-client [--system erp|billing|conclusion|all]
 uv run python -m app.cli seed-demo   # fictional NFR-01 volumes; refused in production
+uv run python -m app.cli reset-mfa --email user@example.test   # lost authenticator device
 uv run python scripts/assistant_eval.py   # live assistant evaluation (docs/assistant-eval.md)
 uv run ruff check . && uv run ruff format --check .
 uv run mypy

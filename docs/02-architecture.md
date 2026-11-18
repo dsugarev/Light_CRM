@@ -135,7 +135,7 @@ Each backend module has the same internal structure: `router.py` (HTTP only), `s
 
 | Module | Table | Key columns and notes |
 |---|---|---|
-| identity | `app_user` | user_type (`human` / `service`), email (unique, case-insensitive), full_name, password_hash (nullable), role_id, locale, is_active, auth_provider (`local`), external_subject, failed_login_count, locked_until, mfa_secret. Service users have no password and cannot sign in or own records |
+| identity | `app_user` | user_type (`human` / `service`), email (unique, case-insensitive), full_name, password_hash (nullable), role_id, locale, is_active, auth_provider (`local`), external_subject, failed_login_count, locked_until, mfa_secret (encrypted), mfa_pending_secret, mfa_enabled_at, mfa_recovery_codes (SHA-256 hashes), mfa_last_counter (replay protection; ADR 0027). Service users have no password and cannot sign in or own records |
 | identity | `role` | code (`admin`, `sales_manager`, `sales_rep`, `viewer`, `integration`), name |
 | identity | `user_session` | token_hash, user_id, created_at, last_seen_at, expires_at, ip, user_agent |
 | identity | `password_token` | token_hash, user_id, purpose (set / reset), expires_at, used_at |
