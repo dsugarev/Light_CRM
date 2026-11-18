@@ -62,3 +62,11 @@ test('UX-02 navigation drawer and user menu at 768 px by keyboard', async ({ pag
   await expect(menu).toBeHidden()
   await expect(account).toBeFocused()
 })
+
+test('the browser tab names the page (WCAG 2.4.2)', async ({ page }) => {
+  const nav = page.getByRole('navigation', { name: 'Main navigation' })
+  await nav.getByRole('link', { name: 'Leads' }).click()
+  await expect(page).toHaveTitle('Leads · Light CRM')
+  await nav.getByRole('link', { name: 'Audit log' }).click()
+  await expect(page).toHaveTitle('Audit log · Light CRM')
+})

@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 
 import { api, ApiError, asPage, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { EmailLink, PhoneLink } from '@/components/ContactLinks'
 import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { FormMessage } from '@/components/FormMessage'
@@ -90,7 +91,7 @@ export function ContactsPage() {
       header: t('contacts.columns.email'),
       // Long addresses wrap so the table fits at 768 px (UX-13).
       className: 'whitespace-normal [overflow-wrap:anywhere]',
-      cell: (c) => c.email ?? '',
+      cell: (c) => <EmailLink email={c.email} />,
     },
     {
       key: 'owner',
@@ -340,22 +341,8 @@ export function ContactPage() {
   const actionError = [archive.error, restore.error].find((e) => e instanceof ApiError)
   const rows: [string, React.ReactNode][] = [
     [t('contact.fields.jobTitle'), c.job_title],
-    [
-      t('contact.fields.email'),
-      c.email ? (
-        <a href={`mailto:${c.email}`} className="hover:underline">
-          {c.email}
-        </a>
-      ) : null,
-    ],
-    [
-      t('contact.fields.phone'),
-      c.phone ? (
-        <a href={`tel:${c.phone}`} className="hover:underline">
-          {c.phone}
-        </a>
-      ) : null,
-    ],
+    [t('contact.fields.email'), c.email ? <EmailLink email={c.email} /> : null],
+    [t('contact.fields.phone'), c.phone ? <PhoneLink phone={c.phone} /> : null],
     [
       t('contact.fields.preferredLocale'),
       c.preferred_locale ? tc(`language.${c.preferred_locale}`) : null,

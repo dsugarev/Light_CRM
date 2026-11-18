@@ -2445,3 +2445,23 @@ Deviations and open items:
 - Owner decisions are listed in section C of the backlog:
   - C-01 branding, C-02 dark mode, C-04 command palette, C-05 system status, C-06 sign-in notice;
   - C-09 locked-users filter, C-10 visual baselines in CI.
+
+## CRM UI improvements loop (2026-11-18)
+
+Best-practice improvements after the UI polish, recorded per iteration in [`docs/loop_result.md`](loop_result.md) (branch `ui-improvements`, stacked on PR #22). Frontend only, with no API change.
+
+- **Iteration 1:**
+  - Descriptive browser-tab titles on every page (`usePageTitle`, WCAG 2.4.2).
+  - Email, phone and website as links on contacts, leads and organizations (`ContactLinks`). Websites only for `http`/`https`, opened with `noopener noreferrer`.
+
+```ts
+export function websiteHref(website: string): string | null {
+  const candidate = /^[a-z][a-z\d+.-]*:/i.test(website) ? website : `https://${website}`
+  try {
+    const url = new URL(candidate)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null
+  } catch {
+    return null
+  }
+}
+```

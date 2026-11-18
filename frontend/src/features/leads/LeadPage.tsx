@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router'
 
 import { api, call } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { EmailLink, PhoneLink } from '@/components/ContactLinks'
 import { ErrorState } from '@/components/ErrorState'
 import { FormField } from '@/components/FormField'
 import { Loading } from '@/components/Loading'
@@ -58,15 +59,8 @@ export function LeadPage() {
   const rows: [string, React.ReactNode][] = [
     [t('fields.companyName'), l.company_name],
     [t('fields.contactName'), l.contact_name],
-    [
-      t('fields.email'),
-      l.email ? (
-        <a className="hover:underline" href={`mailto:${l.email}`}>
-          {l.email}
-        </a>
-      ) : null,
-    ],
-    [t('fields.phone'), l.phone],
+    [t('fields.email'), l.email ? <EmailLink email={l.email} /> : null],
+    [t('fields.phone'), l.phone ? <PhoneLink phone={l.phone} /> : null],
     [t('fields.source'), l.source ? referenceName(l.source, locale) : null],
     [t('fields.estimatedValue'), l.estimated_value ? formatMoney(l.estimated_value, locale) : null],
     [

@@ -47,8 +47,8 @@ export function AppLayout() {
 
   useEffect(() => {
     document.documentElement.lang = i18n.resolvedLanguage ?? 'en'
-    document.title = t('app.name')
-  }, [i18n.resolvedLanguage, t])
+    // The tab title is set by each page (usePageTitle), in the page's language.
+  }, [i18n.resolvedLanguage])
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">

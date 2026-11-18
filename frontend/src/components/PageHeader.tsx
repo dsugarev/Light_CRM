@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
+import { usePageTitle } from './usePageTitle'
+
 export interface Crumb {
   label: string
   to: string
@@ -20,6 +22,7 @@ interface PageHeaderProps {
 /** UX-03: the one header every page uses: breadcrumbs, title, description and actions. */
 export function PageHeader({ title, description, breadcrumbs, actions }: PageHeaderProps) {
   const { t } = useTranslation()
+  usePageTitle(title)
   return (
     <header className="mb-6 flex flex-col gap-2">
       {breadcrumbs?.length ? (
