@@ -43,12 +43,14 @@ from app.modules.identity.schemas import (
     PasswordTokenInfo,
     RoleOut,
     SessionInfo,
+    SessionTimeouts,
     UserCreate,
     UserCreated,
     UserLookupItem,
     UserLookupPage,
     UserOut,
     UserPage,
+    UserSort,
     UserUpdate,
 )
 from app.modules.identity.tokens import hash_token, new_token
@@ -519,6 +521,21 @@ async def get_me(ctx: Context, principal: Principal) -> Me:
         scopes=sorted(principal.scopes),
         mfa_enabled=user.mfa_enabled_at is not None,
         mfa_setup_required=principal.mfa_setup_required,
+        session=await _session_timeouts(ctx, principal),
+    )
+
+
+async def _session_timeouts(ctx: Context, principal: Principal) -> SessionTimeouts | None:
+    """FN-05: the idle timeout setting and this session's absolute expiry."""
+    if principal.session_id is None:
+        return None
+    user_session = await repository.get_session(ctx.session, principal.session_id)
+    if user_session is None:
+        return None
+    settings = await runtime_settings.load(ctx.session)
+    return SessionTimeouts(
+        idle_timeout_minutes=settings.session_idle_timeout_minutes,
+        expires_at=user_session.expires_at,
     )
 
 
@@ -710,12 +727,14 @@ async def list_users(
     is_active: bool | None,
     page: int,
     page_size: int,
+    sort: UserSort = "name",
 ) -> UserPage:
     users, total = await repository.list_users(
         ctx.session,
         q=q,
         role_code=role.value if role else None,
         is_active=is_active,
+        sort=sort,
         include_service=False,
         offset=(page - 1) * page_size,
         limit=page_size,

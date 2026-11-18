@@ -1,9 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { ApiError } from '@/api/client'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 
 /**
  * A change to activities. Timelines, task lists and opportunities (their
@@ -16,7 +15,7 @@ export function useActivityMutation<V, R>(
 ) {
   const queryClient = useQueryClient()
   const { t } = useTranslation('activities')
-  const errorText = useErrorText()
+  const notify = useNotify()
   return useMutation({
     mutationFn,
     onSuccess: async () => {
@@ -25,17 +24,17 @@ export function useActivityMutation<V, R>(
         queryClient.invalidateQueries({ queryKey: ['tasks'] }),
         queryClient.invalidateQueries({ queryKey: ['opportunities'] }),
       ])
-      toast.success(successMessage)
+      notify.success(successMessage)
     },
     onError: async (error) => {
       if (error instanceof ApiError && error.code === 'conflict.version_mismatch') {
         await queryClient.invalidateQueries({ queryKey: ['timeline'] })
         await queryClient.invalidateQueries({ queryKey: ['tasks'] })
-        toast.error(t('toasts.conflict'))
+        notify.error(error, t('toasts.conflict'))
         return
       }
       if (toastFieldErrors || !(error instanceof ApiError && error.errors.length > 0)) {
-        toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+        notify.error(error)
       }
     },
   })

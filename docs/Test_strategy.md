@@ -944,12 +944,82 @@ NFR-01 measurement (milliseconds):
 |---|---|---|
 | Review of the operations guide | The first backup-copy example used `rsync --delete-after`, which would delete the other machine's copies when the server prunes after 10 days | `--delete` removed and warned against |
 
+## 19. UI polish after Release 1 (UX-01..14, FN-01..08)
+
+### Strategy
+- Every backlog item adds tests named after its ID (`UX-06 shows caps lock warning`) next to the change: component tests (Vitest, MSW), and Playwright where the item is about a journey or the real browser.
+- **Guards instead of reviews:** for conventions that should stay true, a test scans the sources or the running app:
+  - no color literals or palette classes (UX-01);
+  - no `<h1>` outside `PageHeader`/`AuthCard` (UX-03);
+  - no hand-written loading or empty text (UX-04);
+  - no bare `Label` in features (UX-11);
+  - lint rules against `window.confirm`/`alert`/`prompt` and direct toasts (UX-05).
+- **Looking at it:** for every visible change, screenshots in English and Bulgarian at 1440 and 768 px were reviewed (not committed), with axe on each new state: drawer, menus, sheets, dialogs, error and empty states.
+- **Layout and accessibility in the browser:**
+  - `e2e/layout.spec.ts` (Bulgarian, 768 px: no sideways scrolling, no cut selects);
+  - axe on every route (`accessibility.spec.ts`);
+  - focus-indicator contrast measured in Chromium (`keyboard.spec.ts`).
+- **Visual baselines (UX-14):** `e2e/visual.spec.ts` in its own project (`pnpm e2e:visual`). List responses are emptied and dates and figures masked, so the 152 screenshots are deterministic on a growing database. They are macOS baselines, so not run in CI (proposal C-10).
+- **Each item's gate:** lint, prettier, typecheck, Vitest, i18n, Playwright Chromium (2 workers on this machine), the visual suite once it existed, and the backend gate (ruff, mypy, import-linter, pytest).
+
+### Test cases added (summary)
+
+| Item | Cases | Files |
+|---|---|---|
+| UX-01, UX-12 | 3 (+1 E2E focus contrast) | `src/app/designTokens.test.ts`, `e2e/keyboard.spec.ts` |
+| UX-02 | 5 (+2 E2E) | `src/app/appShell.test.tsx`, `e2e/shell.spec.ts` |
+| UX-03 | 4 | `src/components/PageHeader.test.tsx` |
+| UX-04 | 7 | `src/components/states.test.tsx` |
+| UX-05 | 5 | `src/lib/notify.test.tsx` |
+| UX-06 | 7 | `src/features/auth/signInPage.test.tsx` |
+| UX-07 | 10 | `src/features/auth/passwordRules.test.tsx` |
+| UX-08 | 11 (+1 backend) | `src/features/admin/usersTable.test.tsx`, `backend/tests/api/test_users.py` |
+| UX-09 | 4 | `src/features/admin/userSheets.test.tsx` |
+| UX-10, FN-07 | 11 | `src/features/admin/auditViewer.test.tsx` |
+| UX-11 | 8 | `src/components/formConventions.test.tsx` |
+| UX-12 | 2 E2E (all remaining routes, signed-out pages) | `e2e/accessibility.spec.ts` |
+| UX-13 | 5 (+1 E2E) | `src/lib/format.test.ts`, `e2e/layout.spec.ts` |
+| UX-14 | 4 E2E (152 screenshots) | `e2e/visual.spec.ts` |
+| FN-01, FN-02 | 4 + 7 | `src/features/profile/profile.test.tsx`, `src/lib/userAgent.test.ts` |
+| FN-03 | 5 | `src/features/admin/userActions.test.tsx` |
+| FN-04 | 4 (+1 E2E) | `src/features/auth/sessionExpiry.test.tsx`, `e2e/session.spec.ts` |
+| FN-06 | 1 | `src/app/app.test.tsx` |
+| FN-08 | 4 | `src/features/admin/lastAdmin.test.tsx` |
+| FN-05 | 6 (+1 backend, +1 E2E with two tabs) | `src/features/auth/idleWarning.test.tsx`, `backend/tests/api/test_me_settings_audit.py`, `e2e/idle.spec.ts` |
+| Assistant note form fix | 1 | `src/features/assistant/assistant.test.tsx` |
+
+Tests updated for changed behaviour, never weakened:
+- sign-out and language through the account menu (UX-02);
+- menu clicks scoped to the main navigation because breadcrumbs repeat names (UX-03);
+- confirmation before signing out a session or unlocking (UX-05, FN-03);
+- the identity journey fills the new-user sheet and presses Done (UX-09);
+- the keyboard board walkthrough runs as a fresh rep, because the admin's board outgrew 200 tab stops (UX-12);
+- session fixtures use realistic user-agent strings (FN-02).
+
+### Runs performed
+
+| Date | Where | What | Result |
+|---|---|---|---|
+| 2026-11-18 | Developer Mac (8 GB) | Full gate per item, 21 items | Final: Vitest 251/251, Playwright Chromium 46/46, visual 4/4 twice in a row, pytest 1304 passed (95.5%) |
+| 2026-11-18 | Developer Mac under memory pressure (swap 9–13 GB) | Playwright, UX-03..06 | Timeouts that moved between specs (backend requests of 3–42 s); UX-05 and UX-06 were parked until the host was freed, then passed 41/41 unchanged |
+| 2026-11-18 | Developer Mac, Spotlight or Teams busy | Playwright, default workers | Load 16–78 caused timeouts; runs use 2 workers since |
+
+### Defects found
+| Found by | Defect | Fix |
+|---|---|---|
+| Intermittent assistant E2E (C-08) | The reload after an answer remounted the message and dropped an opened "save as note" form | Live and stored messages in one keyed list; regression test |
+| UX-13 sweep | Stages and lists put `display: flex` on `<td>`; actions drew above the row | Inner wrapping container |
+| UX-10 screenshots | A missing field and `null` were shown as a change | Treated as equal |
+| UX-12 measurement | Focus ring about 1.5:1 on links | Token darkened to 3:1 or more |
+| UX-05 test | A toast raised after a language switch used the old language | Errors translated when shown |
+| UX-14 second run | Win/loss totals were not masked | Masked; verified after a full E2E run |
+
 ## Appendix — test case inventory
 
 <!-- inventory:start -->
 _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 
-### Backend (pytest: unit, API, authorization matrix, migrations) — 1303 test cases
+### Backend (pytest: unit, API, authorization matrix, migrations) — 1305 test cases
 
 **`backend/tests/api/test_activities.py`** (13)
 
@@ -1187,11 +1257,12 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Organization shows its open leads | FR-PARTY-03 | 1 |
 | Lead lists are seeded and protected when used | FR-ADM-02 | 1 |
 
-**`backend/tests/api/test_me_settings_audit.py`** (16)
+**`backend/tests/api/test_me_settings_audit.py`** (17)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Me lists permissions for the ui | FR-AUTH-05 | 1 |
+| Fn 05 me gives the session timeouts | — | 1 |
 | Language preference is saved on the profile | FR-I18N-01 | 1 |
 | Me rejects unknown fields and locales | — | 1 |
 | List and revoke own sessions | FR-AUTH-04 | 1 |
@@ -1343,7 +1414,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Rows inside the safety lag are held back | — | 1 |
 | Sync mode needs an index on updated at and id | — | 2 |
 
-**`backend/tests/api/test_users.py`** (17)
+**`backend/tests/api/test_users.py`** (18)
 
 | Test | Requirement | Cases |
 |---|---|---|
@@ -1352,6 +1423,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Duplicate email is rejected case insensitively | — | 1 |
 | Create user validates fields | — | 1 |
 | List filter and detail | — | 1 |
+| Ux 08 list sorts by column | FR-ADM-01 | 1 |
 | Lookup lists active humans for every signed in user | — | 1 |
 | Role change is audited with before and after | FR-ADM-03 | 1 |
 | Update rejects taken email | — | 1 |
@@ -1548,9 +1620,9 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Failing job does not stop other jobs | — | 1 |
 | Worker runs jobs until stopped | — | 1 |
 
-### Frontend (Vitest + Testing Library + MSW) — 139 test cases
+### Frontend (Vitest + Testing Library + MSW) — 229 test cases
 
-**`frontend/src/app/app.test.tsx`** (15)
+**`frontend/src/app/app.test.tsx`** (16)
 
 | Test | Requirement | Cases |
 |---|---|---|
@@ -1569,13 +1641,33 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | app shell and sign-in › shows a translated not-found message for unknown pages | — | 1 |
 | app shell and sign-in › NFR-08 shows the API as online or unavailable | NFR-08 | 1 |
 | app shell and sign-in › NFR-08 shows the API as unavailable when the readiness check fails | NFR-08 | 1 |
+| FN-06 language preference › FN-06 signing in on another device applies the language saved on the profile | — | 1 |
 
-**`frontend/src/lib/format.test.ts`** (2)
+**`frontend/src/app/appShell.test.tsx`** (5)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-02 app shell › UX-02 groups the navigation by area and highlights the active route | — | 1 |
+| UX-02 app shell › UX-02 shows only the routes a sales rep may open | — | 1 |
+| UX-02 app shell › UX-02 collapses the sidebar and remembers it for the session | — | 1 |
+| UX-02 app shell › UX-02 opens the navigation drawer and closes it after navigating, in Bulgarian too | — | 1 |
+| UX-02 app shell › UX-02 user menu links to the profile and offers language and sign out | — | 1 |
+
+**`frontend/src/app/designTokens.test.ts`** (3)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-01 design tokens › scans the source files | — | 1 |
+| UX-01 design tokens › UX-01 has no hex, rgb, hsl or oklch color literals outside the theme file | — | 1 |
+| UX-01 design tokens › UX-01 uses theme color utilities, not Tailwind palette colors | — | 1 |
+
+**`frontend/src/lib/format.test.ts`** (3)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | FR-I18N-03 locale formatting in Europe/Sofia time › shows UTC timestamps in Sofia time | FR-I18N-03 | 1 |
 | FR-I18N-03 locale formatting in Europe/Sofia time › formats numbers and EUR amounts per language | FR-I18N-03 | 1 |
+| UX-13 compact money for chart axes › UX-13 %d in %s is %s | — | 1 |
 
 **`frontend/src/lib/locale.test.ts`** (4)
 
@@ -1586,11 +1678,60 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-I18N-01 locale detection › ignores unsupported stored values | FR-I18N-01 | 1 |
 | FR-I18N-01 locale detection › remembers the chosen language | FR-I18N-01 | 1 |
 
+**`frontend/src/lib/notify.test.tsx`** (5)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-05 feedback › UX-05 maps a backend error code to its translated message | — | 1 |
+| UX-05 feedback › UX-05 falls back to a generic message for unknown codes and network failures | — | 1 |
+| UX-05 feedback › UX-05 maps the code in Bulgarian too | — | 1 |
+| UX-05 feedback › UX-05 shows success messages | — | 1 |
+| UX-05 feedback › UX-05 says when the language could not be kept on the profile | — | 1 |
+
+**`frontend/src/lib/userAgent.test.ts`** (2)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FN-02 device names › FN-02 %s | — | 1 |
+| FN-02 device names › FN-02 no user agent | — | 1 |
+
 **`frontend/src/lib/zodConfig.test.ts`** (1)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | ASVS 5.2.4 Zod never probes eval, which the CSP forbids | — | 1 |
+
+**`frontend/src/components/PageHeader.test.tsx`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-03 page header › UX-03 no page renders its own h1 | — | 1 |
+| UX-03 page header › UX-03 record pages show breadcrumbs back to their list | — | 1 |
+| UX-03 page header › UX-03 edit pages lead back through the record, in Bulgarian too | — | 1 |
+| UX-03 page header › UX-03 list pages have no breadcrumbs but keep their actions | — | 1 |
+
+**`frontend/src/components/formConventions.test.tsx`** (8)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-11 form conventions › UX-11 marks a required field without changing its label | — | 1 |
+| UX-11 form conventions › UX-11 leaves optional fields unmarked | — | 1 |
+| UX-11 form conventions › UX-11 no feature builds its own labels | — | 1 |
+| UX-11 unsaved changes › UX-11 marks required fields on a record form | — | 1 |
+| UX-11 unsaved changes › UX-11 warns before leaving a form with changes, and can stay | — | 1 |
+| UX-11 unsaved changes › UX-11 leaves without saving when asked to | — | 1 |
+| UX-11 unsaved changes › UX-11 an untouched form does not ask | — | 1 |
+| UX-11 unsaved changes › UX-11 also asks the browser before closing the tab | — | 1 |
+
+**`frontend/src/components/states.test.tsx`** (5)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-04 loading, empty and error states › UX-04 no page writes its own loading or empty text | — | 1 |
+| UX-04 loading, empty and error states › UX-04 %s skeleton is announced once, without visible text | — | 1 |
+| UX-04 loading, empty and error states › UX-04 an empty list shows the empty state | — | 1 |
+| UX-04 loading, empty and error states › UX-04 a failed list shows the request ID and retries | — | 1 |
+| UX-04 loading, empty and error states › UX-04 the route error boundary offers a retry and the request ID, in Bulgarian too | — | 1 |
 
 **`frontend/src/features/activities/activities.test.tsx`** (5)
 
@@ -1602,18 +1743,94 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-ACT-03 timeline freshness › reloads the timeline after a change to the record | FR-ACT-03 | 1 |
 | FR-ACT-02 my tasks › shows overdue tasks and marks them done | FR-ACT-02 | 1 |
 
-**`frontend/src/features/auth/setPassword.test.tsx`** (6)
+**`frontend/src/features/contacts/contacts.test.tsx`** (7)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-AUTH-02 set password from a one-time link › checks the token from the URL fragment and sets the password | FR-AUTH-02 | 1 |
-| FR-AUTH-02 set password from a one-time link › explains an invalid or used link | FR-AUTH-02 | 1 |
-| FR-AUTH-02 set password from a one-time link › shows the policy error returned by the server | FR-AUTH-02 | 1 |
-| forgot password › always confirms without revealing whether the account exists | — | 1 |
-| safeNext | — | 1 |
-| set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
+| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
+| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
+| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
 
-**`frontend/src/features/assistant/assistant.test.tsx`** (12)
+**`frontend/src/features/contacts/gdpr.test.tsx`** (3)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-ADM-04 GDPR tools › downloads the personal data as a JSON file | FR-ADM-04 | 1 |
+| FR-ADM-04 GDPR tools › anonymizes only after the word is typed | FR-ADM-04 | 1 |
+| FR-ADM-04 GDPR tools › is not offered to other roles | FR-ADM-04 | 1 |
+
+**`frontend/src/features/admin/admin.test.tsx`** (9)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-ADM-01 user administration › lists users with translated roles and keeps filters in the URL | FR-ADM-01 | 1 |
+| FR-ADM-01 user administration › FR-AUTH-02 creates a user and shows the one-time link to hand over | FR-ADM-01, FR-AUTH-02 | 1 |
+| FR-ADM-01 user administration › validates the form and shows server field errors | FR-ADM-01 | 1 |
+| FR-ADM-01 user administration › deactivates a user after confirmation and explains the last-admin rule | FR-ADM-01 | 1 |
+| FR-ADM-01 user administration › creates a password reset link for a user | FR-ADM-01 | 1 |
+| FR-ADM-03 audit log › shows translated actions and filters by action | FR-ADM-03 | 1 |
+| FR-ADM-03 audit log › shows before and after values as text | FR-ADM-03 | 1 |
+| FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
+| FR-AUTH-04 settings › FR-OPP-06 saves the stale-opportunity threshold | FR-AUTH-04, FR-OPP-06 | 1 |
+
+**`frontend/src/features/admin/auditViewer.test.tsx`** (9)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-10 audit log viewer › UX-10 filters by user and record type | — | 1 |
+| UX-10 audit log viewer › UX-10 the %s preset sets the date range | — | 1 |
+| UX-10 audit log viewer › UX-10 opens an entry in a drawer with changes side by side | — | 1 |
+| UX-10 audit log viewer › UX-10 opens the drawer from a shared link, in Bulgarian too | — | 1 |
+| UX-10 diff › UX-10 shows a created record with nothing before | — | 1 |
+| UX-10 diff › UX-10 shows nested values as formatted JSON | — | 1 |
+| UX-10 diff › UX-10 falls back to formatted JSON when the values are not field maps | — | 1 |
+| UX-10 diff of a created record › UX-10 does not flag fields that stay empty | — | 1 |
+| FN-07 audit log export › FN-07 exports the log with the current filters and without paging | — | 1 |
+
+**`frontend/src/features/admin/lastAdmin.test.tsx`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FN-08 last-admin protection › FN-08 the last active Admin cannot be demoted, and the sheet says why | — | 1 |
+| FN-08 last-admin protection › FN-08 with two active Admins the role can change | — | 1 |
+| FN-08 last-admin protection › FN-08 deactivating the last Admin is disabled on their page, with the reason | — | 1 |
+| FN-08 last-admin protection › FN-08 the server refusal is still explained if the count was out of date | — | 1 |
+
+**`frontend/src/features/admin/userActions.test.tsx`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FN-03 admin user actions in the row menu › FN-03 offers the actions that fit each user | — | 1 |
+| FN-03 admin user actions in the row menu › FN-03 %s asks first and tells the result | — | 1 |
+| FN-03 admin user actions in the row menu › FN-03 cancelling does nothing | — | 1 |
+| FN-03 admin user actions in the row menu › FN-03 shows a reset link once and forgets it, in Bulgarian too | — | 1 |
+
+**`frontend/src/features/admin/userSheets.test.tsx`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-09 create and edit user › UX-09 creates a user in a sheet and shows the link once | — | 1 |
+| UX-09 create and edit user › UX-09 closing with Escape also forgets the link | — | 1 |
+| UX-09 create and edit user › UX-09 edits a user from the row menu | — | 1 |
+| UX-09 create and edit user › UX-09 edits from the user page, in Bulgarian too | — | 1 |
+
+**`frontend/src/features/admin/usersTable.test.tsx`** (7)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-08 users table › UX-08 sorts by a column and keeps the sort in the URL | — | 1 |
+| UX-08 users table › UX-08 reads search, filters and sort from a shared URL | — | 1 |
+| UX-08 users table › UX-08 falls back to name for a sort the API does not accept | — | 1 |
+| UX-08 users table › UX-08 shows last sign-in relative with the exact time on hover | — | 1 |
+| UX-08 users table › UX-08 shows status badges | — | 1 |
+| UX-08 users table › UX-08 row action menu opens the user or unlocks a locked one | — | 1 |
+| UX-08 relative time › UX-08 %s in %s is \"%s\" | — | 1 |
+
+**`frontend/src/features/assistant/assistant.test.tsx`** (13)
 
 | Test | Requirement | Cases |
 |---|---|---|
@@ -1629,6 +1846,72 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-AI-04 drafts › copies a draft and saves an edited draft as a note on a cited record | FR-AI-04 | 1 |
 | FR-AI-04 drafts › offers no note saving to viewers | FR-AI-04 | 1 |
 | Server-Sent Events parsing › keeps an unfinished block for the next chunk | — | 1 |
+| FR-AI-04 save as note right after an answer › keeps an opened note form when the stored conversation replaces the live answer | FR-AI-04 | 1 |
+
+**`frontend/src/features/imports/imports.test.tsx`** (6)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-IMP-01 import wizard › uploads a file and opens the batch | FR-IMP-01 | 1 |
+| FR-IMP-01 import wizard › FR-IMP-01 AC1 maps columns, then saves and checks the rows | FR-IMP-01, FR-IMP-01 AC1 | 1 |
+| FR-IMP-01 import wizard › FR-IMP-01 AC1 AC2 shows invalid rows with reasons and imports without them | FR-IMP-01, FR-IMP-01 AC1 | 1 |
+| FR-IMP-01 import wizard › FR-IMP-01 AC4 only an Admin can roll back | FR-IMP-01, FR-IMP-01 AC4 | 1 |
+| FR-IMP-01 import wizard › shows all rows once imported (the checking filter does not carry over) | FR-IMP-01 | 1 |
+| FR-IMP-01 import wizard › is hidden from Sales Reps | FR-IMP-01 | 1 |
+
+**`frontend/src/features/auth/idleWarning.test.tsx`** (6)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FN-05 idle-timeout warning › FN-05 the schedule counts from a minute before the last request and respects the absolute expiry | — | 1 |
+| FN-05 idle-timeout warning › FN-05 warns five minutes before the timeout and stays signed in | — | 1 |
+| FN-05 idle-timeout warning › FN-05 activity in another tab closes the warning | — | 1 |
+| FN-05 idle-timeout warning › FN-05 without an answer the session ends and sign-in says why | — | 1 |
+| FN-05 idle-timeout warning › FN-05 signing out from the warning tells the other tabs | — | 1 |
+| FN-05 idle-timeout warning › FN-05 a sign-out in another tab signs this tab out too, in Bulgarian | — | 1 |
+
+**`frontend/src/features/auth/passwordRules.test.tsx`** (6)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-07 password checklist › UX-07 length rule for %# | — | 1 |
+| UX-07 password checklist › UX-07 the common-password rule says it is checked on save | — | 1 |
+| UX-07 password checklist › UX-07 match rule for %s / %s | — | 1 |
+| UX-07 set password page › UX-07 updates the checklist while typing | — | 1 |
+| UX-07 set password page › UX-07 explains an expired link and what to do next | — | 1 |
+| UX-07 set password page › UX-07 explains an incomplete link, in Bulgarian too | — | 1 |
+
+**`frontend/src/features/auth/sessionExpiry.test.tsx`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FN-04 session expiry › FN-04 a lost session goes to sign-in, says so, and comes back after signing in | — | 1 |
+| FN-04 session expiry › FN-04 a first visit is sent to sign-in without the expiry message | — | 1 |
+| FN-04 session expiry › FN-04 unsaved changes do not hold back the move to sign-in | — | 1 |
+| FN-04 session expiry › FN-04 the sign-in target keeps the page and only flags a lost session | — | 1 |
+
+**`frontend/src/features/auth/setPassword.test.tsx`** (6)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-AUTH-02 set password from a one-time link › checks the token from the URL fragment and sets the password | FR-AUTH-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › explains an invalid or used link | FR-AUTH-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › shows the policy error returned by the server | FR-AUTH-02 | 1 |
+| forgot password › always confirms without revealing whether the account exists | — | 1 |
+| safeNext | — | 1 |
+| set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
+
+**`frontend/src/features/auth/signInPage.test.tsx`** (7)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-06 sign-in page › UX-06 uses the autocomplete hints password managers expect | — | 1 |
+| UX-06 sign-in page › UX-06 shows and hides the password | — | 1 |
+| UX-06 sign-in page › UX-06 shows caps lock warning | — | 1 |
+| UX-06 sign-in page › UX-06 disables the button with a spinner while signing in | — | 1 |
+| UX-06 sign-in page › UX-06 says how long a lockout lasts and focuses the message | — | 1 |
+| UX-06 sign-in page › UX-06 moves focus to the first field with an error | — | 1 |
+| UX-06 sign-in page › UX-06 shows the lockout time in Bulgarian too | — | 1 |
 
 **`frontend/src/features/integrations/integrations.test.tsx`** (20)
 
@@ -1655,31 +1938,6 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-INT-08 failing-delivery alert › shows a badge on the navigation and a banner in the admin area | FR-INT-08 | 1 |
 | FR-INT-08 failing-delivery alert › is not shown without problems | FR-INT-08 | 1 |
 
-**`frontend/src/features/imports/imports.test.tsx`** (6)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-IMP-01 import wizard › uploads a file and opens the batch | FR-IMP-01 | 1 |
-| FR-IMP-01 import wizard › FR-IMP-01 AC1 maps columns, then saves and checks the rows | FR-IMP-01, FR-IMP-01 AC1 | 1 |
-| FR-IMP-01 import wizard › FR-IMP-01 AC1 AC2 shows invalid rows with reasons and imports without them | FR-IMP-01, FR-IMP-01 AC1 | 1 |
-| FR-IMP-01 import wizard › FR-IMP-01 AC4 only an Admin can roll back | FR-IMP-01, FR-IMP-01 AC4 | 1 |
-| FR-IMP-01 import wizard › shows all rows once imported (the checking filter does not carry over) | FR-IMP-01 | 1 |
-| FR-IMP-01 import wizard › is hidden from Sales Reps | FR-IMP-01 | 1 |
-
-**`frontend/src/features/admin/admin.test.tsx`** (9)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-ADM-01 user administration › lists users with translated roles and keeps filters in the URL | FR-ADM-01 | 1 |
-| FR-ADM-01 user administration › FR-AUTH-02 creates a user and shows the one-time link to hand over | FR-ADM-01, FR-AUTH-02 | 1 |
-| FR-ADM-01 user administration › validates the form and shows server field errors | FR-ADM-01 | 1 |
-| FR-ADM-01 user administration › deactivates a user after confirmation and explains the last-admin rule | FR-ADM-01 | 1 |
-| FR-ADM-01 user administration › creates a password reset link for a user | FR-ADM-01 | 1 |
-| FR-ADM-03 audit log › shows translated actions and filters by action | FR-ADM-03 | 1 |
-| FR-ADM-03 audit log › shows before and after values as text | FR-ADM-03 | 1 |
-| FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
-| FR-AUTH-04 settings › FR-OPP-06 saves the stale-opportunity threshold | FR-AUTH-04, FR-OPP-06 | 1 |
-
 **`frontend/src/features/opportunities/opportunities.test.tsx`** (12)
 
 | Test | Requirement | Cases |
@@ -1697,25 +1955,19 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-OPP-03 pipeline board › FR-I18N-01 shows Bulgarian stage names | FR-OPP-03, FR-I18N-01 | 1 |
 | FR-OPP-02 / FR-ADM-02 stage administration › deactivates a stage and explains why a used stage cannot be deleted | FR-OPP-02, FR-ADM-02 | 1 |
 
-**`frontend/src/features/contacts/contacts.test.tsx`** (7)
+**`frontend/src/features/organizations/organizations.test.tsx`** (9)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
-| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
-| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
-
-**`frontend/src/features/contacts/gdpr.test.tsx`** (3)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-ADM-04 GDPR tools › downloads the personal data as a JSON file | FR-ADM-04 | 1 |
-| FR-ADM-04 GDPR tools › anonymizes only after the word is typed | FR-ADM-04 | 1 |
-| FR-ADM-04 GDPR tools › is not offered to other roles | FR-ADM-04 | 1 |
+| FR-PARTY-04 organization list › shows organizations with translated industry and keeps sort and filters in the URL | FR-PARTY-04 | 1 |
+| FR-PARTY-04 organization list › searches after typing pauses | FR-PARTY-04 | 1 |
+| FR-PARTY-01 create organization › AC1 warns about possible duplicates before saving, with a link | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › AC1 offers \"Create anyway\" after a 409 and resends with confirm_duplicate | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › validates EIK, VAT, website and country on the client | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › shows the owner picker only to users who may reassign | FR-PARTY-01 | 1 |
+| FR-PARTY-03 organization 360 › shows details, counts, contacts and empty later-phase sections | FR-PARTY-03 | 1 |
+| FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
+| FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
 
 **`frontend/src/features/leads/leads.test.tsx`** (14)
 
@@ -1747,13 +1999,17 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-AUTH-07 profile › sends an Admin who must set it up to the profile, with only the setup card | FR-AUTH-07 | 1 |
 | FR-AUTH-07 Admin setting › requires two-factor sign-in for Admins | FR-AUTH-07 | 1 |
 
-**`frontend/src/features/profile/profile.test.tsx`** (3)
+**`frontend/src/features/profile/profile.test.tsx`** (7)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
 | profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
 | profile › shows the server error for a wrong current password | — | 1 |
+| FN-01 change password › FN-01 shows the password rules live while typing | — | 1 |
+| FN-01 change password › FN-01 changes the password and says the other sessions were signed out | — | 1 |
+| FN-02 my sessions › FN-02 lists device, start and last activity, with only the others revocable | — | 1 |
+| FN-02 my sessions › FN-02 names the browser in Bulgarian too | — | 1 |
 
 **`frontend/src/features/reports/reports.test.tsx`** (5)
 
@@ -1765,30 +2021,20 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-REP-02 export › downloads the list with its filters and without paging | FR-REP-02 | 1 |
 | FR-REP-02 export › explains when the export is too large | FR-REP-02 | 1 |
 
-**`frontend/src/features/organizations/organizations.test.tsx`** (9)
+### End-to-end (Playwright, composed stack) — 98 test cases
 
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-PARTY-04 organization list › shows organizations with translated industry and keeps sort and filters in the URL | FR-PARTY-04 | 1 |
-| FR-PARTY-04 organization list › searches after typing pauses | FR-PARTY-04 | 1 |
-| FR-PARTY-01 create organization › AC1 warns about possible duplicates before saving, with a link | FR-PARTY-01 | 1 |
-| FR-PARTY-01 create organization › AC1 offers \"Create anyway\" after a 409 and resends with confirm_duplicate | FR-PARTY-01 | 1 |
-| FR-PARTY-01 create organization › validates EIK, VAT, website and country on the client | FR-PARTY-01 | 1 |
-| FR-PARTY-01 create organization › shows the owner picker only to users who may reassign | FR-PARTY-01 | 1 |
-| FR-PARTY-03 organization 360 › shows details, counts, contacts and empty later-phase sections | FR-PARTY-03 | 1 |
-| FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
-| FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
-
-### End-to-end (Playwright, composed stack) — 78 test cases
-
-**`frontend/e2e/accessibility.spec.ts`** (4)
+**`frontend/e2e/accessibility.spec.ts`** (8)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | NFR-10 sign-in page (chromium) | NFR-10 | 1 |
 | NFR-10 main pages, a record page and the assistant drawer (chromium) | NFR-10 | 1 |
+| UX-12 record, edit, detail and drawer pages (chromium) | — | 1 |
+| UX-12 signed-out pages: forgot password and set password (chromium) | — | 1 |
 | NFR-10 sign-in page (firefox) | NFR-10 | 1 |
 | NFR-10 main pages, a record page and the assistant drawer (firefox) | NFR-10 | 1 |
+| UX-12 record, edit, detail and drawer pages (firefox) | — | 1 |
+| UX-12 signed-out pages: forgot password and set password (firefox) | — | 1 |
 
 **`frontend/e2e/assistant.spec.ts`** (4)
 
@@ -1811,6 +2057,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Journey 1 in bg › FR-AUTH-02 admin creates a rep who sets a password, signs in and gets locked out (firefox) | FR-AUTH-02 | 1 |
 | NFR-04 mutating requests without the CSRF header are rejected (firefox) | NFR-04 | 1 |
 | FR-AUTH-01 anonymous API calls get 401 (firefox) | FR-AUTH-01 | 1 |
+
+**`frontend/e2e/idle.spec.ts`** (2)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FN-05 the idle warning appears in every tab and staying signed in closes it everywhere (chromium) | — | 1 |
+| FN-05 the idle warning appears in every tab and staying signed in closes it everywhere (firefox) | — | 1 |
 
 **`frontend/e2e/imports.spec.ts`** (4)
 
@@ -1843,16 +2096,25 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Lead to won in en › FR-LEAD-01..04, FR-OPP-01..05, FR-ACT-01..03 lead → qualify → convert → progress → won (firefox) | FR-LEAD-01, FR-OPP-01, FR-ACT-01 | 1 |
 | Lead to won in bg › FR-LEAD-01..04, FR-OPP-01..05, FR-ACT-01..03 lead → qualify → convert → progress → won (firefox) | FR-LEAD-01, FR-OPP-01, FR-ACT-01 | 1 |
 
-**`frontend/e2e/keyboard.spec.ts`** (6)
+**`frontend/e2e/keyboard.spec.ts`** (8)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | NFR-10 sign in, skip the navigation, create an organization by keyboard (chromium) | NFR-10 | 1 |
 | NFR-10 move an opportunity to another stage without dragging (chromium) | NFR-10 | 1 |
 | NFR-10 dialogs and the assistant drawer close with Escape and return focus (chromium) | NFR-10 | 1 |
+| UX-12 focus indicators have 3:1 contrast with the page (chromium) | — | 1 |
 | NFR-10 sign in, skip the navigation, create an organization by keyboard (firefox) | NFR-10 | 1 |
 | NFR-10 move an opportunity to another stage without dragging (firefox) | NFR-10 | 1 |
 | NFR-10 dialogs and the assistant drawer close with Escape and return focus (firefox) | NFR-10 | 1 |
+| UX-12 focus indicators have 3:1 contrast with the page (firefox) | — | 1 |
+
+**`frontend/e2e/layout.spec.ts`** (2)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-13 Bulgarian at 768 px: no sideways scrolling or cut filter labels (chromium) | — | 1 |
+| UX-13 Bulgarian at 768 px: no sideways scrolling or cut filter labels (firefox) | — | 1 |
 
 **`frontend/e2e/leads.spec.ts`** (4)
 
@@ -1914,6 +2176,22 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | ASVS 14.4 security headers on the app and the API, no server banner (firefox) | — | 1 |
 | ASVS 3.4 session cookie flags and no CSP violations on the main pages (firefox) | — | 1 |
 
+**`frontend/e2e/session.spec.ts`** (2)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FN-04 an ended session returns to the same page after signing in again (chromium) | — | 1 |
+| FN-04 an ended session returns to the same page after signing in again (firefox) | — | 1 |
+
+**`frontend/e2e/shell.spec.ts`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| UX-02 sidebar collapses at 1440 px and stays collapsed for the session (chromium) | — | 1 |
+| UX-02 navigation drawer and user menu at 768 px by keyboard (chromium) | — | 1 |
+| UX-02 sidebar collapses at 1440 px and stays collapsed for the session (firefox) | — | 1 |
+| UX-02 navigation drawer and user menu at 768 px by keyboard (firefox) | — | 1 |
+
 **`frontend/e2e/smoke.spec.ts`** (10)
 
 | Test | Requirement | Cases |
@@ -1928,5 +2206,14 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Bulgarian browser › FR-I18N-01 language can be switched to English (firefox) | FR-I18N-01 | 1 |
 | NFR-04 security headers are set by the proxy (firefox) | NFR-04 | 1 |
 | NFR-08 API readiness is reachable through the proxy (firefox) | NFR-08 | 1 |
+
+**`frontend/e2e/visual.spec.ts`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| visual en › UX-14 signed-out pages in en (visual) | — | 1 |
+| visual en › UX-14 pages in en (visual) | — | 1 |
+| visual bg › UX-14 signed-out pages in bg (visual) | — | 1 |
+| visual bg › UX-14 pages in bg (visual) | — | 1 |
 
 <!-- inventory:end -->

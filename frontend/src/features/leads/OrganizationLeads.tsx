@@ -80,7 +80,7 @@ export function OrganizationLeads({
             empty={t('organization.none')}
           />
         ) : (
-          <Loading />
+          <Loading variant="table" />
         )}
       </CardContent>
     </Card>

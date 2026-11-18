@@ -90,7 +90,14 @@ export function MyTasksPage() {
         />
         {t('tasks.includeDone')}
       </label>
-      {tasks.isError ? <ErrorState error={tasks.error} /> : null}
+      {tasks.isError ? (
+        <ErrorState
+          error={tasks.error}
+          onRetry={() => {
+            void tasks.refetch()
+          }}
+        />
+      ) : null}
       {tasks.data ? (
         <>
           <DataTable
@@ -110,7 +117,7 @@ export function MyTasksPage() {
           />
         </>
       ) : tasks.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )

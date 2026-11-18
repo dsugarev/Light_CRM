@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { z } from 'zod'
 
+import { AuthCard } from '@/components/AuthCard'
 import { api, ApiError, call } from '@/api/client'
 import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
@@ -23,8 +24,7 @@ export function ForgotPasswordPage() {
   })
 
   return (
-    <section className="mx-auto mt-16 w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
-      <h1 className="mb-6 text-xl font-semibold">{t('forgot.title')}</h1>
+    <AuthCard title={t('forgot.title')}>
       {request.isSuccess ? (
         <FormMessage success={t('forgot.sent')} />
       ) : (
@@ -38,7 +38,11 @@ export function ForgotPasswordPage() {
           }}
         >
           <FormMessage error={request.error instanceof ApiError ? request.error.code : null} />
-          <FormField label={t('forgot.email')} error={form.formState.errors.email?.message}>
+          <FormField
+            label={t('forgot.email')}
+            required
+            error={form.formState.errors.email?.message}
+          >
             {(control) => (
               <Input
                 {...control}
@@ -59,6 +63,6 @@ export function ForgotPasswordPage() {
       >
         {t('forgot.back')}
       </Link>
-    </section>
+    </AuthCard>
   )
 }

@@ -19,9 +19,10 @@ interface ConfirmButtonProps {
   onConfirm: () => void
   disabled?: boolean
   variant?: 'default' | 'destructive' | 'outline'
+  size?: 'default' | 'sm'
 }
 
-/** A button that asks for confirmation before a consequential action. */
+/** UX-05: the one confirmation for destructive actions (never window.confirm). */
 export function ConfirmButton({
   label,
   title,
@@ -29,11 +30,12 @@ export function ConfirmButton({
   onConfirm,
   disabled = false,
   variant = 'outline',
+  size = 'default',
 }: ConfirmButtonProps) {
   const { t } = useTranslation()
   return (
     <AlertDialog>
-      <AlertDialogTrigger render={<Button variant={variant} disabled={disabled} />}>
+      <AlertDialogTrigger render={<Button variant={variant} size={size} disabled={disabled} />}>
         {label}
       </AlertDialogTrigger>
       <AlertDialogContent>

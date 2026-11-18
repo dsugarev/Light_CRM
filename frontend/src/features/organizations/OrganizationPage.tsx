@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, asPage, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -10,6 +9,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -24,14 +24,17 @@ import { useErrorText } from '@/lib/errors'
 import { formatDate, formatMoney, formatNumber } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useLocale } from '@/lib/useLocale'
+import { useNotify } from '@/lib/notify'
 
 type Contact = Schemas['ContactOut']
 
 /** FR-PARTY-03: the organization with its contacts; leads, opportunities and the
  * timeline fill in as Phases 3 and 4 add them. */
 export function OrganizationPage() {
+  const notify = useNotify()
   const { orgId = '' } = useParams()
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const can = useCan()
   const canEdit = useCanEditOwned()
@@ -58,18 +61,26 @@ export function OrganizationPage() {
     mutationFn: () => call(api.DELETE('/api/v1/organizations/{org_id}', path)),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('organization.toasts.archived'))
+      notify.success(t('organization.toasts.archived'))
     },
   })
   const restore = useMutation({
     mutationFn: () => call(api.POST('/api/v1/organizations/{org_id}/restore', path)),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('organization.toasts.restored'))
+      notify.success(t('organization.toasts.restored'))
     },
   })
 
-  if (organization.isError) return <ErrorState error={organization.error} />
+  if (organization.isError)
+    return (
+      <ErrorState
+        error={organization.error}
+        onRetry={() => {
+          void organization.refetch()
+        }}
+      />
+    )
   if (!organization.data) return <Loading />
   const org = organization.data
   const editable = canEdit(org.owner.id)
@@ -110,6 +121,7 @@ export function OrganizationPage() {
     <section className="mx-auto flex max-w-6xl flex-col gap-6">
       <PageHeader
         title={org.name}
+        breadcrumbs={[crumbs.organizations]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {org.archived_at ? (
@@ -226,7 +238,7 @@ export function OrganizationPage() {
                   onSort={() => undefined}
                 />
               ) : (
-                <Loading />
+                <Loading variant="table" />
               )}
             </CardContent>
           </Card>

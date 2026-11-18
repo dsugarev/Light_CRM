@@ -11,7 +11,7 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | Section | Phase | Status |
 |---|---|---|
 | 1 Conventions: problem details, request IDs, CSRF, access levels | 0–1 | Built |
-| 1.3 Lists: paging, sorting, filters, `q`, `include_archived`, sync mode | 2 | Built (shared machinery, ADR 0017); users and audit-log lists keep their Phase 1 parameters |
+| 1.3 Lists: paging, sorting, filters, `q`, `include_archived`, sync mode | 2 | Built (shared machinery, ADR 0017); users and audit-log lists keep their Phase 1 parameters (the users list gained an optional `sort`, UX-08) |
 | 2 System and health | 0–1 | Built |
 | 3 Authentication and sessions | 1, 8 | Built; two-factor sign-in (FR-AUTH-07) since Phase 8a |
 | 4 Current user | 1, 4, 6 | Built; `/me/tasks` since Phase 4b; integration callers (`system`, `scopes`) since Phase 6a |
@@ -296,7 +296,8 @@ Login request and response:
 { "principal_type": "user", "id": "...", "email": "ivan.petrov@example.bg", "full_name": "Ivan Petrov",
   "role": "sales_rep", "locale": "bg",
   "permissions": ["data.export", "records.create", "records.edit_own", "records.read"],
-  "system": null, "scopes": [] }
+  "system": null, "scopes": [],
+  "session": { "idle_timeout_minutes": 480, "expires_at": "2026-11-25T09:00:00Z" } }
 
 // GET /api/v1/me  (integration client, Phase 6a)
 { "principal_type": "integration", "id": "<service user id>", "email": "erp-3f9c1a2b7d4e@integration.invalid",
@@ -305,6 +306,8 @@ Login request and response:
 ```
 
 Permission codes (derived from the role; the UI uses them only to hide controls): `records.read`, `records.create`, `records.edit_own`, `records.edit_any`, `records.reassign`, `records.restore`, `data.export`, `data.import`, `users.manage`, `settings.manage`, `audit.read`. `PATCH /me` accepts only `full_name` and `locale` (`en` | `bg`); other fields return `422`. `GET /me/sessions` returns `[{ "id", "created_at", "last_seen_at", "expires_at", "ip", "user_agent", "current" }]`; revoking a session that is not the caller's returns `404`.
+
+`session` (added after Release 1 for the idle-timeout warning, FN-05; additive): for a signed-in user, the current setting `idle_timeout_minutes` and the session's absolute `expires_at`; `null` for integration clients. Any request (including `GET /me` itself) counts as activity; the server records it at most once a minute, so a client should count the idle time from one minute before its own last request.
 
 ## 5. Users and roles (administration)
 
@@ -340,7 +343,7 @@ Payloads:
 ```
 
 - Emails are unique case-insensitively and stored in lower case; a duplicate returns `409 conflict.duplicate` with field `email` / code `user.email_taken` and `matches`.
-- `GET /users` filters: `q` (name or email), `role`, `is_active`, `page`, `page_size`; ordered by name. Service users are never listed.
+- `GET /users` filters: `q` (name or email), `role`, `is_active`, `page`, `page_size`; ordered by name unless `sort` is given: one of `name`, `email`, `role`, `last_login_at`, with a leading `-` for descending (users who never signed in come last either way; ties by name). Any other `sort` value returns `422`. Service users are never listed.
 - `POST /users/{id}/password-reset` returns `{ "url", "expires_at", "emailed" }` (a set link if the user never had a password); for a deactivated user it returns `422` with field `user_id` / code `user.inactive`.
 - `PATCH /users/{id}` with a changed role is audited as `user.role_changed`, other changes as `user.updated`, both with before and after values.
 - `GET /roles` returns `[{ "code", "name", "permissions": [...] }]` for the four human roles.

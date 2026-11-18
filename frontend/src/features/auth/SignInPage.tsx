@@ -6,11 +6,14 @@ import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
 
+import { AuthCard } from '@/components/AuthCard'
 import { api, ApiError, call } from '@/api/client'
 import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/PasswordInput'
+import { Spinner } from '@/components/Spinner'
 import { isLocale } from '@/i18n'
 import { formatDateTime } from '@/lib/format'
 import { storeLocale } from '@/lib/locale'
@@ -49,11 +52,19 @@ export function SignInPage() {
     await queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY })
     await navigate(next, { replace: true })
   }
+  // UX-06: how long until the next try, rounded up to whole minutes (set when the error arrives).
+  const [lockedMinutes, setLockedMinutes] = useState(0)
   const signIn = useMutation({
     mutationFn: (values: Values) => call(api.POST('/api/v1/auth/login', { body: values })),
     onSuccess: finish,
     onError: (failure) => {
       if (failure instanceof ApiError && failure.code === 'auth.mfa_required') setCodeStep(true)
+      const until = failure instanceof ApiError ? failure.problem['locked_until'] : undefined
+      setLockedMinutes(
+        typeof until === 'string'
+          ? Math.max(0, Math.ceil((new Date(until).getTime() - Date.now()) / 60_000))
+          : 0,
+      )
     },
   })
   const verify = useMutation({
@@ -73,9 +84,7 @@ export function SignInPage() {
   if (codeStep) {
     const codeError = verify.error
     return (
-      <section className="mx-auto mt-16 w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
-        <h1 className="mb-2 text-xl font-semibold">{t('mfa.title')}</h1>
-        <p className="mb-4 text-sm text-muted-foreground">{t('mfa.hint')}</p>
+      <AuthCard title={t('mfa.title')} description={t('mfa.hint')}>
         <form
           noValidate
           className="flex flex-col gap-4"
@@ -85,9 +94,10 @@ export function SignInPage() {
           }}
         >
           <FormMessage
+            focusOnError
             error={codeError instanceof ApiError ? codeError.code : codeError ? 'unknown' : null}
           />
-          <FormField label={t('mfa.code')}>
+          <FormField label={t('mfa.code')} required>
             {(control) => (
               <Input
                 {...control}
@@ -102,7 +112,12 @@ export function SignInPage() {
               />
             )}
           </FormField>
-          <Button type="submit" disabled={verify.isPending || code.trim() === ''}>
+          <Button
+            type="submit"
+            disabled={verify.isPending || code.trim() === ''}
+            aria-busy={verify.isPending}
+          >
+            {verify.isPending ? <Spinner /> : null}
             {t('mfa.verify')}
           </Button>
           <Button
@@ -116,19 +131,19 @@ export function SignInPage() {
             {t('mfa.back')}
           </Button>
         </form>
-      </section>
+      </AuthCard>
     )
   }
 
   const error = signIn.error
-  const lockedUntil =
+  const lockedAt =
     error instanceof ApiError && typeof error.problem['locked_until'] === 'string'
-      ? formatDateTime(error.problem['locked_until'], locale)
+      ? error.problem['locked_until']
       : undefined
+  const lockedUntil = lockedAt ? formatDateTime(lockedAt, locale) : undefined
 
   return (
-    <section className="mx-auto mt-16 w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
-      <h1 className="mb-6 text-xl font-semibold">{t('signIn.title')}</h1>
+    <AuthCard title={t('signIn.title')}>
       <form
         noValidate
         className="flex flex-col gap-4"
@@ -138,35 +153,49 @@ export function SignInPage() {
           })(event)
         }}
       >
+        {params.get('expired') === '1' && !error ? (
+          // FN-04: the session ended (timeout, sign-out elsewhere, deactivation).
+          <FormMessage success={t('signIn.expired')} />
+        ) : null}
         {params.get('password') === 'set' ? (
           <FormMessage success={t('signIn.passwordSet')} />
         ) : null}
         <FormMessage
+          focusOnError
           error={error instanceof ApiError ? error.code : error ? 'unknown' : null}
           {...(lockedUntil ? { values: { time: lockedUntil } } : {})}
         />
-        <FormField label={t('signIn.email')} error={form.formState.errors.email?.message}>
+        {lockedMinutes > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t('signIn.lockedRemaining', { count: lockedMinutes })}
+          </p>
+        ) : null}
+        <FormField label={t('signIn.email')} required error={form.formState.errors.email?.message}>
           {(control) => (
             <Input {...control} type="email" autoComplete="username" {...form.register('email')} />
           )}
         </FormField>
-        <FormField label={t('signIn.password')} error={form.formState.errors.password?.message}>
+        <FormField
+          label={t('signIn.password')}
+          required
+          error={form.formState.errors.password?.message}
+        >
           {(control) => (
-            <Input
+            <PasswordInput
               {...control}
-              type="password"
               autoComplete="current-password"
               {...form.register('password')}
             />
           )}
         </FormField>
-        <Button type="submit" disabled={signIn.isPending}>
+        <Button type="submit" disabled={signIn.isPending} aria-busy={signIn.isPending}>
+          {signIn.isPending ? <Spinner /> : null}
           {signIn.isPending ? t('signIn.submitting') : t('signIn.submit')}
         </Button>
         <Link className="text-sm text-primary underline underline-offset-4" to="/forgot-password">
           {t('signIn.forgot')}
         </Link>
       </form>
-    </section>
+    </AuthCard>
   )
 }

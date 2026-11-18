@@ -2,7 +2,6 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, asPage, call } from '@/api/client'
 import { DataTable, type Column } from '@/components/DataTable'
@@ -18,7 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { download } from '@/features/reports/download'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 
@@ -70,7 +69,14 @@ export function ImportsPage() {
     <section className="mx-auto flex max-w-5xl flex-col gap-6">
       <PageHeader title={t('title')} />
       <NewImport />
-      {batches.isError ? <ErrorState error={batches.error} /> : null}
+      {batches.isError ? (
+        <ErrorState
+          error={batches.error}
+          onRetry={() => {
+            void batches.refetch()
+          }}
+        />
+      ) : null}
       {batches.data ? (
         <>
           <DataTable
@@ -90,7 +96,7 @@ export function ImportsPage() {
           />
         </>
       ) : batches.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )
@@ -98,7 +104,7 @@ export function ImportsPage() {
 
 function NewImport() {
   const { t } = useTranslation('imports')
-  const errorText = useErrorText()
+  const notify = useNotify()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [entity, setEntity] = useState<EntityType>('organizations')
@@ -117,7 +123,7 @@ function NewImport() {
     mutationFn: (language: (typeof LANGUAGES)[number]) =>
       download(`/api/v1/imports/templates/${entity}`, `locale=${language}`),
     onError: (error) => {
-      toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+      notify.error(error)
     },
   })
   return (
@@ -136,7 +142,7 @@ function NewImport() {
         >
           <FormMessage error={start.error instanceof ApiError ? start.error.code : null} />
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={t('new.type')}>
+            <FormField label={t('new.type')} required>
               {(control) => (
                 <NativeSelect
                   {...control}
@@ -153,7 +159,7 @@ function NewImport() {
                 </NativeSelect>
               )}
             </FormField>
-            <FormField label={t('new.file')} hint={t('new.fileHint')}>
+            <FormField label={t('new.file')} required hint={t('new.fileHint')}>
               {(control) => (
                 <Input
                   {...control}

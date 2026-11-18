@@ -25,6 +25,24 @@ async def test_FR_AUTH_05_me_lists_permissions_for_the_ui(test_app: TestApp) -> 
     assert "users.manage" not in me["permissions"]
 
 
+async def test_FN_05_me_gives_the_session_timeouts(test_app: TestApp) -> None:
+    admin, _ = await test_app.signed_in(RoleCode.ADMIN)
+    me = (await admin.get("/api/v1/me")).json()
+    assert me["session"]["idle_timeout_minutes"] == 480
+    sessions = (await admin.get("/api/v1/me/sessions")).json()
+    [current] = [s for s in sessions if s["current"]]
+    assert me["session"]["expires_at"] == current["expires_at"]
+
+    # The setting is read live, so an Admin's change shows at once.
+    changed = await admin.patch("/api/v1/settings", json={"session_idle_timeout_minutes": 30})
+    assert changed.status_code == 200
+    assert (await admin.get("/api/v1/me")).json()["session"]["idle_timeout_minutes"] == 30
+
+    # Integration clients have no session.
+    caller = await test_app.integration_client()
+    assert (await caller.http.get("/api/v1/me")).json()["session"] is None
+
+
 async def test_FR_I18N_01_language_preference_is_saved_on_the_profile(test_app: TestApp) -> None:
     client, user = await test_app.signed_in()
     response = await client.patch("/api/v1/me", json={"locale": "bg", "full_name": "Иван Тестов"})

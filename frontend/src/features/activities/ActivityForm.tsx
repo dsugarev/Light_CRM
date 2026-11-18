@@ -7,6 +7,7 @@ import { NativeSelect } from '@/components/NativeSelect'
 import { Textarea } from '@/components/Textarea'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard'
 import { useMe } from '@/features/auth/useMe'
 import { useUserLookup } from '@/features/auth/useUserLookup'
 
@@ -95,7 +96,7 @@ export function ActivityForm({ record, onDone }: { record: RecordRef; onDone: ()
             </NativeSelect>
           )}
         </FormField>
-        <FormField label={t('form.subject')} error={errors['subject']}>
+        <FormField label={t('form.subject')} required error={errors['subject']}>
           {(control) => (
             <Input
               {...control}
@@ -122,7 +123,7 @@ export function ActivityForm({ record, onDone }: { record: RecordRef; onDone: ()
       </FormField>
       {isTask ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          <FormField label={t('form.due')} error={errors['due_at']}>
+          <FormField label={t('form.due')} required error={errors['due_at']}>
             {(control) => (
               <Input
                 {...control}
@@ -174,6 +175,9 @@ export function ActivityForm({ record, onDone }: { record: RecordRef; onDone: ()
           {tc('actions.cancel')}
         </Button>
       </div>
+      <UnsavedChangesGuard
+        when={Boolean(subject.trim() || body.trim() || when || due) && !create.isPending}
+      />
     </form>
   )
 }

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { admin, createUserWithPassword, expectSignedIn, signIn } from './support.ts'
+import { admin, createUserWithPassword, expectSignedIn, mainNav, signIn } from './support.ts'
 
 // Phase 2: organizations and contacts (FR-PARTY-01..04) through the real stack.
 
@@ -70,7 +70,7 @@ for (const language of ['en', 'bg'] as const) {
       await expectSignedIn(page, ui.welcome)
 
       // Create (FR-PARTY-01).
-      await page.getByRole('link', { name: ui.organizations, exact: true }).click()
+      await mainNav(page).getByRole('link', { name: ui.organizations, exact: true }).click()
       await page.getByRole('link', { name: ui.newOrganization }).click()
       await expect(page.getByRole('heading', { name: ui.newOrganization })).toBeVisible()
       await page.getByLabel(ui.name, { exact: true }).fill(cyrillic)
@@ -80,7 +80,7 @@ for (const language of ['en', 'bg'] as const) {
       const orgUrl = page.url()
 
       // AC1: the same company typed in Latin letters is flagged before saving.
-      await page.getByRole('link', { name: ui.organizations, exact: true }).click()
+      await mainNav(page).getByRole('link', { name: ui.organizations, exact: true }).click()
       await page.getByRole('link', { name: ui.newOrganization }).click()
       await page.getByLabel(ui.name, { exact: true }).fill(`Testova Kompania ${token} e.o.o.d.`)
       const warning = page.getByTestId('duplicate-matches')

@@ -29,8 +29,15 @@ export function SearchPage() {
     <section className="mx-auto max-w-3xl">
       <PageHeader title={q ? t('search.results', { q }) : t('search.title')} />
       {q.length < 2 ? <p className="text-muted-foreground">{t('search.tooShort')}</p> : null}
-      {results.isError ? <ErrorState error={results.error} /> : null}
-      {results.isFetching && !results.data ? <Loading /> : null}
+      {results.isError ? (
+        <ErrorState
+          error={results.error}
+          onRetry={() => {
+            void results.refetch()
+          }}
+        />
+      ) : null}
+      {results.isFetching && !results.data ? <Loading variant="table" /> : null}
       {results.data ? (
         results.data.items.length === 0 ? (
           <p className="text-muted-foreground">{t('search.none')}</p>

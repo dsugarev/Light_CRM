@@ -77,7 +77,8 @@ test('NFR-10 main pages, a record page and the assistant drawer', async ({ page 
 
   for (const path of PAGES) {
     await page.goto(path)
-    await expect(page.getByRole('main')).toBeVisible()
+    // /admin/users/new opens a modal sheet over the list (UX-09), which hides the main landmark.
+    await expect(page.getByRole('main').or(page.getByRole('dialog'))).toBeVisible()
     await page.waitForLoadState('networkidle')
     found.push(...(await violations(page, path)))
   }
@@ -98,6 +99,110 @@ test('NFR-10 main pages, a record page and the assistant drawer', async ({ page 
     await launcher.click()
     await expect(page.getByRole('complementary', { name: 'Assistant' })).toBeVisible()
     found.push(...(await violations(page, 'assistant drawer')))
+  }
+  expect(found, found.join('\n')).toEqual([])
+})
+
+test('UX-12 record, edit, detail and drawer pages', async ({ page }) => {
+  test.setTimeout(180_000)
+  const credentials = admin('en')
+  await signIn(page, credentials.email, credentials.password, {
+    email: 'Email',
+    password: 'Password',
+    submit: 'Sign in',
+  })
+  await expectSignedIn(page, /^Welcome, /)
+  const headers = { 'X-Requested-With': 'XMLHttpRequest' }
+  const token = String(Date.now())
+  const post = async (path: string, data: unknown) => {
+    const response = await page.request.post(path, { headers, data })
+    expect(response.ok(), `${path}: ${String(response.status())}`).toBe(true)
+    return (await response.json()) as { id: string; user?: { id: string } }
+  }
+  const get = async (path: string) =>
+    (await (await page.request.get(path, { headers })).json()) as { items: { id: string }[] }
+
+  const org = await post('/api/v1/organizations', {
+    name: `A11y record ${token} ООД`,
+    confirm_duplicate: true,
+  })
+  const contact = await post('/api/v1/contacts', {
+    first_name: 'Мария',
+    last_name: `Достъпна ${token}`,
+    organization_id: org.id,
+    confirm_duplicate: true,
+  })
+  const lead = await post('/api/v1/leads', { title: `A11y lead ${token}`, company_name: 'Акме' })
+  const opportunity = await post('/api/v1/opportunities', {
+    name: `A11y deal ${token}`,
+    organization_id: org.id,
+  })
+  const client = await post('/api/v1/integration-clients', {
+    name: `A11y client ${token}`,
+    system: 'erp',
+  })
+  const created = await post('/api/v1/users', {
+    email: `a11y-${token}@example.test`,
+    full_name: 'A11y Person',
+    role: 'viewer',
+  })
+  const entry = (await get('/api/v1/audit-log?page_size=1')).items.at(0)
+  const batch = (await get('/api/v1/imports?page_size=1')).items.at(0)
+  const delivery = (await get('/api/v1/webhook-deliveries?page_size=1')).items.at(0)
+
+  const pages = [
+    `/contacts/${contact.id}`,
+    `/leads/${lead.id}`,
+    `/opportunities/${opportunity.id}`,
+    `/organizations/${org.id}/edit`,
+    `/contacts/${contact.id}/edit`,
+    `/leads/${lead.id}/edit`,
+    `/leads/${lead.id}/convert`,
+    `/opportunities/${opportunity.id}/edit`,
+    `/admin/users/${created.user?.id ?? ''}`,
+    `/admin/integrations/${client.id}`,
+    ...(entry ? [`/admin/audit-log/${entry.id}`, `/admin/audit-log?entry=${entry.id}`] : []),
+    // Present once the import and integration journeys have run against this stack.
+    ...(batch ? [`/admin/imports/${batch.id}`] : []),
+    ...(delivery ? [`/admin/integrations/deliveries/${delivery.id}`] : []),
+    '/no-such-page',
+  ]
+  const found: string[] = []
+  for (const path of pages) {
+    await page.goto(path)
+    await expect(page.getByRole('main').or(page.getByRole('dialog'))).toBeVisible()
+    await page.waitForLoadState('networkidle')
+    found.push(...(await violations(page, path)))
+  }
+  expect(found, found.join('\n')).toEqual([])
+})
+
+test('UX-12 signed-out pages: forgot password and set password', async ({ page, browser }) => {
+  const credentials = admin('en')
+  await signIn(page, credentials.email, credentials.password, {
+    email: 'Email',
+    password: 'Password',
+    submit: 'Sign in',
+  })
+  await expectSignedIn(page, /^Welcome, /)
+  const created = await page.request.post('/api/v1/users', {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    data: {
+      email: `a11y-set-${String(Date.now())}@example.test`,
+      full_name: 'A11y Set',
+      role: 'viewer',
+    },
+  })
+  const { set_password } = (await created.json()) as { set_password: { url: string } }
+  const link = new URL(set_password.url)
+
+  const anonymous = await (await browser.newContext({ ignoreHTTPSErrors: true })).newPage()
+  const found: string[] = []
+  for (const path of ['/forgot-password', link.pathname + link.hash, '/set-password#token=used']) {
+    await anonymous.goto(path)
+    await expect(anonymous.getByRole('heading', { level: 1 })).toBeVisible()
+    await anonymous.waitForLoadState('networkidle')
+    found.push(...(await violations(anonymous, path)))
   }
   expect(found, found.join('\n')).toEqual([])
 })

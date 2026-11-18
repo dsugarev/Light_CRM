@@ -1,21 +1,29 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { api, ApiError, call } from '@/api/client'
+import { ConfirmButton } from '@/components/ConfirmButton'
 import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PasswordChecklist,
+} from '@/components/PasswordChecklist'
+import { PasswordInput } from '@/components/PasswordInput'
 import { PageHeader } from '@/components/PageHeader'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard'
 import {
   Table,
   TableBody,
@@ -28,7 +36,9 @@ import { ME_QUERY_KEY, useMe, type Me } from '@/features/auth/useMe'
 import { SUPPORTED_LOCALES } from '@/i18n'
 import { applyServerErrors } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
+import { describeUserAgent } from '@/lib/userAgent'
 import { storeLocale } from '@/lib/locale'
+import { useNotify } from '@/lib/notify'
 import { useLocale } from '@/lib/useLocale'
 
 import { MfaCard } from './MfaCard'
@@ -106,7 +116,11 @@ function DetailsCard({ me }: { me: Me }) {
             <dt className="text-muted-foreground">{t('details.role')}</dt>
             <dd>{tc(`roles.${me.role}`)}</dd>
           </dl>
-          <FormField label={t('details.fullName')} error={form.formState.errors.full_name?.message}>
+          <FormField
+            label={t('details.fullName')}
+            required
+            error={form.formState.errors.full_name?.message}
+          >
             {(control) => (
               <Input {...control} autoComplete="name" {...form.register('full_name')} />
             )}
@@ -125,6 +139,13 @@ function DetailsCard({ me }: { me: Me }) {
           <Button type="submit" className="self-start" disabled={save.isPending}>
             {save.isPending ? tc('actions.saving') : tc('actions.save')}
           </Button>
+          <UnsavedChangesGuard
+            when={
+              form.formState.isDirty &&
+              !form.formState.isSubmitting &&
+              !form.formState.isSubmitSuccessful
+            }
+          />
         </form>
       </CardContent>
     </Card>
@@ -136,8 +157,8 @@ const passwordSchema = z
     current_password: z.string().min(1, { error: 'validation.required' }),
     new_password: z
       .string()
-      .min(12, { error: 'password.too_short' })
-      .max(128, { error: 'password.too_long' }),
+      .min(PASSWORD_MIN_LENGTH, { error: 'password.too_short' })
+      .max(PASSWORD_MAX_LENGTH, { error: 'password.too_long' }),
     confirm: z.string(),
   })
   .refine((v) => v.new_password === v.confirm, {
@@ -154,6 +175,9 @@ function PasswordCard() {
     resolver: zodResolver(passwordSchema),
     defaultValues: { current_password: '', new_password: '', confirm: '' },
   })
+  // FN-01: the same live policy checklist as setting a password (UX-07).
+  const newPassword = useWatch({ control: form.control, name: 'new_password' })
+  const confirmPassword = useWatch({ control: form.control, name: 'confirm' })
   const change = useMutation({
     mutationFn: (values: PasswordValues) =>
       call(
@@ -188,40 +212,54 @@ function PasswordCard() {
           <FormMessage error={formError} success={change.isSuccess ? t('password.done') : null} />
           <FormField
             label={t('password.current')}
+            required
             error={form.formState.errors.current_password?.message}
           >
             {(control) => (
-              <Input
+              <PasswordInput
                 {...control}
-                type="password"
                 autoComplete="current-password"
                 {...form.register('current_password')}
               />
             )}
           </FormField>
-          <FormField label={t('password.new')} error={form.formState.errors.new_password?.message}>
+          <FormField
+            label={t('password.new')}
+            required
+            error={form.formState.errors.new_password?.message}
+          >
             {(control) => (
-              <Input
+              <PasswordInput
                 {...control}
-                type="password"
                 autoComplete="new-password"
                 {...form.register('new_password')}
               />
             )}
           </FormField>
-          <FormField label={t('password.confirm')} error={form.formState.errors.confirm?.message}>
+          <FormField
+            label={t('password.confirm')}
+            required
+            error={form.formState.errors.confirm?.message}
+          >
             {(control) => (
-              <Input
+              <PasswordInput
                 {...control}
-                type="password"
                 autoComplete="new-password"
                 {...form.register('confirm')}
               />
             )}
           </FormField>
+          <PasswordChecklist password={newPassword} confirm={confirmPassword} />
           <Button type="submit" className="self-start" disabled={change.isPending}>
             {t('password.submit')}
           </Button>
+          <UnsavedChangesGuard
+            when={
+              form.formState.isDirty &&
+              !form.formState.isSubmitting &&
+              !form.formState.isSubmitSuccessful
+            }
+          />
         </form>
       </CardContent>
     </Card>
@@ -234,6 +272,7 @@ function SessionsCard() {
   const { t } = useTranslation('profile')
   const locale = useLocale()
   const queryClient = useQueryClient()
+  const notify = useNotify()
   const sessions = useQuery({
     queryKey: SESSIONS_KEY,
     queryFn: () => call(api.GET('/api/v1/me/sessions')),
@@ -245,8 +284,17 @@ function SessionsCard() {
           params: { path: { session_id: sessionId } },
         }),
       ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: SESSIONS_KEY }),
+    onSuccess: async () => {
+      notify.success(t('sessions.revoked'))
+      await queryClient.invalidateQueries({ queryKey: SESSIONS_KEY })
+    },
   })
+  // FN-02: "Chrome on Windows"; the full user-agent string is the cell's tooltip.
+  const deviceLabel = (userAgent: string | null) => {
+    const { browser, os } = describeUserAgent(userAgent)
+    if (browser && os) return t('sessions.browserOn', { browser, os })
+    return browser ?? os ?? t('sessions.unknownDevice')
+  }
   return (
     <Card>
       <CardHeader>
@@ -259,7 +307,7 @@ function SessionsCard() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('sessions.device')}</TableHead>
-                <TableHead>{t('sessions.ip')}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t('sessions.ip')}</TableHead>
                 <TableHead>{t('sessions.started')}</TableHead>
                 <TableHead>{t('sessions.lastSeen')}</TableHead>
                 <TableHead />
@@ -268,27 +316,27 @@ function SessionsCard() {
             <TableBody>
               {sessions.data.map((session) => (
                 <TableRow key={session.id}>
-                  <TableCell className="max-w-64 truncate" title={session.user_agent ?? ''}>
-                    {session.user_agent ?? t('sessions.unknownDevice')}
+                  <TableCell className="whitespace-normal" title={session.user_agent ?? ''}>
+                    {deviceLabel(session.user_agent)}
                   </TableCell>
-                  <TableCell>{session.ip ?? ''}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{session.ip ?? ''}</TableCell>
                   <TableCell>{formatDateTime(session.created_at, locale)}</TableCell>
                   <TableCell>{formatDateTime(session.last_seen_at, locale)}</TableCell>
                   <TableCell className="text-right">
                     {session.current ? (
                       <Badge variant="secondary">{t('sessions.current')}</Badge>
                     ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
+                      <ConfirmButton
+                        label={t('sessions.revoke')}
+                        title={t('sessions.revokeTitle')}
+                        description={t('sessions.revokeDescription')}
                         size="sm"
+                        variant="destructive"
                         disabled={revoke.isPending}
-                        onClick={() => {
+                        onConfirm={() => {
                           revoke.mutate(session.id)
                         }}
-                      >
-                        {t('sessions.revoke')}
-                      </Button>
+                      />
                     )}
                   </TableCell>
                 </TableRow>
@@ -296,7 +344,7 @@ function SessionsCard() {
             </TableBody>
           </Table>
         ) : (
-          <Loading />
+          <Loading variant="table" />
         )}
       </CardContent>
     </Card>

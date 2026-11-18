@@ -9,6 +9,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,6 +32,7 @@ import { usePipeline } from './usePipeline'
 export function OpportunityPage() {
   const { opportunityId = '' } = useParams()
   const { t } = useTranslation('opportunities')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const opportunity = useQuery({
     queryKey: ['opportunities', opportunityId],
@@ -41,7 +43,15 @@ export function OpportunityPage() {
         }),
       ),
   })
-  if (opportunity.isError) return <ErrorState error={opportunity.error} />
+  if (opportunity.isError)
+    return (
+      <ErrorState
+        error={opportunity.error}
+        onRetry={() => {
+          void opportunity.refetch()
+        }}
+      />
+    )
   if (!opportunity.data) return <Loading />
   const o = opportunity.data
   const probability = o.probability_overridden
@@ -90,6 +100,7 @@ export function OpportunityPage() {
     <section className="mx-auto flex max-w-6xl flex-col gap-6">
       <PageHeader
         title={o.name}
+        breadcrumbs={[crumbs.opportunities]}
         actions={
           <span className="flex items-center gap-2">
             {o.is_stale ? <StaleBadge /> : null}

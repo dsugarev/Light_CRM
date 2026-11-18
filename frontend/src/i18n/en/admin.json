@@ -19,7 +19,8 @@
       "lastLogin": "Last sign-in"
     },
     "never": "Never",
-    "statusFilter": "Status"
+    "statusFilter": "Status",
+    "open": "Open"
   },
   "userForm": {
     "createTitle": "New user",
@@ -35,7 +36,8 @@
     "explain": "Give this link to {{name}} to set a password. It can be used once and expires on {{expires}}.",
     "emailed": "The link was also sent by email.",
     "notEmailed": "Email is not configured, so hand over the link yourself.",
-    "openUser": "Open the user"
+    "openUser": "Open the user",
+    "onlyOnce": "Copy the link now: it is not shown again once you close this panel."
   },
   "userDetail": {
     "title": "User",
@@ -56,7 +58,12 @@
       "activated": "User activated.",
       "unlocked": "Account unlocked.",
       "revoked": "All sessions ended."
-    }
+    },
+    "confirmActivate": "Activate {{name}}? They can sign in again.",
+    "confirmUnlock": "Unlock {{name}}? They can try to sign in again at once.",
+    "confirmReset": "Create a one-time password reset link for {{name}}?",
+    "resetTitle": "Password reset link",
+    "notSelf": "You cannot deactivate your own account."
   },
   "audit": {
     "title": "Audit log",
@@ -83,7 +90,11 @@
       "after": "After",
       "details": "Details",
       "requestId": "Request ID",
-      "none": "—"
+      "none": "—",
+      "changes": "Changes",
+      "field": "Field",
+      "changed": "changed",
+      "openPage": "Open as a page"
     },
     "actions": {
       "auth": {
@@ -117,9 +128,113 @@
       },
       "contact": {
         "anonymized": "Contact anonymized",
-        "personal_data_exported": "Personal data exported"
+        "personal_data_exported": "Personal data exported",
+        "created": "Contact created",
+        "updated": "Contact updated",
+        "archived": "Contact archived",
+        "restored": "Contact restored"
+      },
+      "organization": {
+        "created": "Organization created",
+        "updated": "Organization updated",
+        "archived": "Organization archived",
+        "restored": "Organization restored",
+        "owner_changed": "Organization owner changed"
+      },
+      "lead": {
+        "created": "Lead created",
+        "updated": "Lead updated",
+        "archived": "Lead archived",
+        "restored": "Lead restored",
+        "status_changed": "Lead status changed",
+        "owner_changed": "Lead owner changed",
+        "converted": "Lead converted",
+        "exported": "Leads exported"
+      },
+      "opportunity": {
+        "created": "Opportunity created",
+        "updated": "Opportunity updated",
+        "archived": "Opportunity archived",
+        "restored": "Opportunity restored",
+        "stage_changed": "Stage changed",
+        "owner_changed": "Opportunity owner changed",
+        "closed_won": "Closed as won",
+        "closed_lost": "Closed as lost",
+        "reopened": "Opportunity reopened",
+        "exported": "Opportunities exported"
+      },
+      "activity": {
+        "created": "Activity created",
+        "updated": "Activity updated",
+        "archived": "Activity archived",
+        "completed": "Task completed",
+        "reopened": "Task reopened"
+      },
+      "import": {
+        "uploaded": "Import file uploaded",
+        "mapped": "Import columns mapped",
+        "validated": "Import validated",
+        "committed": "Import committed",
+        "rolled_back": "Import rolled back"
+      },
+      "integration_client": {
+        "created": "Integration client created",
+        "updated": "Integration client updated",
+        "activated": "Integration client activated",
+        "deactivated": "Integration client deactivated"
+      },
+      "api_key": {
+        "created": "API key created",
+        "revoked": "API key revoked"
+      },
+      "webhook_subscription": {
+        "created": "Webhook subscription created",
+        "updated": "Webhook subscription updated",
+        "deleted": "Webhook subscription deleted",
+        "secret_rotated": "Webhook secret rotated",
+        "test_sent": "Test event sent"
+      },
+      "external_reference": {
+        "updated": "External IDs updated"
+      },
+      "pipeline_stage": {
+        "created": "Stage added",
+        "updated": "Stage updated",
+        "deleted": "Stage deleted",
+        "reordered": "Stages reordered"
+      },
+      "chat_conversation": {
+        "created": "Assistant conversation started",
+        "renamed": "Assistant conversation renamed",
+        "deleted": "Assistant conversation deleted"
       }
-    }
+    },
+    "entityTypes": {
+      "activity": "Activity",
+      "api_key": "API key",
+      "chat_conversation": "Assistant conversation",
+      "contact": "Contact",
+      "external_reference": "External ID",
+      "import_batch": "Import",
+      "integration_client": "Integration client",
+      "lead": "Lead",
+      "opportunity": "Opportunity",
+      "organization": "Organization",
+      "pipeline_stage": "Stage",
+      "session": "Session",
+      "settings": "Settings",
+      "user": "User",
+      "webhook_subscription": "Webhook subscription"
+    },
+    "user": "User",
+    "allUsers": "All users",
+    "allTypes": "All record types",
+    "actionHint": "For example lead.updated",
+    "presets": "Period",
+    "today": "Today",
+    "last7": "Last 7 days",
+    "last30": "Last 30 days",
+    "open": "Open entry {{time}}"
   },
   "settings": {
     "title": "Settings",

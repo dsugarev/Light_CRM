@@ -3,30 +3,30 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 
-import { api, call } from '@/api/client'
+import { api, call, type Schemas } from '@/api/client'
+import { DataTable, type Column } from '@/components/DataTable'
+import { ErrorState } from '@/components/ErrorState'
 import { FormField } from '@/components/FormField'
 import { Loading } from '@/components/Loading'
+import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
 import { Pagination } from '@/components/Pagination'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Sheet } from '@/components/ui/sheet'
 import { DISPLAY_TIME_ZONE, formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 import { ExportMenu } from '@/features/reports/ExportMenu'
 
-import { useAuditLabels } from './auditLabels'
+import { AuditEntryDetails } from './AuditEntryDetails'
+import { AUDIT_ENTITY_TYPES, useAuditLabels } from './auditLabels'
 
+type Entry = Schemas['AuditEntrySummary']
 const PAGE_SIZE = 50
-const FILTERS = ['action', 'entity_type', 'from', 'to'] as const
+const FILTERS = ['actor_id', 'action', 'entity_type', 'from', 'to'] as const
 type Filter = (typeof FILTERS)[number]
+type Values = Record<Filter, string>
+const DAY = 86_400_000
 
 /** Sofia-local date (YYYY-MM-DD) to the UTC instant at its start or end. */
 function sofiaDayBoundary(date: string, end: boolean): string {
@@ -37,7 +37,26 @@ function sofiaDayBoundary(date: string, end: boolean): string {
   return new Date(local.getTime() - offset).toISOString()
 }
 
-/** FR-ADM-03: browse and filter by user, record, action and date. Read-only. */
+/** The Sofia calendar day `daysAgo` days before now, as YYYY-MM-DD. */
+function sofiaDay(now: number, daysAgo: number): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: DISPLAY_TIME_ZONE }).format(
+    new Date(now - daysAgo * DAY),
+  )
+}
+
+/** UX-10 presets: today, the last 7 and the last 30 days, both ends included. */
+const PRESETS = { today: 0, last7: 6, last30: 29 } as const
+
+function presetRange(daysBack: number): { from: string; to: string } {
+  const now = Date.now()
+  return { from: sofiaDay(now, daysBack), to: sofiaDay(now, 0) }
+}
+
+/**
+ * FR-ADM-03, UX-10: browse and filter by user, record type, action and date (with presets
+ * for today, 7 and 30 days); an entry opens in a drawer with before and after side by side.
+ * Filters and the open entry live in the URL. Read-only.
+ */
 export function AuditLogPage() {
   const { t } = useTranslation('admin')
   const { t: tc } = useTranslation()
@@ -46,50 +65,111 @@ export function AuditLogPage() {
   const [params, setParams] = useSearchParams()
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
   const value = (name: Filter) => params.get(name) ?? ''
-  const [draft, setDraft] = useState<Record<Filter, string>>({
+  const [draft, setDraft] = useState<Values>({
+    actor_id: value('actor_id'),
     action: value('action'),
     entity_type: value('entity_type'),
     from: value('from'),
     to: value('to'),
   })
-  const filterFields = [
-    ['action', t('audit.action'), 'text'],
-    ['entity_type', t('audit.entityType'), 'text'],
-    ['from', t('audit.from'), 'date'],
-    ['to', t('audit.to'), 'date'],
-  ] as const
-  const actorId = params.get('actor_id')
   const entityId = params.get('entity_id')
+  const openId = params.get('entry')
 
   const filterQuery = {
     ...(value('action') ? { action: [value('action')] } : {}),
     ...(value('entity_type') ? { entity_type: value('entity_type') } : {}),
     ...(value('from') ? { occurred_at_from: sofiaDayBoundary(value('from'), false) } : {}),
     ...(value('to') ? { occurred_at_to: sofiaDayBoundary(value('to'), true) } : {}),
-    ...(actorId ? { actor_id: actorId } : {}),
+    ...(value('actor_id') ? { actor_id: value('actor_id') } : {}),
     ...(entityId ? { entity_id: entityId } : {}),
   }
+  const listKey = new URLSearchParams(params)
+  listKey.delete('entry')
   const entries = useQuery({
-    queryKey: ['audit-log', params.toString()],
-    // Keep showing the current rows while the next page, sort or filter loads.
+    queryKey: ['audit-log', listKey.toString()],
+    // Keep showing the current rows while the next page or filter loads.
     placeholderData: keepPreviousData,
     queryFn: () =>
       call(
         api.GET('/api/v1/audit-log', {
-          params: {
-            query: { page, page_size: PAGE_SIZE, ...filterQuery },
-          },
+          params: { query: { page, page_size: PAGE_SIZE, ...filterQuery } },
+        }),
+      ),
+  })
+  const users = useQuery({
+    queryKey: ['users', 'audit-filter'],
+    queryFn: () => call(api.GET('/api/v1/users', { params: { query: { page_size: 100 } } })),
+    staleTime: 300_000,
+  })
+  const entry = useQuery({
+    queryKey: ['audit-log', 'entry', openId],
+    enabled: openId !== null,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/audit-log/{entry_id}', {
+          params: { path: { entry_id: openId ?? '' } },
         }),
       ),
   })
 
-  const apply = (values: Record<Filter, string>) => {
+  const apply = (values: Values) => {
     const next = new URLSearchParams()
     for (const name of FILTERS) if (values[name].trim()) next.set(name, values[name].trim())
-    if (actorId) next.set('actor_id', actorId)
     if (entityId) next.set('entity_id', entityId)
     setParams(next, { replace: true })
   }
+  const preset = (daysBack: number) => {
+    const values = { ...draft, ...presetRange(daysBack) }
+    setDraft(values)
+    apply(values)
+  }
+  const withEntry = (id: string | null) => {
+    const next = new URLSearchParams(params)
+    if (id) next.set('entry', id)
+    else next.delete('entry')
+    return `?${next.toString()}`
+  }
+
+  const columns: Column<Entry>[] = [
+    {
+      key: 'time',
+      header: t('audit.columns.time'),
+      cell: (row) => {
+        const time = formatDateTime(row.occurred_at, locale)
+        return (
+          <Link
+            to={withEntry(row.id)}
+            aria-label={t('audit.open', { time })}
+            className="hover:underline"
+          >
+            {time}
+          </Link>
+        )
+      },
+    },
+    { key: 'actor', header: t('audit.columns.actor'), cell: (row) => labels.actor(row.actor) },
+    { key: 'action', header: t('audit.columns.action'), cell: (row) => labels.action(row.action) },
+    {
+      key: 'entity',
+      header: t('audit.columns.entity'),
+      cell: (row) => (
+        <>
+          {labels.entityType(row.entity_type)}
+          {row.entity_id ? (
+            <span className="ml-1 font-mono text-xs text-muted-foreground">
+              {row.entity_id.slice(0, 8)}
+            </span>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      key: 'ip',
+      header: t('audit.columns.ip'),
+      className: 'hidden lg:table-cell',
+      cell: (row) => row.ip ?? '',
+    },
+  ]
 
   return (
     <section className="mx-auto max-w-6xl">
@@ -98,78 +178,131 @@ export function AuditLogPage() {
         actions={<ExportMenu path="/api/v1/audit-log/export" query={filterQuery} />}
       />
       <form
-        className="mb-4 grid items-end gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]"
+        className="mb-2 grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto_auto]"
         onSubmit={(event) => {
           event.preventDefault()
           apply(draft)
         }}
       >
-        {filterFields.map(([name, label, type]) => (
-          <FormField key={name} label={label}>
-            {(control) => (
-              <Input
-                {...control}
-                type={type}
-                value={draft[name]}
-                onChange={(e) => {
-                  setDraft({ ...draft, [name]: e.target.value })
+        <FormField label={t('audit.user')}>
+          {(control) => (
+            <NativeSelect
+              {...control}
+              value={draft.actor_id}
+              onChange={(e) => {
+                setDraft({ ...draft, actor_id: e.target.value })
+              }}
+            >
+              <option value="">{t('audit.allUsers')}</option>
+              {(users.data?.items ?? []).map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.full_name}
+                </option>
+              ))}
+            </NativeSelect>
+          )}
+        </FormField>
+        <FormField label={t('audit.entityType')}>
+          {(control) => (
+            <NativeSelect
+              {...control}
+              value={draft.entity_type}
+              onChange={(e) => {
+                setDraft({ ...draft, entity_type: e.target.value })
+              }}
+            >
+              <option value="">{t('audit.allTypes')}</option>
+              {AUDIT_ENTITY_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {labels.entityType(type)}
+                </option>
+              ))}
+            </NativeSelect>
+          )}
+        </FormField>
+        <FormField label={t('audit.action')}>
+          {(control) => (
+            <Input
+              {...control}
+              placeholder={t('audit.actionHint')}
+              value={draft.action}
+              onChange={(e) => {
+                setDraft({ ...draft, action: e.target.value })
+              }}
+            />
+          )}
+        </FormField>
+        <FormField label={t('audit.from')}>
+          {(control) => (
+            <Input
+              {...control}
+              type="date"
+              value={draft.from}
+              onChange={(e) => {
+                setDraft({ ...draft, from: e.target.value })
+              }}
+            />
+          )}
+        </FormField>
+        <FormField label={t('audit.to')}>
+          {(control) => (
+            <Input
+              {...control}
+              type="date"
+              value={draft.to}
+              onChange={(e) => {
+                setDraft({ ...draft, to: e.target.value })
+              }}
+            />
+          )}
+        </FormField>
+        <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-5">
+          <Button type="submit">{t('audit.filter')}</Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              const empty = { actor_id: '', action: '', entity_type: '', from: '', to: '' }
+              setDraft(empty)
+              setParams(new URLSearchParams(), { replace: true })
+            }}
+          >
+            {t('audit.reset')}
+          </Button>
+          <div role="group" aria-label={t('audit.presets')} className="flex flex-wrap gap-1">
+            {(Object.entries(PRESETS) as [keyof typeof PRESETS, number][]).map(([name, days]) => (
+              <Button
+                key={name}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  preset(days)
                 }}
-              />
-            )}
-          </FormField>
-        ))}
-        <Button type="submit">{t('audit.filter')}</Button>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            const empty = { action: '', entity_type: '', from: '', to: '' }
-            setDraft(empty)
-            setParams(new URLSearchParams(), { replace: true })
-          }}
-        >
-          {t('audit.reset')}
-        </Button>
+              >
+                {t(`audit.${name}`)}
+              </Button>
+            ))}
+          </div>
+        </div>
       </form>
-      {entries.data ? (
+      {entries.isError ? (
+        <ErrorState
+          error={entries.error}
+          onRetry={() => {
+            void entries.refetch()
+          }}
+        />
+      ) : entries.data ? (
         <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('audit.columns.time')}</TableHead>
-                <TableHead>{t('audit.columns.actor')}</TableHead>
-                <TableHead>{t('audit.columns.action')}</TableHead>
-                <TableHead>{t('audit.columns.entity')}</TableHead>
-                <TableHead>{t('audit.columns.ip')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entries.data.items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
-                    {tc('states.empty')}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                entries.data.items.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>
-                      <Link to={`/admin/audit-log/${entry.id}`} className="hover:underline">
-                        {formatDateTime(entry.occurred_at, locale)}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{labels.actor(entry.actor)}</TableCell>
-                    <TableCell>{labels.action(entry.action)}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {entry.entity_type}
-                      {entry.entity_id ? ` ${entry.entity_id.slice(0, 8)}` : ''}
-                    </TableCell>
-                    <TableCell>{entry.ip ?? ''}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          <DataTable
+            caption={t('audit.title')}
+            columns={columns}
+            rows={entries.data.items}
+            rowKey={(row) => row.id}
+            sort="-occurred_at"
+            onSort={() => undefined}
+          />
           <Pagination
             page={page}
             pageSize={PAGE_SIZE}
@@ -182,8 +315,33 @@ export function AuditLogPage() {
           />
         </>
       ) : (
-        <Loading />
+        <Loading variant="table" />
       )}
+      <Sheet
+        open={openId !== null}
+        onOpenChange={(open) => {
+          if (!open) setParams(new URLSearchParams(withEntry(null)), { replace: true })
+        }}
+        title={entry.data ? labels.action(entry.data.action) : t('audit.detail.title')}
+        closeLabel={tc('actions.close')}
+        className="sm:w-[44rem]"
+      >
+        {entry.isError ? (
+          <ErrorState error={entry.error} />
+        ) : entry.data ? (
+          <>
+            <AuditEntryDetails entry={entry.data} />
+            <Link
+              to={`/admin/audit-log/${entry.data.id}`}
+              className={buttonVariants({ variant: 'outline', className: 'self-start' })}
+            >
+              {t('audit.detail.openPage')}
+            </Link>
+          </>
+        ) : (
+          <Loading />
+        )}
+      </Sheet>
     </section>
   )
 }

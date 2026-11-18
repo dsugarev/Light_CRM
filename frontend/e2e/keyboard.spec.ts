@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
-import { admin } from './support.ts'
+import { admin, createUserWithPassword } from './support.ts'
 
 // NFR-10: keyboard-only walkthroughs (test strategy 5). No clicks: Tab, Enter, Escape
 // and arrow keys only. Recorded in docs/accessibility.md.
@@ -18,8 +18,8 @@ async function tabTo(page: Page, target: Locator, max = 80) {
   throw new Error(`Could not reach ${String(target)} with Tab`)
 }
 
-async function signInWithKeyboard(page: Page) {
-  const { email, password } = admin('en')
+async function signInWithKeyboard(page: Page, credentials = admin('en')) {
+  const { email, password } = credentials
   await page.goto('/sign-in')
   await tabTo(page, page.getByLabel('Email', { exact: true }))
   await page.keyboard.type(email)
@@ -52,7 +52,12 @@ test('NFR-10 sign in, skip the navigation, create an organization by keyboard', 
 })
 
 test('NFR-10 move an opportunity to another stage without dragging', async ({ page }) => {
+  // A fresh rep, so their board holds only this deal however much data earlier runs left.
   await signInWithKeyboard(page)
+  const password = 'Keyboard-Board-Walk-2026'
+  const rep = await createUserWithPassword(page, 'sales_rep', password, 'keyboard-board')
+  await page.context().clearCookies()
+  await signInWithKeyboard(page, { email: rep, password })
   const headers = { 'X-Requested-With': 'XMLHttpRequest' }
   const org = await page.request.post('/api/v1/organizations', {
     headers,
@@ -102,5 +107,56 @@ test('NFR-10 dialogs and the assistant drawer close with Escape and return focus
     await page.keyboard.press('Escape')
     await expect(panel).toBeHidden()
     await expect(launcher).toBeFocused()
+  }
+})
+
+// Runs in the page (the e2e tsconfig has no DOM types): contrast between the focus
+// indicator of the focused element and the page background, both converted to sRGB
+// through a canvas. Buttons and inputs draw focus with their border; links use the outline.
+const FOCUS_CONTRAST = `(() => {
+  const toRgb = (color) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+    const context = canvas.getContext('2d')
+    context.fillStyle = color
+    context.fillRect(0, 0, 1, 1)
+    return Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3))
+  }
+  const luminance = (rgb) => {
+    const [r, g, b] = rgb.map((v) => {
+      const c = v / 255
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+    })
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+  }
+  const style = getComputedStyle(document.activeElement)
+  const indicator =
+    style.outlineStyle !== 'none' && style.outlineWidth !== '0px'
+      ? style.outlineColor
+      : style.borderTopColor
+  const a = luminance(toRgb(indicator))
+  const b = luminance(toRgb(getComputedStyle(document.body).backgroundColor))
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+})()`
+
+test('UX-12 focus indicators have 3:1 contrast with the page', async ({ page }) => {
+  await signInWithKeyboard(page)
+  await page.goto('/admin/users')
+  const nav = page.getByRole('navigation', { name: 'Main navigation' })
+  const targets = [
+    nav.getByRole('link', { name: 'Leads' }),
+    page.getByRole('button', { name: /^Actions for / }).first(),
+    page.getByRole('searchbox', { name: 'Search by name or email' }),
+  ]
+  for (const target of targets) {
+    await target.focus()
+    // Keyboard focus, so :focus-visible styles apply.
+    await page.keyboard.press('Shift+Tab')
+    await page.keyboard.press('Tab')
+    // Inputs fade their border in (transition-colors); measure the settled colour.
+    await page.waitForTimeout(300)
+    const ratio = await page.evaluate<number>(FOCUS_CONTRAST)
+    expect(ratio, String(target)).toBeGreaterThanOrEqual(3)
   }
 })

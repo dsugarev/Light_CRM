@@ -69,6 +69,13 @@ class PasswordChangeRequest(_Request):
 # --- Current user -------------------------------------------------------------
 
 
+class SessionTimeouts(BaseModel):
+    """FN-05: what the UI needs to warn before the session times out."""
+
+    idle_timeout_minutes: int
+    expires_at: datetime
+
+
 class Me(BaseModel):
     principal_type: Literal["user", "integration"]
     id: UUID
@@ -83,6 +90,8 @@ class Me(BaseModel):
     # FR-AUTH-07: whether two-factor sign-in is on, and whether it must be set up first.
     mfa_enabled: bool = False
     mfa_setup_required: bool = False
+    # FN-05: the session's idle timeout and absolute expiry; null for integration clients.
+    session: SessionTimeouts | None = None
 
 
 class MeUpdate(_Request):
@@ -114,6 +123,12 @@ class UserLookupPage(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# UX-08: sortable columns of the user list (API spec section 5); `-` means descending.
+UserSort = Literal[
+    "name", "-name", "email", "-email", "role", "-role", "last_login_at", "-last_login_at"
+]
 
 
 class UserOut(BaseModel):

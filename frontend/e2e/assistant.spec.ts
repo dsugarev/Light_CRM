@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { admin, expectSignedIn, signIn } from './support.ts'
+import { admin, expectSignedIn, mainNav, signIn } from './support.ts'
 
 // Test strategy 4, journey 7: a user asks the assistant a pipeline question and gets a
 // streamed answer with record links; with the provider failing, the CRM still works.
@@ -118,7 +118,7 @@ for (const language of ['en', 'bg'] as const) {
       await panel.getByRole('button', { name: ui.send }).click()
       await expect(panel.getByRole('alert')).toContainText(ui.failure)
       await panel.getByRole('button', { name: ui.close }).click()
-      await page.getByRole('link', { name: ui.leads, exact: true }).click()
+      await mainNav(page).getByRole('link', { name: ui.leads, exact: true }).click()
       await expect(page).toHaveURL(/\/leads$/)
       await expect(page.getByRole('table')).toBeVisible()
     })

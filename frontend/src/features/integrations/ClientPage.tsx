@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -12,6 +11,7 @@ import { FormField } from '@/components/FormField'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Textarea } from '@/components/Textarea'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/table'
 import { useUserLookup } from '@/features/auth/useUserLookup'
 import { referenceName } from '@/features/reference/useReferenceList'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 
@@ -40,6 +40,7 @@ import { Webhooks } from './Webhooks'
 export function ClientPage() {
   const { clientId = '' } = useParams()
   const { t } = useTranslation('integrations')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const client = useQuery({
     queryKey: ['integration-clients', clientId],
@@ -50,12 +51,21 @@ export function ClientPage() {
         }),
       ),
   })
-  if (client.isError) return <ErrorState error={client.error} />
+  if (client.isError)
+    return (
+      <ErrorState
+        error={client.error}
+        onRetry={() => {
+          void client.refetch()
+        }}
+      />
+    )
   if (!client.data) return <Loading />
   const c = client.data
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-6">
       <PageHeader
+        breadcrumbs={[crumbs.integrations]}
         title={c.name}
         actions={
           <span className="flex items-center gap-2">
@@ -82,17 +92,17 @@ export function ClientPage() {
 
 function useClientMutation<V>(clientId: string, fn: (v: V) => Promise<unknown>, message: string) {
   const queryClient = useQueryClient()
-  const errorText = useErrorText()
+  const notify = useNotify()
   return useMutation({
     mutationFn: fn,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['integration-clients'] })
       await queryClient.invalidateQueries({ queryKey: ['api-keys', clientId] })
-      toast.success(message)
+      notify.success(message)
     },
     onError: (error) => {
       if (!(error instanceof ApiError && error.errors.length > 0)) {
-        toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+        notify.error(error)
       }
     },
   })
@@ -363,7 +373,7 @@ function Keys({ client }: { client: IntegrationClient }) {
             </TableBody>
           </Table>
         ) : (
-          <Loading />
+          <Loading variant="table" />
         )}
         <form
           aria-label={t('keys.create')}

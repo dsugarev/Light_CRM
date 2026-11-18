@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Navigate, useParams } from 'react-router'
-import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { api, ApiError, call } from '@/api/client'
@@ -32,6 +31,7 @@ import {
   type ReferenceListName,
 } from '@/features/reference/useReferenceList'
 import { applyServerErrors } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 
 const schema = z.object({
   code: z
@@ -61,6 +61,7 @@ export function ReferenceListPage() {
 }
 
 function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
+  const notify = useNotify()
   const { t } = useTranslation('admin')
   const items = useReferenceList(LIST, true)
   const queryClient = useQueryClient()
@@ -77,7 +78,7 @@ function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
       ),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('reference.saved'))
+      notify.success(t('reference.saved'))
     },
   })
   const reorder = useMutation({
@@ -94,7 +95,7 @@ function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
       ),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('reference.deleted'))
+      notify.success(t('reference.deleted'))
     },
   })
 
@@ -123,7 +124,14 @@ function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
         ))}
       </nav>
       <FormMessage error={error instanceof ApiError ? error.code : null} />
-      {items.isError ? <ErrorState error={items.error} /> : null}
+      {items.isError ? (
+        <ErrorState
+          error={items.error}
+          onRetry={() => {
+            void items.refetch()
+          }}
+        />
+      ) : null}
       {items.data ? (
         <Table>
           <TableHeader>
@@ -139,64 +147,66 @@ function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
             {items.data.map((item, index, list) => (
               <TableRow key={item.id}>
                 <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                <TableCell>{item.name_en}</TableCell>
-                <TableCell>{item.name_bg}</TableCell>
+                <TableCell className="whitespace-normal">{item.name_en}</TableCell>
+                <TableCell className="whitespace-normal">{item.name_bg}</TableCell>
                 <TableCell>
                   <Badge variant={item.is_active ? 'secondary' : 'outline'}>
                     {item.is_active ? t('reference.active') : t('reference.inactive')}
                   </Badge>
                 </TableCell>
-                <TableCell className="flex flex-wrap justify-end gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    aria-label={`${t('reference.moveUp')}: ${item.name_en}`}
-                    disabled={index === 0 || reorder.isPending}
-                    onClick={() => {
-                      move(list, index, -1)
-                    }}
-                  >
-                    ↑
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    aria-label={`${t('reference.moveDown')}: ${item.name_en}`}
-                    disabled={index === list.length - 1 || reorder.isPending}
-                    onClick={() => {
-                      move(list, index, 1)
-                    }}
-                  >
-                    ↓
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      update.mutate({ id: item.id, body: { is_active: !item.is_active } })
-                    }}
-                  >
-                    {item.is_active ? t('reference.deactivate') : t('reference.activate')}
-                  </Button>
-                  <ConfirmButton
-                    label={t('reference.delete')}
-                    title={t('reference.delete')}
-                    description={t('reference.confirmDelete', { name: item.name_en })}
-                    variant="destructive"
-                    onConfirm={() => {
-                      remove.mutate(item.id)
-                    }}
-                  />
+                <TableCell className="whitespace-normal">
+                  <div className="flex flex-wrap justify-end gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`${t('reference.moveUp')}: ${item.name_en}`}
+                      disabled={index === 0 || reorder.isPending}
+                      onClick={() => {
+                        move(list, index, -1)
+                      }}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`${t('reference.moveDown')}: ${item.name_en}`}
+                      disabled={index === list.length - 1 || reorder.isPending}
+                      onClick={() => {
+                        move(list, index, 1)
+                      }}
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        update.mutate({ id: item.id, body: { is_active: !item.is_active } })
+                      }}
+                    >
+                      {item.is_active ? t('reference.deactivate') : t('reference.activate')}
+                    </Button>
+                    <ConfirmButton
+                      label={t('reference.delete')}
+                      title={t('reference.delete')}
+                      description={t('reference.confirmDelete', { name: item.name_en })}
+                      variant="destructive"
+                      onConfirm={() => {
+                        remove.mutate(item.id)
+                      }}
+                    />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       ) : (
-        <Loading />
+        <Loading variant="table" />
       )}
       <AddValue list={LIST} onAdded={refresh} />
     </section>
@@ -210,6 +220,7 @@ function AddValue({
   list: ReferenceListName
   onAdded: () => Promise<unknown>
 }) {
+  const notify = useNotify()
   const { t } = useTranslation('admin')
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -226,7 +237,7 @@ function AddValue({
     onSuccess: async () => {
       form.reset()
       await onAdded()
-      toast.success(t('reference.added'))
+      notify.success(t('reference.added'))
     },
     onError: (error) => {
       const code = applyServerErrors(error, form.setError, ['code', 'name_en', 'name_bg'])
@@ -254,15 +265,16 @@ function AddValue({
           </div>
           <FormField
             label={t('reference.code')}
+            required
             error={errors.code?.message}
             hint={t('reference.codeHint')}
           >
             {(control) => <Input {...control} {...form.register('code')} />}
           </FormField>
-          <FormField label={t('reference.nameEn')} error={errors.name_en?.message}>
+          <FormField label={t('reference.nameEn')} required error={errors.name_en?.message}>
             {(control) => <Input {...control} {...form.register('name_en')} />}
           </FormField>
-          <FormField label={t('reference.nameBg')} error={errors.name_bg?.message}>
+          <FormField label={t('reference.nameBg')} required error={errors.name_bg?.message}>
             {(control) => <Input {...control} lang="bg" {...form.register('name_bg')} />}
           </FormField>
           <Button type="submit" className="mt-6" disabled={add.isPending}>

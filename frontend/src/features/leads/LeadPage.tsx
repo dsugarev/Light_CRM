@@ -10,6 +10,7 @@ import { FormField } from '@/components/FormField'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Textarea } from '@/components/Textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -36,13 +37,22 @@ const POINTS: Record<BantStatus, number> = { yes: 25, partial: 12.5, no: 0, unkn
 export function LeadPage() {
   const { leadId = '' } = useParams()
   const { t } = useTranslation('leads')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const path = { params: { path: { lead_id: leadId } } }
   const lead = useQuery({
     queryKey: ['leads', leadId],
     queryFn: () => call(api.GET('/api/v1/leads/{lead_id}', path)),
   })
-  if (lead.isError) return <ErrorState error={lead.error} />
+  if (lead.isError)
+    return (
+      <ErrorState
+        error={lead.error}
+        onRetry={() => {
+          void lead.refetch()
+        }}
+      />
+    )
   if (!lead.data) return <Loading />
   const l = lead.data
   const rows: [string, React.ReactNode][] = [
@@ -79,7 +89,11 @@ export function LeadPage() {
   ]
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6">
-      <PageHeader title={l.title} actions={<LeadStatusBadge status={l.status} />} />
+      <PageHeader
+        title={l.title}
+        breadcrumbs={[crumbs.leads]}
+        actions={<LeadStatusBadge status={l.status} />}
+      />
       <LeadActions lead={l} />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -356,7 +370,11 @@ function DisqualifyDialog({ lead }: { lead: Lead }) {
         })
       }}
     >
-      <FormField label={t('disqualify.reason')} error={missing ? 'validation.required' : undefined}>
+      <FormField
+        label={t('disqualify.reason')}
+        required
+        error={missing ? 'validation.required' : undefined}
+      >
         {(control) => (
           <NativeSelect
             {...control}

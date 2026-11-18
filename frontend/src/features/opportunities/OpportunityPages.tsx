@@ -1,14 +1,15 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, asPage, call } from '@/api/client'
 import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
+import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +20,7 @@ import { useCan } from '@/lib/permissions'
 import { useListParams } from '@/lib/useListParams'
 import { useLocale } from '@/lib/useLocale'
 import { ExportMenu } from '@/features/reports/ExportMenu'
+import { useNotify } from '@/lib/notify'
 
 import { OpportunityForm } from './OpportunityForm'
 import {
@@ -59,6 +61,7 @@ export function OpportunitiesPage() {
   const columns: Column<Opportunity>[] = [
     {
       key: 'name',
+      className: 'whitespace-normal',
       header: t('list.columns.name'),
       sortKey: 'name',
       cell: (o) => (
@@ -73,6 +76,7 @@ export function OpportunitiesPage() {
     },
     {
       key: 'organization',
+      className: 'whitespace-normal',
       header: t('list.columns.organization'),
       cell: (o) => (
         <Link to={`/organizations/${o.organization.id}`} className="hover:underline">
@@ -92,13 +96,13 @@ export function OpportunitiesPage() {
       key: 'probability',
       header: t('list.columns.probability'),
       cell: (o) => `${String(o.probability)}%`,
-      className: 'text-right',
+      className: 'text-right hidden lg:table-cell',
     },
     {
       key: 'weighted',
       header: t('list.columns.weighted'),
       cell: (o) => (o.weighted_amount ? formatMoney(o.weighted_amount, locale) : ''),
-      className: 'text-right',
+      className: 'text-right hidden lg:table-cell',
     },
     {
       key: 'close',
@@ -106,7 +110,12 @@ export function OpportunitiesPage() {
       sortKey: 'expected_close_date',
       cell: (o) => (o.expected_close_date ? formatDay(o.expected_close_date, locale) : ''),
     },
-    { key: 'owner', header: t('list.columns.owner'), cell: (o) => o.owner.full_name },
+    {
+      key: 'owner',
+      className: 'hidden lg:table-cell',
+      header: t('list.columns.owner'),
+      cell: (o) => o.owner.full_name,
+    },
   ]
   return (
     <section className="mx-auto max-w-7xl">
@@ -126,7 +135,7 @@ export function OpportunitiesPage() {
           </div>
         }
       />
-      <div className="mb-4 grid items-center gap-3 md:grid-cols-[2fr_1fr_1fr_1fr_auto_auto]">
+      <FilterBar>
         <SearchInput
           label={t('list.search')}
           value={list.q}
@@ -192,8 +201,15 @@ export function OpportunitiesPage() {
           />
           {t('list.archived')}
         </label>
-      </div>
-      {opportunities.isError ? <ErrorState error={opportunities.error} /> : null}
+      </FilterBar>
+      {opportunities.isError ? (
+        <ErrorState
+          error={opportunities.error}
+          onRetry={() => {
+            void opportunities.refetch()
+          }}
+        />
+      ) : null}
       {opportunities.data ? (
         <>
           <DataTable
@@ -216,14 +232,16 @@ export function OpportunitiesPage() {
           />
         </>
       ) : opportunities.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )
 }
 
 export function OpportunityNewPage() {
+  const notify = useNotify()
   const { t } = useTranslation('opportunities')
+  const crumbs = useSectionCrumbs()
   const [params] = useSearchParams()
   const organizationId = params.get('organization_id')
   const navigate = useNavigate()
@@ -248,17 +266,17 @@ export function OpportunityNewPage() {
     onSuccess: async (opportunity) => {
       await queryClient.invalidateQueries({ queryKey: ['opportunities'] })
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(t('toasts.created'))
+      notify.success(t('toasts.created'))
       await navigate(`/opportunities/${opportunity.id}`)
     },
   })
-  if (organizationId && organization.isPending) return <Loading />
+  if (organizationId && organization.isPending) return <Loading variant="form" />
   const preset = organization.data
     ? { id: organization.data.id, name: organization.data.name }
     : null
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('createTitle')} />
+      <PageHeader title={t('createTitle')} breadcrumbs={[crumbs.opportunities]} />
       <Card>
         <CardContent>
           <OpportunityForm
@@ -275,8 +293,10 @@ export function OpportunityNewPage() {
 }
 
 export function OpportunityEditPage() {
+  const notify = useNotify()
   const { opportunityId = '' } = useParams()
   const { t } = useTranslation('opportunities')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -296,15 +316,29 @@ export function OpportunityEditPage() {
     onSuccess: async (updated) => {
       queryClient.setQueryData(['opportunities', opportunityId], updated)
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(t('toasts.saved'))
+      notify.success(t('toasts.saved'))
       await navigate(`/opportunities/${opportunityId}`)
     },
   })
-  if (opportunity.isError) return <ErrorState error={opportunity.error} />
-  if (!opportunity.data) return <Loading />
+  if (opportunity.isError)
+    return (
+      <ErrorState
+        error={opportunity.error}
+        onRetry={() => {
+          void opportunity.refetch()
+        }}
+      />
+    )
+  if (!opportunity.data) return <Loading variant="form" />
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('editTitle')} />
+      <PageHeader
+        title={t('editTitle')}
+        breadcrumbs={[
+          crumbs.opportunities,
+          { label: opportunity.data.name, to: `/opportunities/${opportunityId}` },
+        ]}
+      />
       <Card>
         <CardContent>
           <OpportunityForm

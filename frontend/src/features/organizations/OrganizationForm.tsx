@@ -11,6 +11,7 @@ import { NativeSelect } from '@/components/NativeSelect'
 import { Textarea } from '@/components/Textarea'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard'
 import { useMe } from '@/features/auth/useMe'
 import { useUserLookup } from '@/features/auth/useUserLookup'
 import { referenceName, useReferenceList } from '@/features/reference/useReferenceList'
@@ -39,6 +40,9 @@ interface OrganizationFormProps {
   pending: boolean
   onSubmit: (values: OrganizationValues, confirmDuplicate: boolean) => Promise<unknown>
 }
+
+// UX-11: the fields the schema requires, marked in the form.
+const REQUIRED = new Set<keyof OrganizationValues>(['name'])
 
 /** Create/edit form with a live duplicate warning before saving (FR-PARTY-01 AC1). */
 export function OrganizationForm({
@@ -122,7 +126,12 @@ export function OrganizationForm({
     extra: Record<string, unknown> = {},
     hint?: string,
   ) => (
-    <FormField label={label} error={errors[field]?.message} hint={hint}>
+    <FormField
+      label={label}
+      error={errors[field]?.message}
+      hint={hint}
+      required={REQUIRED.has(field)}
+    >
       {(control) => <Input {...control} {...extra} {...form.register(field)} />}
     </FormField>
   )
@@ -226,6 +235,13 @@ export function OrganizationForm({
       <Button type="submit" className="self-start" disabled={pending}>
         {pending ? tc('actions.saving') : submitLabel}
       </Button>
+      <UnsavedChangesGuard
+        when={
+          form.formState.isDirty &&
+          !form.formState.isSubmitting &&
+          !form.formState.isSubmitSuccessful
+        }
+      />
     </form>
   )
 }

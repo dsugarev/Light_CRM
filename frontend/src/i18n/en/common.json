@@ -40,7 +40,14 @@
     "integrations": "Integrations",
     "failingDeliveries_one": "{{count}} webhook problem",
     "failingDeliveries_other": "{{count}} webhook problems",
-    "skipToContent": "Skip to main content"
+    "skipToContent": "Skip to main content",
+    "groupSales": "Sales",
+    "groupAdmin": "Administration",
+    "hide": "Hide navigation",
+    "show": "Show navigation",
+    "menu": "Menu",
+    "close": "Close navigation",
+    "accountMenu": "Account menu: {{name}}"
   },
   "roles": {
     "admin": "Admin",
@@ -59,17 +66,56 @@
     "previous": "Previous",
     "next": "Next",
     "search": "Search",
-    "back": "Back"
+    "back": "Back",
+    "close": "Close",
+    "done": "Done",
+    "edit": "Edit"
   },
   "states": {
     "loading": "Loading…",
     "empty": "Nothing to show.",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "retry": "Try again",
+    "requestId": "Reference for support:"
   },
   "pagination": {
     "summary": "Page {{page}} of {{pages}} · {{total}} in total"
   },
   "home": {
     "title": "Welcome, {{name}}"
+  },
+  "breadcrumbs": {
+    "label": "Breadcrumbs"
+  },
+  "password": {
+    "show": "Show password",
+    "hide": "Hide password",
+    "capsLock": "Caps Lock is on."
+  },
+  "passwordRules": {
+    "label": "Password rules",
+    "length": "At least {{min}} characters",
+    "maxLength": "At most {{max}} characters",
+    "common": "Not a commonly used password (checked when you save)",
+    "match": "Both entries match",
+    "met": "(done)",
+    "notMet": "(not yet)"
+  },
+  "table": {
+    "actions": "Actions",
+    "actionsFor": "Actions for {{name}}"
+  },
+  "form": {
+    "required": "(required)",
+    "requiredNote": "Fields marked * are required.",
+    "unsavedTitle": "Leave without saving?",
+    "unsavedText": "You have changes on this page that are not saved. If you leave, they are lost.",
+    "stay": "Stay on this page",
+    "leave": "Leave without saving"
+  },
+  "idle": {
+    "title": "Still there?",
+    "text": "You will be signed out in {{time}} because of inactivity.",
+    "stay": "Stay signed in"
   }
 }

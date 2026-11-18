@@ -494,3 +494,45 @@ describe('Server-Sent Events parsing', () => {
     expect(second.rest).toBe('')
   })
 })
+
+describe('FR-AI-04 save as note right after an answer', () => {
+  it('keeps an opened note form when the stored conversation replaces the live answer', async () => {
+    assistantOn()
+    const answer = `Your open deal is ${OPPORTUNITY.name}.`
+    const refs = [
+      { entity_type: 'opportunity', entity_id: OPPORTUNITY.id, label: OPPORTUNITY.name },
+    ]
+    conversationApi()
+    // Hold the reload that follows the answer, so the live answer is still on screen.
+    let releaseReload: (value: undefined) => void = () => undefined
+    const reload = new Promise<undefined>((resolve) => {
+      releaseReload = resolve
+    })
+    server.use(
+      http.post(`*/api/v1/assistant/conversations/${CONVERSATION.id}/messages`, () =>
+        sse([START, ['delta', { text: answer }], ['record_ref', refs[0]], END]),
+      ),
+      http.get(`*/api/v1/assistant/conversations/${CONVERSATION.id}`, async () => {
+        await reload
+        return HttpResponse.json({
+          ...CONVERSATION,
+          messages: storedPair('Which deals are open?', answer, refs),
+        })
+      }),
+    )
+    await renderApp('/search')
+    const panel = await openAssistant()
+    await ask(panel, 'Which deals are open?')
+    await userEvent.click(await within(panel).findByRole('button', { name: 'Save as note' }))
+    expect(within(panel).getByRole('form', { name: 'Save as note' })).toBeInTheDocument()
+
+    releaseReload(undefined)
+    await waitFor(() => {
+      expect(within(panel).getByRole('button', { name: 'Send' })).toBeInTheDocument()
+    })
+    await waitFor(() => {
+      expect(within(panel).getAllByText(/Which deals are open\?/)).toHaveLength(1)
+    })
+    expect(within(panel).getByRole('form', { name: 'Save as note' })).toBeInTheDocument()
+  })
+})

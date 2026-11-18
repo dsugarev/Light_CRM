@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { api, ApiError, call } from '@/api/client'
@@ -27,6 +26,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { applyServerErrors } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 
 import { STAGE_TYPES, type Stage } from './opportunityValues'
 import { usePipeline } from './usePipeline'
@@ -53,6 +53,7 @@ const FIELDS = ['name_en', 'name_bg', 'default_probability', 'stage_type'] as co
 
 /** FR-OPP-02 / FR-ADM-02: Admins configure the pipeline's stages. */
 export function StagesPage() {
+  const notify = useNotify()
   const { t } = useTranslation('opportunities')
   const pipeline = usePipeline()
   const queryClient = useQueryClient()
@@ -80,7 +81,7 @@ export function StagesPage() {
       ),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('stages.saved'))
+      notify.success(t('stages.saved'))
     },
   })
   const reorder = useMutation({
@@ -98,7 +99,7 @@ export function StagesPage() {
       call(api.DELETE('/api/v1/pipelines/{pipeline_id}/stages/{stage_id}', stagePath(id))),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('stages.deleted'))
+      notify.success(t('stages.deleted'))
     },
   })
   const move = (stages: Stage[], index: number, delta: number) => {
@@ -114,14 +115,21 @@ export function StagesPage() {
       <PageHeader title={t('stages.title')} />
       <p className="text-sm text-muted-foreground">{t('stages.help')}</p>
       <FormMessage error={error instanceof ApiError ? error.code : null} />
-      {pipeline.isError ? <ErrorState error={pipeline.error} /> : null}
+      {pipeline.isError ? (
+        <ErrorState
+          error={pipeline.error}
+          onRetry={() => {
+            void pipeline.refetch()
+          }}
+        />
+      ) : null}
       {pipeline.data ? (
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('stages.nameEn')}</TableHead>
               <TableHead>{t('stages.nameBg')}</TableHead>
-              <TableHead>{t('stages.probability')}</TableHead>
+              <TableHead className="whitespace-normal">{t('stages.probability')}</TableHead>
               <TableHead>{t('stages.type')}</TableHead>
               <TableHead />
               <TableHead />
@@ -149,7 +157,7 @@ export function StagesPage() {
           </TableBody>
         </Table>
       ) : (
-        <Loading />
+        <Loading variant="table" />
       )}
       {pipeline.data ? <AddStage pipelineId={pipeline.data.id} onAdded={refresh} /> : null}
     </section>
@@ -199,6 +207,7 @@ function StageRow({
       <TableCell>
         <Input
           aria-label={`${t('stages.nameEn')}: ${stage.name_en}`}
+          className="min-w-32"
           value={draft.name_en}
           maxLength={100}
           onChange={(e) => {
@@ -209,6 +218,7 @@ function StageRow({
       <TableCell>
         <Input
           aria-label={`${t('stages.nameBg')}: ${stage.name_en}`}
+          className="min-w-32"
           lang="bg"
           value={draft.name_bg}
           maxLength={100}
@@ -250,49 +260,51 @@ function StageRow({
           {t('stages.save')}
         </Button>
       </TableCell>
-      <TableCell className="flex flex-wrap justify-end gap-1">
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          aria-label={`${t('stages.moveUp')}: ${stage.name_en}`}
-          disabled={first || busy}
-          onClick={() => {
-            onMove(-1)
-          }}
-        >
-          ↑
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          aria-label={`${t('stages.moveDown')}: ${stage.name_en}`}
-          disabled={last || busy}
-          onClick={() => {
-            onMove(1)
-          }}
-        >
-          ↓
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={() => {
-            onSave({ is_active: !stage.is_active })
-          }}
-        >
-          {stage.is_active ? t('stages.deactivate') : t('stages.activate')}
-        </Button>
-        <ConfirmButton
-          label={t('stages.delete')}
-          title={t('stages.delete')}
-          description={t('stages.confirmDelete', { name: stage.name_en })}
-          variant="destructive"
-          onConfirm={onDelete}
-        />
+      <TableCell className="whitespace-normal">
+        <div className="flex flex-wrap justify-end gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-label={`${t('stages.moveUp')}: ${stage.name_en}`}
+            disabled={first || busy}
+            onClick={() => {
+              onMove(-1)
+            }}
+          >
+            ↑
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-label={`${t('stages.moveDown')}: ${stage.name_en}`}
+            disabled={last || busy}
+            onClick={() => {
+              onMove(1)
+            }}
+          >
+            ↓
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => {
+              onSave({ is_active: !stage.is_active })
+            }}
+          >
+            {stage.is_active ? t('stages.deactivate') : t('stages.activate')}
+          </Button>
+          <ConfirmButton
+            label={t('stages.delete')}
+            title={t('stages.delete')}
+            description={t('stages.confirmDelete', { name: stage.name_en })}
+            variant="destructive"
+            onConfirm={onDelete}
+          />
+        </div>
       </TableCell>
     </TableRow>
   )
@@ -305,6 +317,7 @@ function AddStage({
   pipelineId: string
   onAdded: () => Promise<unknown>
 }) {
+  const notify = useNotify()
   const { t } = useTranslation('opportunities')
   const form = useForm<Input_, unknown, Values>({
     resolver: zodResolver(schema),
@@ -321,7 +334,7 @@ function AddStage({
     onSuccess: async () => {
       form.reset()
       await onAdded()
-      toast.success(t('stages.added'))
+      notify.success(t('stages.added'))
     },
     onError: (error) => {
       const code = applyServerErrors(error, form.setError, FIELDS)
@@ -347,18 +360,22 @@ function AddStage({
           <div className="sm:col-span-5">
             <FormMessage error={errors.root?.message} />
           </div>
-          <FormField label={t('stages.nameEn')} error={errors.name_en?.message}>
+          <FormField label={t('stages.nameEn')} required error={errors.name_en?.message}>
             {(control) => <Input {...control} {...form.register('name_en')} />}
           </FormField>
-          <FormField label={t('stages.nameBg')} error={errors.name_bg?.message}>
+          <FormField label={t('stages.nameBg')} required error={errors.name_bg?.message}>
             {(control) => <Input {...control} lang="bg" {...form.register('name_bg')} />}
           </FormField>
-          <FormField label={t('stages.probability')} error={errors.default_probability?.message}>
+          <FormField
+            label={t('stages.probability')}
+            required
+            error={errors.default_probability?.message}
+          >
             {(control) => (
               <Input {...control} inputMode="numeric" {...form.register('default_probability')} />
             )}
           </FormField>
-          <FormField label={t('stages.type')} error={errors.stage_type?.message}>
+          <FormField label={t('stages.type')} required error={errors.stage_type?.message}>
             {(control) => (
               <NativeSelect {...control} {...form.register('stage_type')}>
                 {STAGE_TYPES.map((type) => (

@@ -3971,6 +3971,16 @@
             "title": "Scopes",
             "type": "array"
           },
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionTimeouts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "system": {
             "anyOf": [
               {
@@ -6562,6 +6572,26 @@
           "current"
         ],
         "title": "SessionInfo",
+        "type": "object"
+      },
+      "SessionTimeouts": {
+        "description": "FN-05: what the UI needs to warn before the session times out.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "idle_timeout_minutes": {
+            "title": "Idle Timeout Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "idle_timeout_minutes",
+          "expires_at"
+        ],
+        "title": "SessionTimeouts",
         "type": "object"
       },
       "SessionUser": {
@@ -19014,6 +19044,26 @@
                 }
               ],
               "title": "Is Active"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "name",
+              "enum": [
+                "name",
+                "-name",
+                "email",
+                "-email",
+                "role",
+                "-role",
+                "last_login_at",
+                "-last_login_at"
+              ],
+              "title": "Sort",
+              "type": "string"
             }
           },
           {

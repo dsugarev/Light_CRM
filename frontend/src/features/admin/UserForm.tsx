@@ -36,9 +36,17 @@ interface UserFormProps {
   pending: boolean
   /** Resolve on success; reject with the API error to show it. */
   onSubmit: (values: UserValues) => Promise<unknown>
+  /** FN-08: when set, the role cannot be changed and this says why. */
+  roleLockedReason?: string | undefined
 }
 
-export function UserForm({ defaultValues, submitLabel, pending, onSubmit }: UserFormProps) {
+export function UserForm({
+  defaultValues,
+  submitLabel,
+  pending,
+  onSubmit,
+  roleLockedReason,
+}: UserFormProps) {
   const { t } = useTranslation('admin')
   const { t: tc } = useTranslation()
   const form = useForm<UserValues>({ resolver: zodResolver(userSchema), defaultValues })
@@ -59,22 +67,38 @@ export function UserForm({ defaultValues, submitLabel, pending, onSubmit }: User
       }}
     >
       <FormMessage error={formError} />
-      <FormField label={t('userForm.email')} error={form.formState.errors.email?.message}>
+      <FormField label={t('userForm.email')} required error={form.formState.errors.email?.message}>
         {(control) => <Input {...control} type="email" {...form.register('email')} />}
       </FormField>
-      <FormField label={t('userForm.fullName')} error={form.formState.errors.full_name?.message}>
+      <FormField
+        label={t('userForm.fullName')}
+        required
+        error={form.formState.errors.full_name?.message}
+      >
         {(control) => <Input {...control} {...form.register('full_name')} />}
       </FormField>
-      <FormField label={t('userForm.role')} error={form.formState.errors.role?.message}>
-        {(control) => (
-          <NativeSelect {...control} {...form.register('role')}>
-            {HUMAN_ROLES.map((role) => (
-              <option key={role} value={role}>
-                {tc(`roles.${role}`)}
-              </option>
-            ))}
-          </NativeSelect>
-        )}
+      <FormField
+        label={t('userForm.role')}
+        required
+        error={form.formState.errors.role?.message}
+        hint={roleLockedReason}
+      >
+        {(control) =>
+          roleLockedReason ? (
+            // Not registered: the form keeps the current role from its default values.
+            <NativeSelect {...control} value={defaultValues.role} disabled>
+              <option value={defaultValues.role}>{tc(`roles.${defaultValues.role}`)}</option>
+            </NativeSelect>
+          ) : (
+            <NativeSelect {...control} {...form.register('role')}>
+              {HUMAN_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {tc(`roles.${role}`)}
+                </option>
+              ))}
+            </NativeSelect>
+          )
+        }
       </FormField>
       <FormField label={t('userForm.language')}>
         {(control) => (

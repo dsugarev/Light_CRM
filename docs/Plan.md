@@ -2380,3 +2380,68 @@ Called after `change_password`, a password set from a reset link (not from an in
 The owner accepted Release 1 and asked for the tag. `v1.0.0` is an annotated tag on `main` 026719d (the merge of #20; CI run 44277448331 green on all four jobs), published as the GitHub release `v1.0.0`. The local stack was rebuilt from that commit following the upgrade procedure (images rebuilt, `proxy` and `backup` restarted).
 
 Open after the release (none blocking): the integrating teams' addresses and detailed flows (open question 7); the off-server backup copy and a restore drill on the production server; the ASVS open items 2.1.8, 2.1.12 and 8.3.3; the manual accessibility checks. Work beyond Release 1 (implementation plan, "After R1") needs the owner's go-ahead.
+
+## UI polish after Release 1 (2026-11-18)
+
+Run as a loop over `docs/loops/ui-polish-backlog.md` (prompt `docs/loops/PROMPT-ui-polish.md`; the owner pre-approved sections A and B). The per-item record with files, tests, screenshots and gate results is `docs/loops/ui-polish-progress.md`. All 22 items are done (FN-05 after the owner approved its API addition).
+
+| Item | What was built |
+|---|---|
+| UX-01 | Every color from theme tokens (`--brand` with `TODO(owner): brand color`, `--success`, `--overlay`, `--qr-surface`, `--destructive-foreground`); a test fails on color literals or Tailwind palette classes |
+| UX-02 | App shell: grouped sidebar (collapsible, remembered per session), drawer below 1024 px, account menu (profile, language, sign out) |
+| UX-03 | `PageHeader` with breadcrumbs and description on every page; `AuthCard` for signed-out pages; a test fails on any other `<h1>` |
+| UX-04 | Skeleton `Loading` (table, form, page), `EmptyState`, `ErrorState` and route errors with retry and the request ID (`ApiError.requestId`) |
+| UX-05 | `useNotify` is the only toast path (lint rule); `window.confirm/alert/prompt` banned; session sign-out confirmed |
+| UX-06 | Sign-in: `PasswordInput` (show/hide, Caps Lock), spinner, remaining lockout minutes, focus to the error |
+| UX-07 | `PasswordChecklist`; a page for used or expired links |
+| UX-08 | Users table on `DataTable` with row action menus (`RowActions`), `RelativeTime`; **API:** optional `sort` on `GET /users` (additive, spec section 5) |
+| UX-09 | Shared `Sheet`; create and edit users in sheets; one-time link shown once and kept out of the query and mutation caches |
+| UX-10 | Audit log: user, record-type and date filters with presets; drawer with a before/after field diff (`AuditDiff`); 52 action names translated |
+| UX-11 | `FormField` `required` marker and `aria-required` on every validated field; `UnsavedChangesGuard` on record, settings, profile and activity forms |
+| UX-12 | axe on every route; focus ring token raised to 3:1 and measured in the browser |
+| UX-13 | Bulgarian layout: `FilterBar`, secondary columns hidden below 1024 px, compact chart axes; `e2e/layout.spec.ts` |
+| UX-14 | 152 screenshot baselines (`pnpm e2e:visual`, macOS) with deterministic API responses and masks |
+| FN-01, FN-02 | Password change with the checklist; readable session devices (`lib/userAgent.ts`) |
+| FN-03 | Confirmed account actions in the users row menu (`useUserActions`, `ConfirmDialog`) |
+| FN-04 | A 401 records whether a session was lost; `RequireAuth` sends to `/sign-in?next=…&expired=1` with a message, and back after signing in |
+| FN-06, FN-07 | Already built; tests added (language at sign-in on another device; audit export with the current filters) |
+| FN-08 | Last active Admin: role locked and Deactivate explained (`useLastAdmin`); the backend 409 was already specified and tested |
+| FN-05 | Idle-timeout warning across tabs (`IdleWarning`, `sessionActivity.ts`); **API:** `GET /me` gained `session: { idle_timeout_minutes, expires_at }` (additive, owner-approved 2026-11-18) |
+
+Also fixed on the way: the assistant's live answer remounted when the conversation reloaded and dropped an opened "save as note" form (the cause of an intermittent E2E failure); table cells with `display: flex` in stages and lists; a missing value and `null` shown as a change in the audit diff.
+
+#### The one redirect for a lost session (`app/queryClient.ts`, `features/auth/RequireAuth.tsx`)
+
+```ts
+const handle = (error: unknown) => {
+  if (isUnauthorized(error)) {
+    // FN-04: someone who was signed in lost their session; a first visit did not.
+    const previous: unknown = queryClient.getQueryData(ME_QUERY_KEY)
+    queryClient.setQueryData(SESSION_EXPIRED_KEY, previous != null)
+    queryClient.setQueryData(ME_QUERY_KEY, null)
+  }
+}
+// RequireAuth
+if (!me) {
+  const expired = queryClient.getQueryData<boolean>(SESSION_EXPIRED_KEY) === true
+  return <Navigate to={signInAfterUnauthorized(location, expired)} replace />
+}
+```
+
+#### Leaving a form with changes (`components/UnsavedChangesGuard.tsx`)
+
+```ts
+const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+  when &&
+  // A lost session (FN-04) goes to sign-in regardless: the changes could not be saved.
+  nextLocation.pathname !== '/sign-in' &&
+  (currentLocation.pathname !== nextLocation.pathname ||
+    currentLocation.search !== nextLocation.search))
+```
+
+Deviations and open items:
+- The visual baselines are macOS renderings and run with `pnpm e2e:visual`, not in CI. Linux baselines would need the Playwright Docker image or a CI job (proposal C-10).
+- `pnpm e2e` now names its projects (`chromium`, `firefox`) so the visual project stays out of it.
+- Owner decisions are listed in section C of the backlog:
+  - C-01 branding, C-02 dark mode, C-04 command palette, C-05 system status, C-06 sign-in notice;
+  - C-09 locked-users filter, C-10 visual baselines in CI.

@@ -2,7 +2,6 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -11,6 +10,7 @@ import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/table'
 import { useMe } from '@/features/auth/useMe'
 import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 import { useLocale } from '@/lib/useLocale'
 
 import type { ImportBatch, ImportRow } from './upload'
@@ -46,18 +47,28 @@ function resultKey(result: string): (typeof RESULTS)[number] {
 export function ImportBatchPage() {
   const { batchId = '' } = useParams()
   const { t } = useTranslation('imports')
+  const crumbs = useSectionCrumbs()
   const batch = useQuery({
     queryKey: ['imports', batchId],
     queryFn: () =>
       call(api.GET('/api/v1/imports/{batch_id}', { params: { path: { batch_id: batchId } } })),
   })
-  if (batch.isError) return <ErrorState error={batch.error} />
+  if (batch.isError)
+    return (
+      <ErrorState
+        error={batch.error}
+        onRetry={() => {
+          void batch.refetch()
+        }}
+      />
+    )
   if (!batch.data) return <Loading />
   const b = batch.data
   const editable = b.status === 'uploaded' || b.status === 'mapped' || b.status === 'validated'
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6">
       <PageHeader
+        breadcrumbs={[crumbs.imports]}
         title={b.file_name}
         actions={
           <span className="flex items-center gap-2">
@@ -80,17 +91,17 @@ export function ImportBatchPage() {
 
 function useBatchMutation<V>(batchId: string, fn: (v: V) => Promise<unknown>, message: string) {
   const queryClient = useQueryClient()
-  const errorText = useErrorText()
+  const notify = useNotify()
   return useMutation({
     mutationFn: fn,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['imports'] })
       await queryClient.invalidateQueries({ queryKey: ['import-rows', batchId] })
-      toast.success(message)
+      notify.success(message)
     },
     onError: (error) => {
       if (!(error instanceof ApiError && error.errors.length > 0)) {
-        toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+        notify.error(error)
       }
     },
   })
@@ -381,7 +392,7 @@ function Preview({ batch }: { batch: ImportBatch }) {
             />
           </>
         ) : (
-          <Loading />
+          <Loading variant="table" />
         )}
       </CardContent>
     </Card>

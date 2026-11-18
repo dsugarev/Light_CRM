@@ -43,9 +43,36 @@ export default defineConfig([
           name: 'fetch',
           message: 'Use the typed client in src/api through a TanStack Query hook.',
         },
+        // UX-05: confirmations use ConfirmButton; feedback uses useNotify.
+        { name: 'confirm', message: 'Use ConfirmButton (src/components).' },
+        { name: 'alert', message: 'Use useNotify (src/lib/notify).' },
+        { name: 'prompt', message: 'Use a form in a dialog.' },
+      ],
+      'no-restricted-properties': [
+        'error',
+        { object: 'window', property: 'confirm', message: 'Use ConfirmButton (src/components).' },
+        { object: 'window', property: 'alert', message: 'Use useNotify (src/lib/notify).' },
+        { object: 'window', property: 'prompt', message: 'Use a form in a dialog.' },
+      ],
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'sonner',
+              importNames: ['toast'],
+              message: 'UX-05: show feedback through useNotify (src/lib/notify).',
+            },
+          ],
+        },
       ],
       '@typescript-eslint/no-explicit-any': 'error',
     },
+  },
+  {
+    // The one place that may call sonner's toast directly.
+    files: ['src/lib/notify.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   {
     // No hard-coded user-facing text in components (FR-I18N-02).

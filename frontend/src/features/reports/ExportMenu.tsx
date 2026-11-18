@@ -1,10 +1,8 @@
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
-import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 
 import { download, exportQuery, type ExportFormat } from './download'
 
@@ -20,11 +18,11 @@ interface ExportMenuProps {
 /** FR-REP-02: download the current list view as XLSX or CSV, filters applied. */
 export function ExportMenu({ path, query }: ExportMenuProps) {
   const { t } = useTranslation('reports')
-  const errorText = useErrorText()
+  const notify = useNotify()
   const run = useMutation({
     mutationFn: (format: ExportFormat) => download(path, exportQuery(query, format)),
     onError: (error) => {
-      toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+      notify.error(error)
     },
   })
   return (

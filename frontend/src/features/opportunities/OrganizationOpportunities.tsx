@@ -80,7 +80,7 @@ export function OrganizationOpportunities({
             empty={t('organization.none')}
           />
         ) : (
-          <Loading />
+          <Loading variant="table" />
         )}
       </CardContent>
     </Card>

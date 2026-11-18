@@ -1,14 +1,15 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router'
-import { toast } from 'sonner'
 
-import { api, ApiError, call } from '@/api/client'
+import { api, call } from '@/api/client'
+import { EmptyState } from '@/components/EmptyState'
 import { ErrorState } from '@/components/ErrorState'
 import { FormField } from '@/components/FormField'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 
@@ -43,7 +44,7 @@ function StatusBadge({ status }: { status: DeliveryStatus }) {
 /** FR-INT-07 AC3, FR-INT-12: the delivery log, filtered by client, status and event type. */
 export function DeliveriesPage() {
   const { t } = useTranslation('integrations')
-  const { t: tc } = useTranslation()
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
   const [params, setParams] = useSearchParams()
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
@@ -82,7 +83,7 @@ export function DeliveriesPage() {
   const names = new Map((clients.data ?? []).map((c: IntegrationClient) => [c.id, c.name]))
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-4">
-      <PageHeader title={t('deliveries.title')} />
+      <PageHeader title={t('deliveries.title')} breadcrumbs={[crumbs.integrations]} />
       <div className="grid gap-3 sm:grid-cols-3">
         <FormField label={t('deliveries.client')}>
           {(control) => (
@@ -139,7 +140,14 @@ export function DeliveriesPage() {
           )}
         </FormField>
       </div>
-      {deliveries.isError ? <ErrorState error={deliveries.error} /> : null}
+      {deliveries.isError ? (
+        <ErrorState
+          error={deliveries.error}
+          onRetry={() => {
+            void deliveries.refetch()
+          }}
+        />
+      ) : null}
       {deliveries.data ? (
         <>
           <Table>
@@ -150,15 +158,17 @@ export function DeliveriesPage() {
                 <TableHead>{t('deliveries.client')}</TableHead>
                 <TableHead>{t('deliveries.eventType')}</TableHead>
                 <TableHead>{t('deliveries.statusLabel')}</TableHead>
-                <TableHead className="text-right">{t('deliveries.attempts')}</TableHead>
+                <TableHead className="hidden text-right lg:table-cell">
+                  {t('deliveries.attempts')}
+                </TableHead>
                 <TableHead>{t('deliveries.lastResult')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {deliveries.data.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    {tc('states.empty')}
+                  <TableCell colSpan={6}>
+                    <EmptyState />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -177,7 +187,9 @@ export function DeliveriesPage() {
                     <TableCell>
                       <StatusBadge status={d.status} />
                     </TableCell>
-                    <TableCell className="text-right">{d.attempt_count}</TableCell>
+                    <TableCell className="hidden text-right lg:table-cell">
+                      {d.attempt_count}
+                    </TableCell>
                     <TableCell>{d.last_status_code ?? d.last_error ?? ''}</TableCell>
                   </TableRow>
                 ))
@@ -196,7 +208,7 @@ export function DeliveriesPage() {
           />
         </>
       ) : deliveries.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )
@@ -206,8 +218,9 @@ export function DeliveriesPage() {
 export function DeliveryPage() {
   const { deliveryId = '' } = useParams()
   const { t } = useTranslation('integrations')
+  const crumbs = useSectionCrumbs()
   const locale = useLocale()
-  const errorText = useErrorText()
+  const notify = useNotify()
   const queryClient = useQueryClient()
   const delivery = useQuery({
     queryKey: ['webhook-deliveries', deliveryId],
@@ -229,21 +242,33 @@ export function DeliveryPage() {
         }),
       ),
     onSuccess: async () => {
-      toast.success(t('deliveries.redelivered'))
+      notify.success(t('deliveries.redelivered'))
       await queryClient.invalidateQueries({ queryKey: ['webhook-deliveries'] })
       await queryClient.invalidateQueries({ queryKey: ['integration-clients'] })
     },
     onError: (error) => {
-      toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+      notify.error(error)
     },
   })
-  if (delivery.isError) return <ErrorState error={delivery.error} />
+  if (delivery.isError)
+    return (
+      <ErrorState
+        error={delivery.error}
+        onRetry={() => {
+          void delivery.refetch()
+        }}
+      />
+    )
   if (!delivery.data) return <Loading />
   const d = delivery.data
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-4">
       <PageHeader
         title={d.event_type}
+        breadcrumbs={[
+          crumbs.integrations,
+          { label: t('deliveries.title'), to: '/admin/integrations/deliveries' },
+        ]}
         actions={
           <Button
             type="button"

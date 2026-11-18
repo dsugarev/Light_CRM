@@ -1,32 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, call, type Schemas } from '@/api/client'
 import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Card, CardContent } from '@/components/ui/card'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 
 import { OrganizationForm } from './OrganizationForm'
 import { organizationPayload, type OrganizationValues } from './organizationValues'
 
 function useAfterSave() {
+  const notify = useNotify()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const errorText = useErrorText()
   return async (org: Schemas['OrganizationOut'], message: string) => {
     await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-    toast.success(message)
-    for (const warning of org.warnings) toast.warning(errorText(warning.code))
+    notify.success(message)
+    for (const warning of org.warnings) notify.warning(warning.code)
     await navigate(`/organizations/${org.id}`)
   }
 }
 
 export function OrganizationNewPage() {
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const afterSave = useAfterSave()
   const create = useMutation({
     mutationFn: ({ values, confirm }: { values: OrganizationValues; confirm: boolean }) =>
@@ -39,7 +40,7 @@ export function OrganizationNewPage() {
   })
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('organization.createTitle')} />
+      <PageHeader title={t('organization.createTitle')} breadcrumbs={[crumbs.organizations]} />
       <Card>
         <CardContent>
           <OrganizationForm
@@ -56,6 +57,7 @@ export function OrganizationNewPage() {
 export function OrganizationEditPage() {
   const { orgId = '' } = useParams()
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const afterSave = useAfterSave()
   const path = { params: { path: { org_id: orgId } } }
@@ -73,11 +75,25 @@ export function OrganizationEditPage() {
       ),
     onSuccess: (org) => afterSave(org, t('organization.toasts.saved')),
   })
-  if (organization.isError) return <ErrorState error={organization.error} />
-  if (!organization.data) return <Loading />
+  if (organization.isError)
+    return (
+      <ErrorState
+        error={organization.error}
+        onRetry={() => {
+          void organization.refetch()
+        }}
+      />
+    )
+  if (!organization.data) return <Loading variant="form" />
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('organization.editTitle')} />
+      <PageHeader
+        title={t('organization.editTitle')}
+        breadcrumbs={[
+          crumbs.organizations,
+          { label: organization.data.name, to: `/organizations/${orgId}` },
+        ]}
+      />
       <Card>
         <CardContent>
           <OrganizationForm

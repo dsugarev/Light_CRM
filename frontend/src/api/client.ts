@@ -6,12 +6,30 @@ import type { components, paths } from './schema'
 // OpenAPI schema (`pnpm generate:api`); never hand-write API types.
 // Same origin as the SPA: the session cookie is sent automatically, and the
 // custom header satisfies the server's CSRF check (architecture section 7).
+const requestListeners = new Set<() => void>()
+
+/**
+ * FN-05: be told about every `/api/v1` request; each one keeps the session alive on the
+ * server. Health checks (`/api/health/...`) do not touch the session and are left out.
+ */
+export function onApiRequest(listener: () => void): () => void {
+  requestListeners.add(listener)
+  return () => {
+    requestListeners.delete(listener)
+  }
+}
+
 export const api = createClient<paths>({
   baseUrl: globalThis.location.origin,
   credentials: 'same-origin',
   headers: { 'X-Requested-With': 'XMLHttpRequest' },
   // Resolve fetch per call so test doubles (MSW) installed later are used.
-  fetch: (request) => globalThis.fetch(request),
+  fetch: (request) => {
+    if (new URL(request.url).pathname.startsWith('/api/v1/')) {
+      for (const listener of requestListeners) listener()
+    }
+    return globalThis.fetch(request)
+  },
 })
 
 export type Schemas = components['schemas']
@@ -33,14 +51,17 @@ export class ApiError extends Error {
   readonly code: string
   readonly errors: FieldError[]
   readonly problem: Problem
+  /** The server's request ID (problem body or X-Request-ID header), for support. */
+  readonly requestId: string | null
 
-  constructor(status: number, problem: Problem) {
+  constructor(status: number, problem: Problem, requestId: string | null = null) {
     super(problem.code ?? `http.${String(status)}`)
     this.name = 'ApiError'
     this.status = status
     this.code = problem.code ?? 'unknown'
     this.errors = problem.errors ?? []
     this.problem = problem
+    this.requestId = typeof problem['request_id'] === 'string' ? problem['request_id'] : requestId
   }
 }
 
@@ -51,7 +72,7 @@ export async function call<T>(
   const { data, error, response } = await request
   if (!response.ok) {
     const problem = (error && typeof error === 'object' ? error : {}) as Problem
-    throw new ApiError(response.status, problem)
+    throw new ApiError(response.status, problem, response.headers.get('X-Request-ID'))
   }
   return data as T
 }

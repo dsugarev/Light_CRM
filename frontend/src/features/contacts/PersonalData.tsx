@@ -1,18 +1,20 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { api, ApiError, call, type Schemas } from '@/api/client'
+import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { useNotify } from '@/lib/notify'
 
 const CONFIRM_WORD = 'ANONYMIZE'
 
 /** FR-ADM-04: an Admin exports a contact's personal data or anonymizes the contact. */
 export function PersonalData({ contact }: { contact: Schemas['ContactOut'] }) {
+  const notify = useNotify()
   const { t } = useTranslation('party')
   const queryClient = useQueryClient()
   const [typed, setTyped] = useState('')
@@ -41,7 +43,7 @@ export function PersonalData({ contact }: { contact: Schemas['ContactOut'] }) {
       setTyped('')
       await queryClient.invalidateQueries({ queryKey: ['contacts'] })
       await queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      toast.success(t('contact.gdpr.anonymized'))
+      notify.success(t('contact.gdpr.anonymized'))
     },
   })
   const failure = [download.error, anonymize.error].find((e) => e instanceof ApiError)
@@ -76,16 +78,18 @@ export function PersonalData({ contact }: { contact: Schemas['ContactOut'] }) {
             }}
           >
             <p className="text-sm text-muted-foreground">{t('contact.gdpr.anonymizeHint')}</p>
-            <label className="flex flex-col gap-1 text-sm">
-              {t('contact.gdpr.typeToConfirm', { word: CONFIRM_WORD })}
-              <Input
-                value={typed}
-                autoComplete="off"
-                onChange={(event) => {
-                  setTyped(event.target.value)
-                }}
-              />
-            </label>
+            <FormField label={t('contact.gdpr.typeToConfirm', { word: CONFIRM_WORD })} required>
+              {(control) => (
+                <Input
+                  {...control}
+                  value={typed}
+                  autoComplete="off"
+                  onChange={(event) => {
+                    setTyped(event.target.value)
+                  }}
+                />
+              )}
+            </FormField>
             <Button
               type="submit"
               variant="destructive"

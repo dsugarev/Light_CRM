@@ -3315,6 +3315,7 @@ export interface components {
              * @default []
              */
             scopes: string[];
+            session?: components["schemas"]["SessionTimeouts"] | null;
             /** System */
             system?: string | null;
         };
@@ -4135,6 +4136,19 @@ export interface components {
             last_seen_at: string;
             /** User Agent */
             user_agent: string | null;
+        };
+        /**
+         * SessionTimeouts
+         * @description FN-05: what the UI needs to warn before the session times out.
+         */
+        SessionTimeouts: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Idle Timeout Minutes */
+            idle_timeout_minutes: number;
         };
         /** SessionUser */
         SessionUser: {
@@ -9297,6 +9311,7 @@ export interface operations {
                 q?: string | null;
                 role?: components["schemas"]["RoleCode"] | null;
                 is_active?: boolean | null;
+                sort?: "name" | "-name" | "email" | "-email" | "role" | "-role" | "last_login_at" | "-last_login_at";
                 page?: number;
                 page_size?: number;
             };

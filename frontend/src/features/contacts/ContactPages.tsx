@@ -1,7 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, asPage, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -10,7 +9,9 @@ import { ErrorState } from '@/components/ErrorState'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
+import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +25,7 @@ import { useLocale } from '@/lib/useLocale'
 import { RecordTimeline } from '@/features/activities/RecordTimeline'
 import { ExternalReferences } from '@/features/integrations/ExternalReferences'
 import { ExportMenu } from '@/features/reports/ExportMenu'
+import { useNotify } from '@/lib/notify'
 
 import { ContactForm } from './ContactForm'
 import { contactDefaults, contactPayload, type ContactValues } from './contactValues'
@@ -94,7 +96,7 @@ export function ContactsPage() {
           </div>
         }
       />
-      <div className="mb-4 grid items-center gap-3 sm:grid-cols-[2fr_1fr_auto]">
+      <FilterBar>
         <SearchInput
           label={t('contacts.search')}
           value={list.q}
@@ -122,8 +124,15 @@ export function ContactsPage() {
           />
           {t('organizations.filters.archived')}
         </label>
-      </div>
-      {contacts.isError ? <ErrorState error={contacts.error} /> : null}
+      </FilterBar>
+      {contacts.isError ? (
+        <ErrorState
+          error={contacts.error}
+          onRetry={() => {
+            void contacts.refetch()
+          }}
+        />
+      ) : null}
       {contacts.data ? (
         <>
           <DataTable
@@ -146,25 +155,27 @@ export function ContactsPage() {
           />
         </>
       ) : contacts.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )
 }
 
 function useAfterSave() {
+  const notify = useNotify()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   return async (contact: Contact, message: string) => {
     await queryClient.invalidateQueries({ queryKey: ['contacts'] })
     await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-    toast.success(message)
+    notify.success(message)
     await navigate(`/contacts/${contact.id}`)
   }
 }
 
 export function ContactNewPage() {
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const [params] = useSearchParams()
   const organizationId = params.get('organization_id')
   const afterSave = useAfterSave()
@@ -187,13 +198,13 @@ export function ContactNewPage() {
       ),
     onSuccess: (contact) => afterSave(contact, t('contact.toasts.created')),
   })
-  if (organizationId && organization.isPending) return <Loading />
+  if (organizationId && organization.isPending) return <Loading variant="form" />
   const preset = organization.data
     ? { id: organization.data.id, name: organization.data.name }
     : null
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('contact.createTitle')} />
+      <PageHeader title={t('contact.createTitle')} breadcrumbs={[crumbs.contacts]} />
       <Card>
         <CardContent>
           <ContactForm
@@ -212,6 +223,7 @@ export function ContactNewPage() {
 export function ContactEditPage() {
   const { contactId = '' } = useParams()
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const afterSave = useAfterSave()
   const path = { params: { path: { contact_id: contactId } } }
@@ -229,11 +241,25 @@ export function ContactEditPage() {
       ),
     onSuccess: (c) => afterSave(c, t('contact.toasts.saved')),
   })
-  if (contact.isError) return <ErrorState error={contact.error} />
-  if (!contact.data) return <Loading />
+  if (contact.isError)
+    return (
+      <ErrorState
+        error={contact.error}
+        onRetry={() => {
+          void contact.refetch()
+        }}
+      />
+    )
+  if (!contact.data) return <Loading variant="form" />
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('contact.editTitle')} />
+      <PageHeader
+        title={t('contact.editTitle')}
+        breadcrumbs={[
+          crumbs.contacts,
+          { label: contact.data.full_name, to: `/contacts/${contactId}` },
+        ]}
+      />
       <Card>
         <CardContent>
           <ContactForm
@@ -250,8 +276,10 @@ export function ContactEditPage() {
 }
 
 export function ContactPage() {
+  const notify = useNotify()
   const { contactId = '' } = useParams()
   const { t } = useTranslation('party')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const locale = useLocale()
   const can = useCan()
@@ -267,17 +295,25 @@ export function ContactPage() {
     mutationFn: () => call(api.DELETE('/api/v1/contacts/{contact_id}', path)),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('contact.toasts.archived'))
+      notify.success(t('contact.toasts.archived'))
     },
   })
   const restore = useMutation({
     mutationFn: () => call(api.POST('/api/v1/contacts/{contact_id}/restore', path)),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('contact.toasts.restored'))
+      notify.success(t('contact.toasts.restored'))
     },
   })
-  if (contact.isError) return <ErrorState error={contact.error} />
+  if (contact.isError)
+    return (
+      <ErrorState
+        error={contact.error}
+        onRetry={() => {
+          void contact.refetch()
+        }}
+      />
+    )
   if (!contact.data) return <Loading />
   const c = contact.data
   const mayManageGdpr = can('gdpr.manage')
@@ -321,6 +357,7 @@ export function ContactPage() {
     <section className="mx-auto flex max-w-3xl flex-col gap-6">
       <PageHeader
         title={c.full_name}
+        breadcrumbs={[crumbs.contacts]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {c.archived_at ? (

@@ -101,6 +101,7 @@ pnpm check:i18n
 pnpm generate:api [openapi.json]   # regenerate src/api/schema.d.ts (default: running backend)
 pnpm e2e                           # Playwright against https://localhost (E2E_BASE_URL to override);
                                    # needs E2E_ADMIN_EMAIL_EN/_BG and E2E_ADMIN_PASSWORD (see e2e/support.ts)
+pnpm e2e:visual                    # screenshot baselines (macOS, not in CI); --update-snapshots after a UI change
 ```
 
 The assistant journeys need the stack with the scripted model provider (no network, production settings otherwise):

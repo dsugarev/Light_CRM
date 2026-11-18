@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { toast } from 'sonner'
 
 import { ApiError } from '@/api/client'
 import { NativeSelect } from '@/components/NativeSelect'
 import { Textarea } from '@/components/Textarea'
+import { FormField } from '@/components/FormField'
 import { Button } from '@/components/ui/button'
 import { useErrorText } from '@/lib/errors'
 import { useCan } from '@/lib/permissions'
+import { useNotify } from '@/lib/notify'
 
 import { Markdown } from './Markdown'
 import type { RecordRef } from './stream'
@@ -183,6 +184,7 @@ function NoteForm({
   targets: Target[]
   onDone: () => void
 }) {
+  const notify = useNotify()
   const { t } = useTranslation('assistant')
   const { t: tc } = useTranslation()
   const errorText = useErrorText()
@@ -212,41 +214,45 @@ function NoteForm({
           },
           {
             onSuccess: () => {
-              toast.success(t('noteSaved'))
+              notify.success(t('noteSaved'))
               onDone()
             },
           },
         )
       }}
     >
-      <label className="block text-xs">
-        {t('noteTarget')}
-        <NativeSelect
-          value={target}
-          onChange={(event) => {
-            setTarget(event.target.value)
-          }}
-        >
-          {targets.map((option) => (
-            <option key={option.entity_id} value={option.entity_id}>
-              {option.label === null
-                ? t('contextRecord', { type: typeName(option.entity_type) })
-                : `${typeName(option.entity_type)}: ${option.label}`}
-            </option>
-          ))}
-        </NativeSelect>
-      </label>
-      <label className="block text-xs">
-        {t('noteContent')}
-        <Textarea
-          value={text}
-          maxLength={10000}
-          rows={6}
-          onChange={(event) => {
-            setText(event.target.value)
-          }}
-        />
-      </label>
+      <FormField label={t('noteTarget')} required>
+        {(control) => (
+          <NativeSelect
+            {...control}
+            value={target}
+            onChange={(event) => {
+              setTarget(event.target.value)
+            }}
+          >
+            {targets.map((option) => (
+              <option key={option.entity_id} value={option.entity_id}>
+                {option.label === null
+                  ? t('contextRecord', { type: typeName(option.entity_type) })
+                  : `${typeName(option.entity_type)}: ${option.label}`}
+              </option>
+            ))}
+          </NativeSelect>
+        )}
+      </FormField>
+      <FormField label={t('noteContent')} required>
+        {(control) => (
+          <Textarea
+            {...control}
+            value={text}
+            maxLength={10000}
+            rows={6}
+            onChange={(event) => {
+              setText(event.target.value)
+            }}
+          />
+        )}
+      </FormField>
       {failure ? (
         <p role="alert" className="text-sm text-destructive">
           {errorText(failure)}

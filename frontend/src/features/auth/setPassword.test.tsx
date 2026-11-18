@@ -41,9 +41,10 @@ describe('FR-AUTH-02 set password from a one-time link', () => {
       http.get('*/api/v1/auth/password/token/:token', () => problem(400, 'auth.token_invalid')),
     )
     await renderApp('/set-password#token=used')
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'This link is invalid, already used or expired.',
-    )
+    expect(
+      await screen.findByRole('heading', { name: 'This link can no longer be used' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/This link is invalid, already used or expired/)).toBeInTheDocument()
   })
 
   it('shows the policy error returned by the server', async () => {

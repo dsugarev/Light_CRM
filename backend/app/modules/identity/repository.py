@@ -4,8 +4,19 @@ from datetime import datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import CursorResult, Delete, Select, delete, func, or_, select, update
+from sqlalchemy import (
+    ColumnElement,
+    CursorResult,
+    Delete,
+    Select,
+    delete,
+    func,
+    or_,
+    select,
+    update,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from app.modules.identity.models import PasswordToken, Role, User, UserSession
 
@@ -75,6 +86,7 @@ async def list_users(
     include_service: bool,
     offset: int,
     limit: int,
+    sort: str = "name",
 ) -> tuple[list[User], int]:
     statement = _user_search(select(User).join(User.role), q)
     if role_code is not None:
@@ -86,11 +98,24 @@ async def list_users(
     total = (
         await session.execute(select(func.count()).select_from(statement.subquery()))
     ).scalar_one()
-    rows = await session.execute(
-        statement.order_by(func.lower(User.full_name), User.id).offset(offset).limit(limit)
-    )
+    rows = await session.execute(statement.order_by(*_user_order(sort)).offset(offset).limit(limit))
     users: list[User] = list(rows.scalars())
     return users, total
+
+
+def _user_order(sort: str) -> list[ColumnElement[Any] | InstrumentedAttribute[Any]]:
+    """ORDER BY for a user-list sort value (`name`, `-email`, ...); ties by name, then id."""
+    descending = sort.startswith("-")
+    columns: dict[str, ColumnElement[Any] | InstrumentedAttribute[Any]] = {
+        "name": func.lower(User.full_name),
+        "email": User.email,
+        "role": Role.code,
+        "last_login_at": User.last_login_at,
+    }
+    column = columns[sort.lstrip("-")]
+    first = column.desc() if descending else column.asc()
+    # Users who never signed in come last in both directions.
+    return [first.nulls_last(), func.lower(User.full_name), User.id]
 
 
 async def count_active_admins(session: AsyncSession) -> int:
@@ -120,6 +145,10 @@ async def list_user_sessions(
         .order_by(UserSession.last_seen_at.desc())
     )
     return list((await session.execute(statement)).scalars())
+
+
+async def get_session(session: AsyncSession, session_id: UUID) -> UserSession | None:
+    return await session.get(UserSession, session_id)
 
 
 async def delete_session(session: AsyncSession, session_id: UUID) -> None:

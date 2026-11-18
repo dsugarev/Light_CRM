@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { admin, expectSignedIn, signIn } from './support.ts'
+import { admin, expectSignedIn, mainNav, signIn } from './support.ts'
 
 // Phase 5b: import with validation preview, commit and rollback (FR-IMP-01) through
 // the real stack, in both languages, as the Admin.
@@ -60,7 +60,7 @@ for (const language of ['en', 'bg'] as const) {
         `Импорт Бета ${token} ООД;Русе`,
         `Импорт Алфа ${token} ЕООД;Бургас`,
       ].join('\r\n')
-      await page.getByRole('link', { name: ui.nav, exact: true }).click()
+      await mainNav(page).getByRole('link', { name: ui.nav, exact: true }).click()
       await page.getByLabel(ui.file, { exact: true }).setInputFiles({
         name: `orgs-${token}.csv`,
         mimeType: 'text/csv',

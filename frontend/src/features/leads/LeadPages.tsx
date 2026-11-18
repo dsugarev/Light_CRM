@@ -1,14 +1,15 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, asPage, call } from '@/api/client'
 import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
+import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
+import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +21,7 @@ import { useCan } from '@/lib/permissions'
 import { useListParams } from '@/lib/useListParams'
 import { useLocale } from '@/lib/useLocale'
 import { ExportMenu } from '@/features/reports/ExportMenu'
+import { useNotify } from '@/lib/notify'
 
 import { LeadForm } from './LeadForm'
 import { LeadStatusBadge } from './LeadStatusBadge'
@@ -78,7 +80,7 @@ export function LeadsPage() {
       header: t('list.columns.score'),
       sortKey: 'qualification_score',
       cell: (lead) => lead.qualification.score,
-      className: 'text-right',
+      className: 'text-right hidden lg:table-cell',
     },
     {
       key: 'value',
@@ -87,9 +89,15 @@ export function LeadsPage() {
       cell: (lead) => (lead.estimated_value ? formatMoney(lead.estimated_value, locale) : ''),
       className: 'text-right',
     },
-    { key: 'owner', header: t('list.columns.owner'), cell: (lead) => lead.owner.full_name },
+    {
+      key: 'owner',
+      className: 'hidden lg:table-cell',
+      header: t('list.columns.owner'),
+      cell: (lead) => lead.owner.full_name,
+    },
     {
       key: 'created',
+      className: 'hidden lg:table-cell',
       header: t('list.columns.created'),
       sortKey: 'created_at',
       cell: (lead) => formatDate(lead.created_at, locale),
@@ -110,7 +118,7 @@ export function LeadsPage() {
           </div>
         }
       />
-      <div className="mb-4 grid items-center gap-3 md:grid-cols-[2fr_1fr_1fr_1fr_auto_auto]">
+      <FilterBar>
         <SearchInput
           label={t('list.search')}
           value={list.q}
@@ -176,8 +184,15 @@ export function LeadsPage() {
           />
           {t('list.archived')}
         </label>
-      </div>
-      {leads.isError ? <ErrorState error={leads.error} /> : null}
+      </FilterBar>
+      {leads.isError ? (
+        <ErrorState
+          error={leads.error}
+          onRetry={() => {
+            void leads.refetch()
+          }}
+        />
+      ) : null}
       {leads.data ? (
         <>
           <DataTable
@@ -200,14 +215,16 @@ export function LeadsPage() {
           />
         </>
       ) : leads.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
     </section>
   )
 }
 
 export function LeadNewPage() {
+  const notify = useNotify()
   const { t } = useTranslation('leads')
+  const crumbs = useSectionCrumbs()
   const [params] = useSearchParams()
   const organizationId = params.get('organization_id')
   const navigate = useNavigate()
@@ -228,17 +245,17 @@ export function LeadNewPage() {
     onSuccess: async (lead) => {
       await queryClient.invalidateQueries({ queryKey: ['leads'] })
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(t('toasts.created'))
+      notify.success(t('toasts.created'))
       await navigate(`/leads/${lead.id}`)
     },
   })
-  if (organizationId && organization.isPending) return <Loading />
+  if (organizationId && organization.isPending) return <Loading variant="form" />
   const preset = organization.data
     ? { id: organization.data.id, name: organization.data.name }
     : null
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('createTitle')} />
+      <PageHeader title={t('createTitle')} breadcrumbs={[crumbs.leads]} />
       <Card>
         <CardContent>
           <LeadForm
@@ -254,8 +271,10 @@ export function LeadNewPage() {
 }
 
 export function LeadEditPage() {
+  const notify = useNotify()
   const { leadId = '' } = useParams()
   const { t } = useTranslation('leads')
+  const crumbs = useSectionCrumbs()
   const { t: tc } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -275,15 +294,26 @@ export function LeadEditPage() {
     onSuccess: async (updated) => {
       queryClient.setQueryData(['leads', leadId], updated)
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(t('toasts.saved'))
+      notify.success(t('toasts.saved'))
       await navigate(`/leads/${leadId}`)
     },
   })
-  if (lead.isError) return <ErrorState error={lead.error} />
-  if (!lead.data) return <Loading />
+  if (lead.isError)
+    return (
+      <ErrorState
+        error={lead.error}
+        onRetry={() => {
+          void lead.refetch()
+        }}
+      />
+    )
+  if (!lead.data) return <Loading variant="form" />
   return (
     <section className="mx-auto max-w-3xl">
-      <PageHeader title={t('editTitle')} />
+      <PageHeader
+        title={t('editTitle')}
+        breadcrumbs={[crumbs.leads, { label: lead.data.title, to: `/leads/${leadId}` }]}
+      />
       <Card>
         <CardContent>
           <LeadForm

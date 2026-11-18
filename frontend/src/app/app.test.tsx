@@ -89,7 +89,8 @@ describe('app shell and sign-in', () => {
       }),
     )
     await renderApp('/')
-    await userEvent.click(await screen.findByRole('button', { name: 'Български' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu: Ada Admin' }))
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Български' }))
     await waitFor(() => {
       expect(saved).toEqual({ locale: 'bg' })
     })
@@ -126,7 +127,8 @@ describe('app shell and sign-in', () => {
     signedInAs(ADMIN_ME)
     server.use(http.post('*/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })))
     const { router } = await renderApp('/')
-    await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu: Ada Admin' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/sign-in')
   })
@@ -153,5 +155,30 @@ describe('app shell and sign-in', () => {
     await waitFor(() => {
       expect(screen.getByTestId('api-status')).toHaveTextContent('Unavailable')
     })
+  })
+})
+
+describe('FN-06 language preference', () => {
+  it('FN-06 signing in on another device applies the language saved on the profile', async () => {
+    // This browser was last used in English; the profile says Bulgarian.
+    localStorage.setItem('crm.locale', 'en')
+    server.use(
+      http.post('*/api/v1/auth/login', () => {
+        signedInAs({ ...REP_ME, locale: 'bg' })
+        return HttpResponse.json({
+          user: { id: REP_ME.id, full_name: REP_ME.full_name, role: 'sales_rep', locale: 'bg' },
+        })
+      }),
+    )
+    await renderApp('/sign-in')
+    await userEvent.type(await screen.findByLabelText('Email'), 'boris.rep@example.test')
+    await userEvent.type(screen.getByLabelText('Password'), 'Tuesday-Orchard-Lantern-42')
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Добре дошли, Boris Rep' }),
+    ).toBeInTheDocument()
+    expect(document.documentElement.lang).toBe('bg')
+    // Remembered on this device too, for the sign-in page next time.
+    expect(localStorage.getItem('crm.locale')).toBe('bg')
   })
 })

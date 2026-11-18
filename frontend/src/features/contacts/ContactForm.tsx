@@ -10,6 +10,7 @@ import { NativeSelect } from '@/components/NativeSelect'
 import { Textarea } from '@/components/Textarea'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard'
 import { DuplicateMatches } from '@/features/organizations/DuplicateMatches'
 import { OrganizationPicker } from '@/features/organizations/OrganizationPicker'
 import { SUPPORTED_LOCALES } from '@/i18n'
@@ -29,6 +30,9 @@ interface ContactFormProps {
   isEdit: boolean
   onSubmit: (values: ContactValues, confirmDuplicate: boolean) => Promise<unknown>
 }
+
+// UX-11: the fields the schema requires, marked in the form.
+const REQUIRED = new Set<keyof ContactValues>(['first_name', 'last_name'])
 
 export function ContactForm({
   defaultValues,
@@ -66,7 +70,7 @@ export function ContactForm({
     label: string,
     extra: Record<string, unknown> = {},
   ) => (
-    <FormField label={label} error={errors[field]?.message}>
+    <FormField label={label} error={errors[field]?.message} required={REQUIRED.has(field)}>
       {(control) => <Input {...control} {...extra} {...form.register(field)} />}
     </FormField>
   )
@@ -139,6 +143,13 @@ export function ContactForm({
       <Button type="submit" className="self-start" disabled={pending}>
         {pending ? tc('actions.saving') : submitLabel}
       </Button>
+      <UnsavedChangesGuard
+        when={
+          form.formState.isDirty &&
+          !form.formState.isSubmitting &&
+          !form.formState.isSubmitSuccessful
+        }
+      />
     </form>
   )
 }

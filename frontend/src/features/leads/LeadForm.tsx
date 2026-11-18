@@ -8,6 +8,7 @@ import { NativeSelect } from '@/components/NativeSelect'
 import { Textarea } from '@/components/Textarea'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard'
 import { OrganizationPicker } from '@/features/organizations/OrganizationPicker'
 import { referenceName, useReferenceList } from '@/features/reference/useReferenceList'
 import { applyServerErrors } from '@/lib/errors'
@@ -26,6 +27,9 @@ interface LeadFormProps {
   onSubmit: (values: LeadValues) => Promise<unknown>
 }
 
+// UX-11: the fields the schema requires, marked in the form.
+const REQUIRED = new Set<keyof LeadValues>(['title', 'company_name'])
+
 /** FR-LEAD-01: a company name is enough; everything else is optional. */
 export function LeadForm({ defaultValues, submitLabel, pending, onSubmit }: LeadFormProps) {
   const { t } = useTranslation('leads')
@@ -41,7 +45,12 @@ export function LeadForm({ defaultValues, submitLabel, pending, onSubmit }: Lead
     extra: Record<string, unknown> = {},
     hint?: string,
   ) => (
-    <FormField label={label} error={errors[field]?.message} hint={hint}>
+    <FormField
+      label={label}
+      error={errors[field]?.message}
+      hint={hint}
+      required={REQUIRED.has(field)}
+    >
       {(control) => <Input {...control} {...extra} {...form.register(field)} />}
     </FormField>
   )
@@ -108,6 +117,13 @@ export function LeadForm({ defaultValues, submitLabel, pending, onSubmit }: Lead
       <Button type="submit" className="self-start" disabled={pending}>
         {pending ? tc('actions.saving') : submitLabel}
       </Button>
+      <UnsavedChangesGuard
+        when={
+          form.formState.isDirty &&
+          !form.formState.isSubmitting &&
+          !form.formState.isSubmitSuccessful
+        }
+      />
     </form>
   )
 }

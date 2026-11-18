@@ -1,6 +1,7 @@
 """User administration (FR-ADM-01, FR-AUTH-02; API spec section 5)."""
 
 import asyncio
+from datetime import timedelta
 from uuid import uuid4
 
 from app.core.principal import RoleCode
@@ -80,6 +81,53 @@ async def test_list_filter_and_detail(test_app: TestApp) -> None:
     detail = await admin.get(f"/api/v1/users/{vera_id}")
     assert detail.json()["is_active"] is False
     assert (await admin.get(f"/api/v1/users/{uuid4()}")).status_code == 404
+
+
+async def test_FR_ADM_01_UX_08_list_sorts_by_column(test_app: TestApp) -> None:
+    admin, _ = await test_app.signed_in(
+        RoleCode.ADMIN, full_name="Ada Admin", email="ada@example.test", last_login_at=None
+    )
+    now = test_app.clock.now()
+    await test_app.create_user(
+        RoleCode.VIEWER,
+        full_name="Boris Viewer",
+        email="zed@example.test",
+        last_login_at=now - timedelta(days=2),
+    )
+    await test_app.create_user(
+        RoleCode.SALES_REP,
+        full_name="Cvetan Rep",
+        email="bob@example.test",
+        last_login_at=now - timedelta(hours=1),
+    )
+    await test_app.create_user(
+        RoleCode.SALES_MANAGER, full_name="Dora Never", email="dora@example.test"
+    )
+
+    async def names(sort: str) -> list[str]:
+        response = await admin.get("/api/v1/users", params={"sort": sort})
+        assert response.status_code == 200
+        return [u["full_name"] for u in response.json()["items"]]
+
+    assert await names("-name") == ["Dora Never", "Cvetan Rep", "Boris Viewer", "Ada Admin"]
+    assert await names("email") == ["Ada Admin", "Cvetan Rep", "Dora Never", "Boris Viewer"]
+    # By role code: admin, sales_manager, sales_rep, viewer.
+    assert await names("role") == ["Ada Admin", "Dora Never", "Cvetan Rep", "Boris Viewer"]
+    # The signed-in admin has just signed in; users who never did come last both ways.
+    assert await names("-last_login_at") == [
+        "Ada Admin",
+        "Cvetan Rep",
+        "Boris Viewer",
+        "Dora Never",
+    ]
+    assert await names("last_login_at") == [
+        "Boris Viewer",
+        "Cvetan Rep",
+        "Ada Admin",
+        "Dora Never",
+    ]
+    bad = await admin.get("/api/v1/users", params={"sort": "password_hash"})
+    assert bad.status_code == 422
 
 
 async def test_lookup_lists_active_humans_for_every_signed_in_user(test_app: TestApp) -> None:

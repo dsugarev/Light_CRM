@@ -198,7 +198,8 @@ describe('FR-ADM-03 audit log', () => {
     )
     await renderApp('/admin/audit-log/e1')
     expect(await screen.findByRole('heading', { name: 'Role changed' })).toBeInTheDocument()
-    expect(screen.getByText(/"role": "<b>admin<\/b>"/)).toBeInTheDocument()
+    // UX-10: shown as a field diff; the value stays text, never HTML.
+    expect(screen.getByText('<b>admin</b>')).toBeInTheDocument()
     expect(document.querySelector('b')).toBeNull()
   })
 })

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, call } from '@/api/client'
 import { DataTable, type Column } from '@/components/DataTable'
@@ -19,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { referenceName, useReferenceList } from '@/features/reference/useReferenceList'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
+import { useNotify } from '@/lib/notify'
 
 import { DEFAULT_RATE_LIMIT, type IntegrationClient, type Scope } from './integrationValues'
 import { ScopePicker } from './ScopePicker'
@@ -51,7 +51,12 @@ export function IntegrationsPage() {
         </Badge>
       ),
     },
-    { key: 'keys', header: t('list.keys'), cell: (c) => c.active_keys, className: 'text-right' },
+    {
+      key: 'keys',
+      header: t('list.keys'),
+      cell: (c) => c.active_keys,
+      className: 'text-right hidden lg:table-cell',
+    },
     {
       key: 'usage',
       header: t('list.usage'),
@@ -60,6 +65,7 @@ export function IntegrationsPage() {
     },
     {
       key: 'webhooks',
+      className: 'hidden lg:table-cell',
       header: t('list.webhooks'),
       cell: (c) =>
         c.webhooks.failing_deliveries + c.webhooks.suspended_subscriptions > 0 ? (
@@ -72,6 +78,7 @@ export function IntegrationsPage() {
     },
     {
       key: 'used',
+      className: 'hidden lg:table-cell',
       header: t('list.lastUsed'),
       cell: (c) => (c.last_used_at ? formatDateTime(c.last_used_at, locale) : t('list.never')),
     },
@@ -86,7 +93,14 @@ export function IntegrationsPage() {
           </Link>
         }
       />
-      {clients.isError ? <ErrorState error={clients.error} /> : null}
+      {clients.isError ? (
+        <ErrorState
+          error={clients.error}
+          onRetry={() => {
+            void clients.refetch()
+          }}
+        />
+      ) : null}
       {clients.data ? (
         <DataTable
           caption={t('title')}
@@ -98,7 +112,7 @@ export function IntegrationsPage() {
           empty={t('list.none')}
         />
       ) : clients.isPending ? (
-        <Loading />
+        <Loading variant="table" />
       ) : null}
       <NewClient />
     </section>
@@ -106,6 +120,7 @@ export function IntegrationsPage() {
 }
 
 function NewClient() {
+  const notify = useNotify()
   const { t } = useTranslation('integrations')
   const locale = useLocale()
   const navigate = useNavigate()
@@ -131,7 +146,7 @@ function NewClient() {
       ),
     onSuccess: async (client) => {
       await queryClient.invalidateQueries({ queryKey: ['integration-clients'] })
-      toast.success(t('toasts.created'))
+      notify.success(t('toasts.created'))
       await navigate(`/admin/integrations/${client.id}`)
     },
   })
@@ -161,7 +176,7 @@ function NewClient() {
             }
           />
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={t('fields.name')} error={fieldError('name')}>
+            <FormField label={t('fields.name')} required error={fieldError('name')}>
               {(control) => (
                 <Input
                   {...control}
@@ -173,7 +188,7 @@ function NewClient() {
                 />
               )}
             </FormField>
-            <FormField label={t('fields.system')} error={fieldError('system')}>
+            <FormField label={t('fields.system')} required error={fieldError('system')}>
               {(control) => (
                 <NativeSelect
                   {...control}

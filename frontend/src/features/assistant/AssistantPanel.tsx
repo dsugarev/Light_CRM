@@ -142,6 +142,30 @@ export function AssistantPanel({ remaining, onClose }: { remaining: number; onCl
 
   const all = (conversation.data?.messages ?? []).map(stored)
   const messages = live ? all.slice(0, live.before) : all
+  // One keyed list for stored and live messages: when the turn ends and the stored copy
+  // replaces the live answer, it keeps its key, so the message keeps its state (an open
+  // "save as note" form is not lost to the refresh).
+  const shown: { key: string; message: ShownMessage }[] = messages.map((message) => ({
+    key: message.id ?? '',
+    message,
+  }))
+  if (live) {
+    shown.push(
+      {
+        key: 'live-question',
+        message: {
+          id: null,
+          role: 'user',
+          content: live.question,
+          status: 'complete',
+          errorCode: null,
+          tools: [],
+          refs: [],
+        },
+      },
+      { key: live.answer.id ?? 'live-answer', message: live.answer },
+    )
+  }
   return (
     <aside
       id="assistant-panel"
@@ -203,26 +227,9 @@ export function AssistantPanel({ remaining, onClose }: { remaining: number; onCl
               <p className="text-sm text-muted-foreground">{t('intro')}</p>
             ) : null}
             <ol role="log" aria-busy={streaming} className="space-y-3">
-              {messages.map((message) => (
-                <AssistantMessage key={message.id} message={message} context={context} />
+              {shown.map(({ key, message }) => (
+                <AssistantMessage key={key} message={message} context={context} />
               ))}
-              {live ? (
-                <>
-                  <AssistantMessage
-                    message={{
-                      id: null,
-                      role: 'user',
-                      content: live.question,
-                      status: 'complete',
-                      errorCode: null,
-                      tools: [],
-                      refs: [],
-                    }}
-                    context={context}
-                  />
-                  <AssistantMessage message={live.answer} context={context} />
-                </>
-              ) : null}
             </ol>
             <div ref={end} />
           </div>

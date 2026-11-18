@@ -75,7 +75,14 @@ export function WinLossPage() {
           ))}
         </NativeSelect>
       </div>
-      {report.isError ? <ErrorState error={report.error} /> : null}
+      {report.isError ? (
+        <ErrorState
+          error={report.error}
+          onRetry={() => {
+            void report.refetch()
+          }}
+        />
+      ) : null}
       {report.data ? (
         <Table>
           <caption className="sr-only">{t('winLoss.title')}</caption>
