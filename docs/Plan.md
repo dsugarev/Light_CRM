@@ -1716,7 +1716,7 @@ A pure ASGI middleware in front of the request context middleware. For an integr
 | Vitest | 114 passed |
 | `pnpm audit --audit-level high` | passes (one advisory ignored, ADR 0022; one new moderate dev-only minimatch advisory below the threshold); `--prod` clean |
 | OpenAPI snapshot and generated types | up to date |
-| Playwright Chromium vs. rebuilt stack | 28/28 (Firefox could not launch locally; runs in CI) |
+| Playwright Chromium vs. rebuilt stack | 24/24 (corrected: an earlier note said 28/28, which was the unfiltered run, 24 Chromium tests plus 4 Firefox tests; the other Firefox tests could not launch the browser locally; Firefox runs in CI) |
 | GitHub Actions (PR #12, run 44172903654) | all four jobs green, including Playwright on Chromium and Firefox |
 
 ### Definition of done

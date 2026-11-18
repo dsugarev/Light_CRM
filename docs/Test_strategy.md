@@ -551,7 +551,7 @@ NFR-01 measurement (milliseconds):
 | 2026-11-17 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 1089 passed, 96% coverage; clean |
 | 2026-11-17 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (891 keys), `pnpm audit` (high, one approved ignore) and `--prod`, OpenAPI snapshot and generated types | 114 passed; clean. `pnpm audit` also reports a moderate dev-only advisory (minimatch via typescript-eslint, GHSA-g3hv-75wg-m249), below the CI threshold |
 | 2026-11-17 | Docker Desktop, rebuilt stack | Playwright, integrations journey (Chromium) | 2/2 (en, bg) on the first run |
-| 2026-11-17 | Same | Playwright, full suite | Chromium 28/28; Firefox could not launch on this machine (`browserType.launch` failed for every Firefox test, an environment problem); Firefox is covered by CI |
+| 2026-11-17 | Same | Playwright, full suite | Chromium 24/24. The unfiltered run reported 28 passed (the 24 Chromium tests and 4 Firefox tests) and the other Firefox tests failed with `browserType.launch` (an environment problem on this machine; an earlier version of this record wrongly said Chromium 28/28). Firefox is covered by CI |
 | 2026-11-17 | GitHub Actions, PR #12 run 44172903654 | All four jobs | Green; Playwright on Chromium and Firefox |
 
 ### Defects found by testing and fixed
