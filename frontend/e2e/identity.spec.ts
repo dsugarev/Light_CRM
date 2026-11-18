@@ -14,6 +14,7 @@ const UI = {
     welcome: /^Welcome, /,
     users: 'Users',
     newUser: 'New user',
+    done: 'Done',
     form: { email: 'Email', fullName: 'Full name', role: 'Role', create: 'Create user' },
     roleRep: 'Sales Rep',
     setPassword: {
@@ -34,6 +35,7 @@ const UI = {
     welcome: /^Добре дошли, /,
     users: 'Потребители',
     newUser: 'Нов потребител',
+    done: 'Готово',
     form: { email: 'Имейл', fullName: 'Име и фамилия', role: 'Роля', create: 'Създай потребител' },
     roleRep: 'Търговски представител',
     setPassword: {
@@ -69,13 +71,17 @@ for (const language of ['en', 'bg'] as const) {
       await expectSignedIn(page, ui.welcome)
       await mainNav(page).getByRole('link', { name: ui.users }).click()
       await page.getByRole('link', { name: ui.newUser }).click()
-      await expect(page.getByRole('heading', { name: ui.newUser })).toBeVisible()
-      await page.getByLabel(ui.form.email, { exact: true }).fill(repEmail)
-      await page.getByLabel(ui.form.fullName, { exact: true }).fill(repName)
-      await page.getByLabel(ui.form.role, { exact: true }).selectOption({ label: ui.roleRep })
-      await page.getByRole('button', { name: ui.form.create }).click()
-      const link = await page.getByTestId('password-link').getByRole('textbox').inputValue()
+      // UX-09: the form opens in a side sheet over the list.
+      const sheet = page.getByRole('dialog', { name: ui.newUser })
+      await expect(sheet.getByRole('heading', { name: ui.newUser })).toBeVisible()
+      await sheet.getByLabel(ui.form.email, { exact: true }).fill(repEmail)
+      await sheet.getByLabel(ui.form.fullName, { exact: true }).fill(repName)
+      await sheet.getByLabel(ui.form.role, { exact: true }).selectOption({ label: ui.roleRep })
+      await sheet.getByRole('button', { name: ui.form.create }).click()
+      const link = await sheet.getByTestId('password-link').getByRole('textbox').inputValue()
       expect(link).toMatch(/\/set-password#token=/)
+      await sheet.getByRole('button', { name: ui.done }).click()
+      await expect(sheet).toBeHidden()
 
       // 2. The rep, in a separate browser session, sets a password and signs in.
       const repContext = await browser.newContext({ locale: ui.locale, ignoreHTTPSErrors: true })

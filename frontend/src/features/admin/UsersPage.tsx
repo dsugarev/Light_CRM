@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
 
 import { api, call, type Schemas } from '@/api/client'
 import type { paths } from '@/api/schema'
@@ -18,6 +19,7 @@ import { useListParams } from '@/lib/useListParams'
 import { useNotify } from '@/lib/notify'
 
 import { HUMAN_ROLES, type HumanRole } from './roles'
+import { CreateUserSheet, EditUserSheet } from './UserSheets'
 
 type User = Schemas['UserOut']
 type UserSort = NonNullable<
@@ -44,12 +46,18 @@ export function UserStatus({ user }: { user: Schemas['UserOut'] }) {
   return <Badge variant="secondary">{t('users.status.active')}</Badge>
 }
 
-/** FR-ADM-01, UX-08: search, filters and sort live in the URL so a view can be shared. */
-export function UsersPage() {
+/**
+ * FR-ADM-01, UX-08: search, filters and sort live in the URL so a view can be shared.
+ * UX-09: `/admin/users/new` shows this list with the create sheet open.
+ */
+export function UsersPage({ creating = false }: { creating?: boolean }) {
   const { t } = useTranslation('admin')
   const { t: tc } = useTranslation()
   const notify = useNotify()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { search } = useLocation()
+  const [editing, setEditing] = useState<User | null>(null)
   const list = useListParams({ sort: 'name', filters: ['role', 'status'] as const })
   const role = list.filters.role[0] ?? ''
   const status = list.filters.status[0] ?? ''
@@ -130,7 +138,7 @@ export function UsersPage() {
       <PageHeader
         title={t('users.title')}
         actions={
-          <Link to="/admin/users/new" className={buttonVariants()}>
+          <Link to={{ pathname: '/admin/users/new', search }} className={buttonVariants()}>
             {t('users.new')}
           </Link>
         }
@@ -191,6 +199,12 @@ export function UsersPage() {
               rowLabel={(user) => user.full_name}
               rowActions={(user) => [
                 { label: t('users.open'), to: `/admin/users/${user.id}` },
+                {
+                  label: tc('actions.edit'),
+                  onSelect: () => {
+                    setEditing(user)
+                  },
+                },
                 ...(user.is_locked && user.is_active
                   ? [
                       {
@@ -217,6 +231,18 @@ export function UsersPage() {
       ) : (
         <Loading variant="table" />
       )}
+      <CreateUserSheet
+        open={creating}
+        onClose={() => {
+          void navigate({ pathname: '/admin/users', search }, { replace: true })
+        }}
+      />
+      <EditUserSheet
+        user={editing}
+        onClose={() => {
+          setEditing(null)
+        }}
+      />
     </section>
   )
 }

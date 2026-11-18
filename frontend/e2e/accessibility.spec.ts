@@ -77,7 +77,8 @@ test('NFR-10 main pages, a record page and the assistant drawer', async ({ page 
 
   for (const path of PAGES) {
     await page.goto(path)
-    await expect(page.getByRole('main')).toBeVisible()
+    // /admin/users/new opens a modal sheet over the list (UX-09), which hides the main landmark.
+    await expect(page.getByRole('main').or(page.getByRole('dialog'))).toBeVisible()
     await page.waitForLoadState('networkidle')
     found.push(...(await violations(page, path)))
   }

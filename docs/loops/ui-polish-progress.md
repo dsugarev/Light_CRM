@@ -148,3 +148,21 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - Frontend: `src/features/admin/usersTable.test.tsx`, 11 `UX-08 ...` cases (sort to URL and API with `aria-sort`, a shared URL with q/role/status/sort, an unknown sort falls back, relative time with exact title, badges, row menu unlock and open, `formatRelative` en/bg).
 - **Looked at:** the users list and the row menu in en/bg at 1440 and 768 px; axe: no violations.
 - **Gate:** lint, prettier, typecheck, Vitest 197/197, i18n 1096 keys, API types regenerated from the new snapshot; Playwright Chromium 41/41 (+ screenshot specs). One full run had the assistant spec time out on a "not stable" Save note button while the load average hit 17; it passed 3/3 alone and in the next full run (logged as C-08). Backend ruff, mypy, import-linter 14/14, pytest 1304 passed (95.57%).
+
+## UX-09 — 2026-11-18 17:55
+
+- **What changed:**
+  - New shared `components/ui/sheet.tsx` (base-ui Dialog as a side panel: focus trap, Escape and backdrop close it, focus returns). The navigation drawer from UX-02 now uses it too.
+  - New `features/admin/UserSheets.tsx`:
+    - `CreateUserSheet`. `/admin/users/new` now shows the users list with the sheet open (the page `UserNewPage` was removed; the URL and the "New user" link still work). After creation it shows the one-time link panel (copy button, expiry, emailed or not) and a bold "Copy the link now: it is not shown again once you close this panel", with **Open the user** and **Done**.
+    - `EditUserSheet`, used from the list's row menu (**Edit**) and from the user page (**Edit** in the header, replacing the inline edit card).
+  - AC (link not kept after the sheet closes): the create mutation uses `gcTime: 0` and is `reset()` on every way of closing, so neither the component, the mutation cache nor the query cache holds the link afterwards. The user page's reset-link mutation got `gcTime: 0` too.
+- **Also fixed:** the intermittent assistant E2E failure (C-08) was a real bug. When an answer finished, the reload replaced the live message with the stored one at a different place in the tree, which remounted it and dropped an opened "save as note" form. Live and stored messages are now one keyed list. Regression test: `FR-AI-04 save as note right after an answer` (fails without the fix, passes with it). Separate commit.
+- **Files:** `frontend/src/components/ui/sheet.tsx`, `src/features/admin/{UserSheets,UsersPage,UserDetailPage}.tsx`, `src/app/{AppLayout,router}.tsx`, `src/test/render.tsx` (returns the query client), i18n (`actions.close/done/edit`, `link.onlyOnce`), `e2e/identity.spec.ts` (fills the form inside the sheet and presses Done, as a person would), `e2e/accessibility.spec.ts` (on `/admin/users/new` the modal sheet hides `main`, so it waits for the main landmark or the dialog).
+- **Tests:** `src/features/admin/userSheets.test.tsx`, 4 `UX-09 ...` cases:
+  - create in the sheet, then the link shown once, then Done; the link is gone from the DOM, the mutation cache and the query cache, and reopening shows an empty form;
+  - Escape also forgets the link;
+  - edit from the row menu;
+  - edit from the user page in Bulgarian.
+- **Looked at:** the form sheet and the link sheet in en/bg at 1440 and 768 px; axe with the sheet open: no violations.
+- **Gate:** lint, prettier, typecheck, Vitest 202/202, i18n 1100 keys; Playwright Chromium 41/41 + 2 screenshot specs (2 workers, 1.4 min); backend ruff, mypy, import-linter 14/14, pytest 1304 passed. Runs with the default 4 workers had many timeouts while Spotlight indexing or Microsoft Teams loaded the host (load 16–28; 81 backend requests over 2 s), so E2E now runs with 2 workers.

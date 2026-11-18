@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Dialog } from '@base-ui/react/dialog'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Toaster } from 'sonner'
 
 import { api, call } from '@/api/client'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
+import { Sheet } from '@/components/ui/sheet'
 import { AssistantLauncher } from '@/features/assistant/AssistantLauncher'
 import { ME_QUERY_KEY, useMe } from '@/features/auth/useMe'
 import { useWebhookHealth } from '@/features/integrations/useWebhookHealth'
@@ -121,25 +121,20 @@ export function AppLayout() {
         </main>
       </div>
       {me ? (
-        <Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
-          <Dialog.Portal>
-            <Dialog.Backdrop className="fixed inset-0 z-40 bg-overlay/20" />
-            <Dialog.Popup className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col gap-4 overflow-y-auto bg-background p-4 shadow-lg outline-none">
-              <div className="flex items-center justify-between">
-                <Dialog.Title className="font-semibold">{t('app.name')}</Dialog.Title>
-                <Dialog.Close className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-                  {t('nav.close')}
-                </Dialog.Close>
-              </div>
-              <AppNav
-                webhookProblems={webhookProblems}
-                onNavigate={() => {
-                  setDrawerOpen(false)
-                }}
-              />
-            </Dialog.Popup>
-          </Dialog.Portal>
-        </Dialog.Root>
+        <Sheet
+          side="left"
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          title={t('app.name')}
+          closeLabel={t('nav.close')}
+        >
+          <AppNav
+            webhookProblems={webhookProblems}
+            onNavigate={() => {
+              setDrawerOpen(false)
+            }}
+          />
+        </Sheet>
       ) : null}
       <Toaster position="bottom-right" richColors closeButton />
       <footer className="border-t px-4 py-2 lg:px-6">

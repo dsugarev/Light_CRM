@@ -36,7 +36,8 @@
     "explain": "Give this link to {{name}} to set a password. It can be used once and expires on {{expires}}.",
     "emailed": "The link was also sent by email.",
     "notEmailed": "Email is not configured, so hand over the link yourself.",
-    "openUser": "Open the user"
+    "openUser": "Open the user",
+    "onlyOnce": "Copy the link now: it is not shown again once you close this panel."
   },
   "userDetail": {
     "title": "User",

@@ -17,8 +17,8 @@ import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 
 import { PasswordLinkPanel } from './PasswordLinkPanel'
-import { UserForm, type UserValues } from './UserForm'
 import { UserStatus } from './UsersPage'
+import { EditUserSheet } from './UserSheets'
 
 type User = Schemas['UserOut']
 type Action = 'deactivate' | 'activate' | 'unlock'
@@ -44,14 +44,7 @@ export function UserDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ['users'], exact: false })
   }
 
-  const save = useMutation({
-    mutationFn: (values: UserValues) =>
-      call(api.PATCH('/api/v1/users/{user_id}', { ...path, body: values })),
-    onSuccess: (updated) => {
-      refresh(updated)
-      setMessage(tc('states.saved'))
-    },
-  })
+  const [editing, setEditing] = useState(false)
   const act = useMutation({
     mutationFn: (action: Action) => {
       switch (action) {
@@ -71,6 +64,8 @@ export function UserDetailPage() {
   })
   const reset = useMutation({
     mutationFn: () => call(api.POST('/api/v1/users/{user_id}/password-reset', path)),
+    // UX-09: the one-time link is not kept in the mutation cache once the page is left.
+    gcTime: 0,
   })
   const revoke = useMutation({
     mutationFn: () => call(api.DELETE('/api/v1/users/{user_id}/sessions', path)),
@@ -90,31 +85,31 @@ export function UserDetailPage() {
       <PageHeader
         title={u.full_name}
         breadcrumbs={[crumbs.users]}
-        actions={<UserStatus user={u} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <UserStatus user={u} />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setEditing(true)
+              }}
+            >
+              {tc('actions.edit')}
+            </Button>
+          </div>
+        }
+      />
+      <EditUserSheet
+        user={editing ? u : null}
+        onClose={() => {
+          setEditing(false)
+        }}
       />
       <FormMessage
         error={actionError instanceof ApiError ? actionError.code : null}
         success={message}
       />
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('userForm.editTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <UserForm
-            key={u.updated_at}
-            defaultValues={{
-              email: u.email,
-              full_name: u.full_name,
-              role: u.role as UserValues['role'],
-              locale: u.locale,
-            }}
-            submitLabel={t('userForm.editTitle')}
-            pending={save.isPending}
-            onSubmit={(values) => save.mutateAsync(values)}
-          />
-        </CardContent>
-      </Card>
       <Card>
         <CardHeader>
           <CardTitle>{t('userDetail.actions')}</CardTitle>

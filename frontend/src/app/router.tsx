@@ -4,7 +4,6 @@ import { AuditEntryPage } from '@/features/admin/AuditEntryPage'
 import { AuditLogPage } from '@/features/admin/AuditLogPage'
 import { SettingsPage } from '@/features/admin/SettingsPage'
 import { UserDetailPage } from '@/features/admin/UserDetailPage'
-import { UserNewPage } from '@/features/admin/UserNewPage'
 import { UsersPage } from '@/features/admin/UsersPage'
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage'
 import { RequireAuth, RequirePermission } from '@/features/auth/RequireAuth'
@@ -103,7 +102,7 @@ export const routes: RouteObject[] = [
                     element: <RequirePermission permission="users.manage" />,
                     children: [
                       { path: 'users', element: <UsersPage /> },
-                      { path: 'users/new', element: <UserNewPage /> },
+                      { path: 'users/new', element: <UsersPage creating /> },
                       { path: 'users/:userId', element: <UserDetailPage /> },
                       { path: 'integrations', element: <IntegrationsPage /> },
                       { path: 'integrations/deliveries', element: <DeliveriesPage /> },

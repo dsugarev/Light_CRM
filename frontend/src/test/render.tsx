@@ -17,5 +17,5 @@ export async function renderApp(path = '/', locale: Locale = 'en') {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
-  return { ...view, router }
+  return { ...view, router, queryClient }
 }
