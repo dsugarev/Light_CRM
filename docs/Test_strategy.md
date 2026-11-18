@@ -812,6 +812,7 @@ NFR-01 measurement (milliseconds):
 | Privacy journey (test defect) | The en and bg journeys generated the same email in the same millisecond | The language is part of the generated address |
 | MFA enforcement test | The allowed-routes check compared route templates, which FastAPI 0.163 stores without the router prefix | Compares the request path (the allowed routes have no parameters) |
 | Local stack | A changed Caddyfile is bind-mounted but not reloaded | Proxy restarted; noted for the operations guide |
+| CI security journey on Firefox (run 44258388795) | Zod 4 probes `new Function` once per page; the CSP blocks it and Firefox reports a violation (Chromium does not) | `z.config({ jitless: true })` loaded first; Vitest check |
 
 ### Gaps and deferred
 

@@ -87,7 +87,7 @@ Found and fixed during this review:
 | 5.2.1 | Untrusted HTML sanitized | ✅ | No raw HTML is rendered anywhere (`dangerouslySetInnerHTML` banned) |
 | 5.2.2 | Unstructured data sanitized | ✅ | Free text stored as text, rendered escaped |
 | 5.2.3 | SMTP injection | ✅ | Emails built with the standard library from fixed templates |
-| 5.2.4 | No `eval` or dynamic code | ✅ | CSP `script-src 'self'`, no `unsafe-eval` (E2E check) |
+| 5.2.4 | No `eval` or dynamic code | ✅ | CSP `script-src 'self'`, no `unsafe-eval` (E2E check). **Fixed in 8a:** Zod 4 probed `new Function` (blocked and reported by Firefox); now `jitless` (`src/lib/zodConfig.ts`) |
 | 5.2.5 | Template injection | ✅ | No user-controlled templates |
 | 5.2.6 | SSRF | ✅ | Webhooks: HTTPS, host allowlist, DNS check refusing internal addresses, pinned connection (ADR 0025) |
 | 5.2.7 | User-supplied SVG | — | Not accepted |

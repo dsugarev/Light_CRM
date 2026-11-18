@@ -2184,6 +2184,7 @@ app.state.contact_anonymizers = sales_service.CONTACT_ANONYMIZERS   # clears per
 - `RequestContextMiddleware` adds `Cache-Control: no-store` to every `/api` response that sets none (ASVS 8.2.1).
 - The Caddyfile CSP allows the toast library's two injected style blocks by hash. Before, they were blocked and toasts were unstyled behind the proxy (ASVS 14.4.3; found by the new no-violations check).
 - `create_user` maps the unique-index error of a concurrent duplicate to `409 conflict.duplicate` instead of `500` (found by the privacy journey).
+- Zod runs `jitless`: its `new Function` probe was blocked by the CSP and reported by Firefox (found by the security journey in CI).
 
 ### Frontend
 
