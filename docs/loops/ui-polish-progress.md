@@ -65,3 +65,18 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
 - **Gate:** lint, prettier, typecheck, Vitest 163/163, i18n 1075 keys; Playwright Chromium 41/41 (2 workers, 1.3 min); backend ruff, mypy, import-linter 14/14, pytest 1303 passed. No backend or API change.
 - **Environment note:** the host is still short of memory (swap 9–10 GB). Earlier runs in this iteration had timeouts in Vitest (3 different tests, each passing alone) and in Playwright (assistant, accessibility). The backend logged 7–12 s on simple requests (for example creating a conversation). Every one passed on rerun, and the final full runs above are clean.
 - **For later (UX-13):** at 768 px the Bulgarian lead filters shrink to unreadable stubs ("Вс⌄"); the filter row needs to wrap.
+
+## UX-05 — 2026-11-18 15:30 — blocked `[!]` (environment, not the change)
+
+- **Built (kept on branch `wip/ux-05-feedback`, commit `5f727e4`, not merged into `ui-polish`):**
+  - `src/lib/notify.ts` (`useNotify()`: `success`, `error` mapping the backend `code` to a translated message with a generic fallback, and `warning`). Every `toast.*` call in the app now goes through it.
+  - Error toasts where actions failed silently: assistant rename, delete and stop; saving the language on the profile.
+  - Signing out another session on the profile now asks in `ConfirmButton` and confirms with a toast. Deactivate user and revoke all sessions already asked.
+  - ESLint rules banning `window.confirm`/`alert`/`prompt` and importing `toast` from `sonner` outside `notify.ts`; checked to fire on a planted file.
+  - `useErrorText` now translates when called (found while testing a failed language switch).
+  - Tests: `src/lib/notify.test.tsx` (5 `UX-05 ...` cases) and the session test now requires confirmation.
+  - The audit of all 63 mutations found no `window.confirm`/`alert`; the rest already showed success or error feedback (toast, inline message or the result on screen).
+- **Passed:** lint (with the new rules), prettier, typecheck, Vitest 168/168, i18n 1078 keys. Screenshots of the confirm dialog and the toast in en/bg at 1440 and 768 px; axe with the dialog open: no violations. I replaced the raw browser string in the dialog text with generic wording.
+- **Blocked:** three full Playwright runs failed on different steps each time: 10, 6 and 3 failures. The failures were timeouts on "Welcome", assistant answers, import and board steps. The backend logged its own requests taking 3–42 s (a sign-in 41.9 s, `GET /api/v1/me` 9.2 s; normally about 0.2 s). Host swap grew from 9 to 12.6 GB and the load average reached 48. A backend pytest run also had 2 timing failures that passed on rerun; no backend code changed. The prompt does not allow committing an item that fails the gate, so the work was moved out of `ui-polish`.
+- **Owner action:** free memory on the development Mac (close apps, restart Docker Desktop or the machine), then on `wip/ux-05-feedback` run the full gate. If it is green, merge it into `ui-polish` and mark UX-05 `[x]`. Earlier items passed 41/41 when the host was quiet.
+- **For later:** at 768 px the profile's sessions table needs horizontal scrolling (the Browser column is cut).
