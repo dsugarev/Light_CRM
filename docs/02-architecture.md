@@ -252,7 +252,7 @@ As built (Phase 7a, ADR 0026): the rest of the backend depends only on the `LLM`
 ### 8.2 Flow
 
 1. The frontend posts the user message to `POST /api/v1/assistant/conversations/{id}/messages` and reads a Server-Sent Events stream.
-2. The backend builds the prompt: system instructions, the user's name, role and locale, today's date, optional record context, and recent conversation history trimmed to a token limit.
+2. The backend builds the prompt: system instructions, the user's name and role, the language to answer in (that of the question, decided by the backend; ADR 0026), today's date, optional record context, and recent conversation history trimmed to a token limit.
 3. The model may request tools. The backend executes each tool **through the same service layer and permission checks as the REST API**, as the signed-in user, and returns compact JSON results.
 4. The loop ends on a final answer or after 5 tool rounds. The answer is streamed, then stored with token counts.
 

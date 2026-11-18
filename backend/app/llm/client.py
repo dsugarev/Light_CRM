@@ -6,6 +6,7 @@ the end-to-end stack replace with a scripted model; app.llm.factory picks one.
 """
 
 import asyncio
+import logging
 import os
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
@@ -34,6 +35,8 @@ from app.llm.types import (
 # Chat content must never reach the logs (architecture 8.4, privacy).
 litellm.suppress_debug_info = True
 litellm.turn_off_message_logging = True
+# LiteLLM's own INFO lines (one per call) are noise in our JSON logs.
+logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
 
 class LiteLLMClient:

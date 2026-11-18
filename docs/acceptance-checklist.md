@@ -48,7 +48,7 @@ Mark each line ✅ accepted, ❌ not accepted (with a note), or — not checked.
 |---|---|---|---|---|
 | 19 | Questions in Bulgarian and English about the team's own pipeline get correct answers with links | FR-AI-02, 06 | | |
 | 20 | On an opportunity, "Draft a follow-up email" gives a usable draft; "Save as note" stores the edited text | FR-AI-03, 04 | | |
-| 21 | The live evaluation (`docs/assistant-eval.md`) passes with the production model | FR-AI-02 | | |
+| 21 | The live evaluation (`docs/assistant-eval.md`) passes with the production model | FR-AI-02 | Developer run 2026-11-18: 20/20 | |
 
 ## Administration, privacy and operations
 

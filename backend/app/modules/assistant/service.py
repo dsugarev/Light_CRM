@@ -33,7 +33,7 @@ from app.modules.activity import service as activity
 from app.modules.activity.schemas import ActivityCreate, ActivityOut
 from app.modules.assistant import repository, tools
 from app.modules.assistant.models import AssistantUsage, ChatConversation, ChatMessage
-from app.modules.assistant.prompt import system_prompt
+from app.modules.assistant.prompt import reply_language, system_prompt
 from app.modules.assistant.schemas import (
     AssistantStatus,
     ConversationCreate,
@@ -333,7 +333,9 @@ async def prepare_message(
         await _check_context(ctx, principal, data.context)
 
     earlier = await repository.messages_of(ctx.session, conversation.id)
-    locale = await identity.user_locale(ctx.session, principal.user_id)
+    # FR-AI-06: answer in the language of this question; tool results (stage and source
+    # names) follow it too.
+    locale = reply_language(data.content)
     prompt = [
         {
             "role": "system",

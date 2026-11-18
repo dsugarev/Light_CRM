@@ -2314,3 +2314,33 @@ It asks for the word RESTORE, and works on any stack through `CRM_ENV_FILE` and 
 1. Owner: the acceptance checklist, open questions 1 and 4–8, the ASVS open items, the manual accessibility checks, and the tag `v1.0.0` after acceptance.
 2. OpenRouter credits, then the live evaluation.
 3. The restore drill repeated on the production server.
+
+## After Phase 8 — live assistant evaluation (2026-11-18)
+
+The OpenRouter account was funded, so the live evaluation ran against `openrouter/openai/gpt-oss-120b` on Cerebras (`docs/assistant-eval.md`):
+
+| Run | Result | What changed afterwards |
+|---|---|---|
+| 1 | 10/20 | Answers in the wrong language (6 cases); "the open pipeline" read as the user's own (2); checker problems (2). |
+| 2 | 18/20 | Only checker problems were left: a typographic apostrophe, and an injection case that could not tell quoting from obeying. |
+| 3 | **20/20** | Median 1.3 s per answer; 65,217 tokens for the 20 cases. |
+
+#### The answer language is decided by the backend (`assistant/prompt.py`)
+
+```python
+def reply_language(text: str) -> str:
+    words = [w.casefold() for w in _WORD.findall(text)]
+    english = sum(w in _EN_WORDS for w in words)       # who, what, my, show, ...
+    bulgarian = sum(w in _BG_WORDS for w in words)     # кой, какви, моите, покажи, ...
+    if english != bulgarian:
+        return "en" if english > bulgarian else "bg"
+    ...                                                # otherwise the script of the letters
+
+# system prompt
+Language: the user's latest message is in {language}. Write your whole answer in
+{language}, including table headings, whatever the language of the record names ...
+```
+
+The tool results (stage names, sources) use the same language. The prompt also says to use owner "me" only for "my / mine / I have". The evaluation script now sends logs to stderr, normalizes typography before matching, ignores record names when judging the language, and labels dry runs. LiteLLM's own INFO lines no longer reach the JSON logs.
+
+Open items: the owner's acceptance (`docs/acceptance-checklist.md`), then the tag `v1.0.0`; open questions 1 and 4–8.

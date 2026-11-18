@@ -17,7 +17,7 @@ The first release of Light CRM: lead and opportunity management for the Commerci
 ### Before go-live (owner)
 - Requirements open questions: 1 (LLM data flow, before switching the assistant on), 4 (SMTP relay), 5 (backup storage and restore owner), 6 (visibility of records), 7 and 8 (integration data flows and API-key policy).
 - The ASVS open items (`docs/security/asvs-l1.md`) and the manual accessibility checks (`docs/accessibility.md`).
-- The live assistant evaluation once OpenRouter credits are in place (`docs/assistant-eval.md`).
+- The live assistant evaluation passed 20/20 on 2026-11-18 (`docs/assistant-eval.md`); rerun it before switching the assistant on in production.
 - The user acceptance checklist (`docs/acceptance-checklist.md`), then tag `v1.0.0`.
 
 ### Upgrading from a pre-release build
