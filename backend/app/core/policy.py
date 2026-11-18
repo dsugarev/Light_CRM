@@ -24,6 +24,7 @@ MANAGER_ROLES = frozenset({RoleCode.ADMIN, RoleCode.SALES_MANAGER})
 # contributor; the service then checks ownership for Sales Reps.
 _ROLES_BY_LEVEL: dict[AccessLevel, frozenset[RoleCode]] = {
     AccessLevel.SIGNED_IN: HUMAN_ROLES,
+    AccessLevel.SIGNED_IN_OWN: HUMAN_ROLES,
     AccessLevel.SIGNED_IN_OR_ANY_CLIENT: HUMAN_ROLES,
     AccessLevel.CONTRIBUTOR: CONTRIBUTOR_ROLES,
     AccessLevel.CONTRIBUTOR_RULES_IN_SERVICE: CONTRIBUTOR_ROLES,

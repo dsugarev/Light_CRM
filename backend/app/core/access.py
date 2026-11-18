@@ -19,6 +19,8 @@ class AccessLevel(StrEnum):
 
     PUBLIC = "Public"
     SIGNED_IN = "Signed-in"
+    # The caller's own data only (assistant conversations); others' return 404.
+    SIGNED_IN_OWN = "Signed-in (own only)"
     SIGNED_IN_OR_ANY_CLIENT = "Signed-in or any integration client"
     CONTRIBUTOR = "Contributor"
     # Contributors may call it; the service applies finer rules (e.g. assign, FR-LEAD-06).
