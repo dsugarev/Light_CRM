@@ -281,3 +281,13 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - `FN-01 shows the password rules live while typing`: the rules update, and each field has show/hide;
   - `FN-01 changes the password and says the other sessions were signed out`: request body, message, the sessions list reloaded with only this session left, form cleared.
 - **Gate:** lint, prettier, typecheck, Vitest 227/227, i18n 1190 keys; Playwright Chromium 45/45; visual 4/4 (the password card is below the 900 px fold, so no baseline changed); backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
+
+## FN-02 — 2026-11-18 19:40
+
+- **Found:** the profile listed sessions from `GET /me/sessions`. It showed the current one as "This session" with no button, and the others with sign-out (`DELETE /me/sessions/{id}`, confirmed since UX-05). The device column showed the raw user-agent string (truncated), and UX-13 had hidden "Signed in" below 1024 px.
+- **What changed:** new `lib/userAgent.ts` (`describeUserAgent`: Edge, Opera, Firefox, Chrome, Safari on Windows, iOS, Android, macOS, ChromeOS, Linux). The device cell shows "Chrome on Windows" / "Chrome на Windows", with the full string as its tooltip, and wraps. "Signed in" is shown at every width; the IP address is the column hidden below 1024 px now.
+- **Tests:**
+  - `src/lib/userAgent.test.ts`: 7 `FN-02 …` cases (Chrome, Edge, Safari, Firefox, Android, a non-browser client, no user agent).
+  - `profile.test.tsx`: `FN-02 lists device, start and last activity, with only the others revocable` and `FN-02 names the browser in Bulgarian too`.
+  - The session fixtures now carry realistic user-agent strings, and the FN-01 check that the other session disappears asserts "Safari on iOS" (with the placeholder strings it would have passed for the wrong reason).
+- **Gate:** lint, prettier, typecheck, Vitest 236/236, i18n 1191 keys; Playwright Chromium 45/45 (the layout test covers `/profile` at 768 px in Bulgarian); visual 4/4; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.

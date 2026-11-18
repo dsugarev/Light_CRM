@@ -13,7 +13,7 @@ const sessions = [
     last_seen_at: '2026-11-17T08:00:00Z',
     expires_at: '2026-11-24T07:00:00Z',
     ip: '10.0.0.1',
-    user_agent: 'Firefox',
+    user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0',
     current: true,
   },
   {
@@ -22,7 +22,8 @@ const sessions = [
     last_seen_at: '2026-11-16T08:00:00Z',
     expires_at: '2026-11-23T07:00:00Z',
     ip: '10.0.0.2',
-    user_agent: 'Phone',
+    user_agent:
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1',
     current: false,
   },
 ]
@@ -130,7 +131,35 @@ describe('FN-01 change password', () => {
     })
     // The sessions list is reloaded and shows only this session.
     expect(await screen.findByText('This session')).toBeInTheDocument()
-    expect(screen.queryByText('Phone')).not.toBeInTheDocument()
+    expect(screen.queryByText('Safari on iOS')).not.toBeInTheDocument()
     expect(screen.getByLabelText('New password')).toHaveValue('')
+  })
+})
+
+describe('FN-02 my sessions', () => {
+  it('FN-02 lists device, start and last activity, with only the others revocable', async () => {
+    await renderApp('/profile')
+    const table = await screen.findByRole('table')
+    const rows = within(table).getAllByRole('row').slice(1)
+    expect(rows).toHaveLength(2)
+    const [current, other] = rows as [HTMLElement, HTMLElement]
+    expect(current).toHaveTextContent('Firefox on Windows')
+    expect(current).toHaveTextContent('17 Nov 2026, 09:00') // signed in, Sofia time
+    expect(current).toHaveTextContent('17 Nov 2026, 10:00') // last activity
+    expect(within(current).getByText('This session')).toBeInTheDocument()
+    expect(within(current).queryByRole('button')).not.toBeInTheDocument()
+    expect(other).toHaveTextContent('Safari on iOS')
+    expect(within(other).getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+    // The full user-agent string stays available on hover.
+    expect(within(other).getByText('Safari on iOS')).toHaveAttribute(
+      'title',
+      expect.stringContaining('iPhone OS 18_1') as string,
+    )
+  })
+
+  it('FN-02 names the browser in Bulgarian too', async () => {
+    signedInAs({ ...REP_ME, locale: 'bg' })
+    await renderApp('/profile', 'bg')
+    expect(await screen.findByText('Firefox на Windows')).toBeInTheDocument()
   })
 })

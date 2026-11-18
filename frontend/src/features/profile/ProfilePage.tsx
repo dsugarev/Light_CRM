@@ -36,6 +36,7 @@ import { ME_QUERY_KEY, useMe, type Me } from '@/features/auth/useMe'
 import { SUPPORTED_LOCALES } from '@/i18n'
 import { applyServerErrors } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
+import { describeUserAgent } from '@/lib/userAgent'
 import { storeLocale } from '@/lib/locale'
 import { useNotify } from '@/lib/notify'
 import { useLocale } from '@/lib/useLocale'
@@ -288,6 +289,12 @@ function SessionsCard() {
       await queryClient.invalidateQueries({ queryKey: SESSIONS_KEY })
     },
   })
+  // FN-02: "Chrome on Windows"; the full user-agent string is the cell's tooltip.
+  const deviceLabel = (userAgent: string | null) => {
+    const { browser, os } = describeUserAgent(userAgent)
+    if (browser && os) return t('sessions.browserOn', { browser, os })
+    return browser ?? os ?? t('sessions.unknownDevice')
+  }
   return (
     <Card>
       <CardHeader>
@@ -300,8 +307,8 @@ function SessionsCard() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('sessions.device')}</TableHead>
-                <TableHead>{t('sessions.ip')}</TableHead>
-                <TableHead className="hidden lg:table-cell">{t('sessions.started')}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t('sessions.ip')}</TableHead>
+                <TableHead>{t('sessions.started')}</TableHead>
                 <TableHead>{t('sessions.lastSeen')}</TableHead>
                 <TableHead />
               </TableRow>
@@ -309,13 +316,11 @@ function SessionsCard() {
             <TableBody>
               {sessions.data.map((session) => (
                 <TableRow key={session.id}>
-                  <TableCell className="max-w-64 truncate" title={session.user_agent ?? ''}>
-                    {session.user_agent ?? t('sessions.unknownDevice')}
+                  <TableCell className="whitespace-normal" title={session.user_agent ?? ''}>
+                    {deviceLabel(session.user_agent)}
                   </TableCell>
-                  <TableCell>{session.ip ?? ''}</TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    {formatDateTime(session.created_at, locale)}
-                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">{session.ip ?? ''}</TableCell>
+                  <TableCell>{formatDateTime(session.created_at, locale)}</TableCell>
                   <TableCell>{formatDateTime(session.last_seen_at, locale)}</TableCell>
                   <TableCell className="text-right">
                     {session.current ? (

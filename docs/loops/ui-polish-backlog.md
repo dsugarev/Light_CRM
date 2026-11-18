@@ -30,7 +30,7 @@ Why now: Phase 1 sets the patterns every later phase reuses (app shell, tables, 
 Build these only through endpoints already specified in `docs/05-api-specification.md`. If the backend part is missing, implement it exactly as specified, with tests.
 
 - [x] **FN-01 Change password** on the profile page (`POST /auth/password/change`), reusing the policy checklist from UX-07; other sessions are revoked and the user is told so.
-- [ ] **FN-02 My sessions** on the profile page (`GET /me/sessions`, `DELETE /me/sessions/{id}`): device/browser, created, last seen, current session marked and not revocable from the list.
+- [x] **FN-02 My sessions** on the profile page (`GET /me/sessions`, `DELETE /me/sessions/{id}`): device/browser, created, last seen, current session marked and not revocable from the list.
 - [ ] **FN-03 Admin user actions** in the users table row menu: unlock, issue password-reset link (shown like UX-09), revoke all sessions, deactivate and activate, each with confirmation (spec section 5).
 - [ ] **FN-04 Session expiry handling.** Any 401 sends the user to sign-in with a "session expired" message and returns them to the page they were on after signing in again. AC: Playwright test with an expired session.
 - [ ] **FN-05 Idle-timeout warning.** A dialog appears 5 minutes before the idle timeout with "Stay signed in" (calls `GET /me`) and "Sign out"; it works across several open tabs of the app.
