@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -17,10 +17,10 @@ import { SearchInput } from '@/components/SearchInput'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { useListParams } from '@/lib/useListParams'
-import { useNotify } from '@/lib/notify'
 
 import { HUMAN_ROLES, type HumanRole } from './roles'
 import { CreateUserSheet, EditUserSheet } from './UserSheets'
+import { useUserActions } from './useUserActions'
 
 type User = Schemas['UserOut']
 type UserSort = NonNullable<
@@ -54,8 +54,6 @@ export function UserStatus({ user }: { user: Schemas['UserOut'] }) {
 export function UsersPage({ creating = false }: { creating?: boolean }) {
   const { t } = useTranslation('admin')
   const { t: tc } = useTranslation()
-  const notify = useNotify()
-  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { search } = useLocation()
   const [editing, setEditing] = useState<User | null>(null)
@@ -83,17 +81,7 @@ export function UsersPage({ creating = false }: { creating?: boolean }) {
         }),
       ),
   })
-  const unlock = useMutation({
-    mutationFn: (userId: string) =>
-      call(api.POST('/api/v1/users/{user_id}/unlock', { params: { path: { user_id: userId } } })),
-    onSuccess: async () => {
-      notify.success(t('userDetail.done.unlocked'))
-      await queryClient.invalidateQueries({ queryKey: ['users'] })
-    },
-    onError: (error) => {
-      notify.error(error)
-    },
-  })
+  const actions = useUserActions()
 
   const columns: Column<User>[] = [
     {
@@ -206,17 +194,7 @@ export function UsersPage({ creating = false }: { creating?: boolean }) {
                     setEditing(user)
                   },
                 },
-                ...(user.is_locked && user.is_active
-                  ? [
-                      {
-                        label: t('userDetail.unlock'),
-                        disabled: unlock.isPending,
-                        onSelect: () => {
-                          unlock.mutate(user.id)
-                        },
-                      },
-                    ]
-                  : []),
+                ...actions.menuFor(user),
               ]}
             />
           </div>
@@ -238,6 +216,7 @@ export function UsersPage({ creating = false }: { creating?: boolean }) {
           void navigate({ pathname: '/admin/users', search }, { replace: true })
         }}
       />
+      {actions.dialogs}
       <EditUserSheet
         user={editing}
         onClose={() => {

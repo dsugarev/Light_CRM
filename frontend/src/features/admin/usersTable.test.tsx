@@ -102,6 +102,10 @@ describe('UX-08 users table', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Actions for Locked Rep' }))
     const menu = await screen.findByRole('menu')
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Unlock' }))
+    // FN-03: confirmed first.
+    const dialog = await screen.findByRole('alertdialog', { name: 'Unlock' })
+    expect(unlocked).toBe('')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Unlock' }))
     expect(await screen.findByText(/unlocked/i)).toBeInTheDocument()
     expect(unlocked).toBe('l1')
 

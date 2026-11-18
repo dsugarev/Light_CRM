@@ -58,7 +58,11 @@
       "activated": "User activated.",
       "unlocked": "Account unlocked.",
       "revoked": "All sessions ended."
-    }
+    },
+    "confirmActivate": "Activate {{name}}? They can sign in again.",
+    "confirmUnlock": "Unlock {{name}}? They can try to sign in again at once.",
+    "confirmReset": "Create a one-time password reset link for {{name}}?",
+    "resetTitle": "Password reset link"
   },
   "audit": {
     "title": "Audit log",

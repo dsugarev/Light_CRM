@@ -291,3 +291,24 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - `profile.test.tsx`: `FN-02 lists device, start and last activity, with only the others revocable` and `FN-02 names the browser in Bulgarian too`.
   - The session fixtures now carry realistic user-agent strings, and the FN-01 check that the other session disappears asserts "Safari on iOS" (with the placeholder strings it would have passed for the wrong reason).
 - **Gate:** lint, prettier, typecheck, Vitest 236/236, i18n 1191 keys; Playwright Chromium 45/45 (the layout test covers `/profile` at 768 px in Bulgarian); visual 4/4; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
+
+## FN-03 — 2026-11-18 19:55
+
+- **Found:** all the account actions existed on the user's own page (spec section 5 endpoints). The list's row menu (UX-08) had Open, Edit and an unconfirmed Unlock.
+- **What changed:**
+  - **Row menu:** new `features/admin/useUserActions.tsx`. The menu offers what fits each user:
+    - Unlock, if locked and active;
+    - for active users, **Create password reset link**, **Sign out everywhere** and **Deactivate** (not on yourself);
+    - **Activate** for deactivated users.
+  - **Confirmation:** each action is confirmed in the new controlled `components/ConfirmDialog.tsx` (the twin of `ConfirmButton` for places that cannot hold a dialog trigger), then shows a toast and refreshes the list.
+  - **Reset link:** shown once in a sheet like UX-09 (link panel, copy, expiry, emailed or not, "not shown again", Done). It is held only in local state and the mutation uses `gcTime: 0` and `reset()`, so it is gone from the DOM and the caches after closing.
+  - New confirmation texts (activate, unlock, reset) in en/bg. I first wrote that earlier links stop working; the backend does not void them, so the text does not say so.
+- **Tests:** `src/features/admin/userActions.test.tsx`, 5 `FN-03 …` cases:
+  - the actions offered for an active user, yourself and a deactivated user;
+  - deactivate and sign-out-everywhere confirmed first, then the right endpoint and toast;
+  - cancel does nothing;
+  - reset link in Bulgarian, shown once and gone from the DOM and the mutation cache.
+
+  The UX-08 unlock test now confirms first.
+- **Looked at:** the confirmation and the link sheet, en/bg at 1440 and 768 px; axe on both: no violations.
+- **Gate:** lint, prettier, typecheck, Vitest 241/241, i18n 1195 keys; Playwright Chromium 45/45 + 2 screenshot specs; visual 4/4; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
