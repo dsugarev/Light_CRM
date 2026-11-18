@@ -59,6 +59,18 @@ export function IntegrationsPage() {
         t('list.usageValue', { requests: c.usage.requests_24h, errors: c.usage.errors_24h }),
     },
     {
+      key: 'webhooks',
+      header: t('list.webhooks'),
+      cell: (c) =>
+        c.webhooks.failing_deliveries + c.webhooks.suspended_subscriptions > 0 ? (
+          <Badge variant="destructive">
+            {t('list.webhooksFailing', { count: c.webhooks.failing_deliveries })}
+          </Badge>
+        ) : (
+          t('list.webhooksCount', { count: c.webhooks.subscriptions })
+        ),
+    },
+    {
       key: 'used',
       header: t('list.lastUsed'),
       cell: (c) => (c.last_used_at ? formatDateTime(c.last_used_at, locale) : t('list.never')),
@@ -66,7 +78,14 @@ export function IntegrationsPage() {
   ]
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-6">
-      <PageHeader title={t('title')} />
+      <PageHeader
+        title={t('title')}
+        actions={
+          <Link to="/admin/integrations/deliveries" className="text-sm hover:underline">
+            {t('webhooks.log')}
+          </Link>
+        }
+      />
       {clients.isError ? <ErrorState error={clients.error} /> : null}
       {clients.data ? (
         <DataTable

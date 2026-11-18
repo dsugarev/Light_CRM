@@ -160,5 +160,8 @@
   "idempotency": {
     "key_reused": "The same request key was used with different data.",
     "in_progress": "The same request is still being processed."
+  },
+  "webhook": {
+    "url_not_allowed": "The URL must use HTTPS and a host on the webhook allowlist."
   }
 }

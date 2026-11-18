@@ -34,6 +34,7 @@ import { useLocale } from '@/lib/useLocale'
 
 import { parseAllowlist, type IntegrationClient, type Scope } from './integrationValues'
 import { ScopePicker } from './ScopePicker'
+import { Webhooks } from './Webhooks'
 
 /** FR-INT-01, 02, 12: a client's settings, activation and API keys. */
 export function ClientPage() {
@@ -74,6 +75,7 @@ export function ClientPage() {
       </p>
       <SettingsCard key={c.updated_at} client={c} />
       <Keys client={c} />
+      <Webhooks client={c} />
     </section>
   )
 }

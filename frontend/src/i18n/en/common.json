@@ -37,7 +37,9 @@
     "tasks": "My tasks",
     "reports": "Reports",
     "imports": "Import",
-    "integrations": "Integrations"
+    "integrations": "Integrations",
+    "failingDeliveries_one": "{{count}} webhook problem",
+    "failingDeliveries_other": "{{count}} webhook problems"
   },
   "roles": {
     "admin": "Admin",

@@ -37,7 +37,9 @@
     "tasks": "Моите задачи",
     "reports": "Отчети",
     "imports": "Импорт",
-    "integrations": "Интеграции"
+    "integrations": "Интеграции",
+    "failingDeliveries_one": "{{count}} проблем с уебхукове",
+    "failingDeliveries_other": "{{count}} проблема с уебхукове"
   },
   "roles": {
     "admin": "Администратор",
