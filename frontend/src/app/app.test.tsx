@@ -157,3 +157,28 @@ describe('app shell and sign-in', () => {
     })
   })
 })
+
+describe('FN-06 language preference', () => {
+  it('FN-06 signing in on another device applies the language saved on the profile', async () => {
+    // This browser was last used in English; the profile says Bulgarian.
+    localStorage.setItem('crm.locale', 'en')
+    server.use(
+      http.post('*/api/v1/auth/login', () => {
+        signedInAs({ ...REP_ME, locale: 'bg' })
+        return HttpResponse.json({
+          user: { id: REP_ME.id, full_name: REP_ME.full_name, role: 'sales_rep', locale: 'bg' },
+        })
+      }),
+    )
+    await renderApp('/sign-in')
+    await userEvent.type(await screen.findByLabelText('Email'), 'boris.rep@example.test')
+    await userEvent.type(screen.getByLabelText('Password'), 'Tuesday-Orchard-Lantern-42')
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Добре дошли, Boris Rep' }),
+    ).toBeInTheDocument()
+    expect(document.documentElement.lang).toBe('bg')
+    // Remembered on this device too, for the sign-in page next time.
+    expect(localStorage.getItem('crm.locale')).toBe('bg')
+  })
+})

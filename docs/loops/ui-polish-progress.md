@@ -339,3 +339,13 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - It shows the dialog at `last activity + idle − 5 min` with **Stay signed in** (`GET /me`, which refreshes `last_seen_at`) and **Sign out**; choosing in one tab closes the dialog in all.
   - Note: the backend refreshes `last_seen_at` at most every `_TOUCH_INTERVAL` (`identity/service.py`), so the client deadline should be computed from the last request minus that interval, to stay on the safe side.
 - Nothing was built for FN-05.
+
+## FN-06 — 2026-11-18 20:30
+
+- **Found: already built (Phase 1, FR-I18N-01, kept working through UX-02/UX-05).**
+  - Switching language in the account menu saves it with `PATCH /me` (`useChangeLocale`); since UX-05, a failure says so.
+  - Sign-in applies the `locale` from the login response and stores it for the sign-in page.
+  - `RequireAuth` switches the UI to the profile's language on any device.
+  - Tested already: `FR-I18N-01 saves the language on the profile when signed in`, `FR-I18N-01 follows the language stored on the profile`.
+- **Added:** `FN-06 signing in on another device applies the language saved on the profile` (`src/app/app.test.tsx`): a browser last used in English signs in as a user whose profile says Bulgarian; the UI and `<html lang>` switch to Bulgarian, and the device remembers it. No code change was needed.
+- **Gate:** lint, prettier, typecheck, Vitest 246/246, i18n 1196 keys; Playwright Chromium 46/46; backend pytest 1304 passed (ruff, mypy, import-linter unchanged).
