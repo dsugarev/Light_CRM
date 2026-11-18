@@ -85,7 +85,10 @@ class UsageFigures(BaseModel):
 class WebhookFigures(BaseModel):
     subscriptions: int
     failing_deliveries: int = Field(
-        description="Deliveries now retrying, or failed in the last 24 hours (FR-INT-08)"
+        description=(
+            "Deliveries now retrying, or failed in the last 24 hours, test events excluded "
+            "(FR-INT-08)"
+        )
     )
     suspended_subscriptions: int
 

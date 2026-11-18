@@ -542,6 +542,8 @@ async def test_FR_INT_12_test_event_is_sent_once_even_for_an_inactive_client(
     await run_worker(test_app, real_now())
     detail = (await admin.get(f"/api/v1/webhook-deliveries/{queued.json()['id']}")).json()
     assert (detail["status"], detail["next_attempt_at"]) == ("failed", None)
+    figures = (await admin.get(f"/api/v1/integration-clients/{erp.client_id}")).json()
+    assert figures["webhooks"]["failing_deliveries"] == 0
     async with test_app.sessions() as session:
         subscription = await session.get(WebhookSubscription, UUID(broken["id"]))
         assert subscription is not None

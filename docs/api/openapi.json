@@ -7500,7 +7500,7 @@
       "WebhookFigures": {
         "properties": {
           "failing_deliveries": {
-            "description": "Deliveries now retrying, or failed in the last 24 hours (FR-INT-08)",
+            "description": "Deliveries now retrying, or failed in the last 24 hours, test events excluded (FR-INT-08)",
             "title": "Failing Deliveries",
             "type": "integer"
           },

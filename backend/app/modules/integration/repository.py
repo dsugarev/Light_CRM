@@ -362,7 +362,7 @@ async def webhook_figures(
     session: AsyncSession, client_ids: Sequence[UUID], since: datetime
 ) -> dict[UUID, tuple[int, int, int]]:
     """Per client: subscriptions, failing deliveries (retrying, or failed since
-    `since`) and suspended subscriptions."""
+    `since`; test events excluded) and suspended subscriptions."""
     if not client_ids:
         return {}
     subscriptions = (
@@ -377,8 +377,10 @@ async def webhook_figures(
     failing = (
         select(WebhookSubscription.client_id, func.count())
         .join(WebhookDelivery, WebhookDelivery.subscription_id == WebhookSubscription.id)
+        .join(OutboxEvent, OutboxEvent.id == WebhookDelivery.event_id)
         .where(
             WebhookSubscription.client_id.in_(client_ids),
+            OutboxEvent.event_type != "ping",  # a failed test event is not an alert
             or_(
                 WebhookDelivery.status == "retrying",
                 and_(WebhookDelivery.status == "failed", WebhookDelivery.created_at >= since),

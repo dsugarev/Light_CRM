@@ -4222,7 +4222,7 @@ export interface components {
         WebhookFigures: {
             /**
              * Failing Deliveries
-             * @description Deliveries now retrying, or failed in the last 24 hours (FR-INT-08)
+             * @description Deliveries now retrying, or failed in the last 24 hours, test events excluded (FR-INT-08)
              */
             failing_deliveries: number;
             /** Subscriptions */
