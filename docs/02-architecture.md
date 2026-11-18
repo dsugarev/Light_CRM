@@ -150,9 +150,10 @@ Each backend module has the same internal structure: `router.py` (HTTP only), `s
 | integration | `api_key` | client_id, key_id (public part, unique), secret_hash, label, expires_at, revoked_at, last_used_at, last_used_ip |
 | integration | `external_reference` | entity_type, entity_id, external_system_id, external_id, url. Unique (external_system_id, entity_type, external_id) and (entity_type, entity_id, external_system_id) |
 | integration | `idempotency_record` | client_id, key, request_hash, status, response_status, response_body (JSONB), expires_at. Unique (client_id, key) |
-| integration | `outbox_event` | event_type, entity_type, entity_id, entity_version, actor (JSONB), changes (JSONB), occurred_at. Written in the business transaction |
-| integration | `webhook_subscription` | client_id, url, event_types (text array), secret (encrypted), previous_secret (encrypted, with expiry), is_active, suspended_at |
-| integration | `webhook_delivery` | event_id, subscription_id, status, attempt_count, next_attempt_at, last_status_code, last_error, last_response_excerpt, delivered_at. Index on (status, next_attempt_at) |
+| integration | `outbox_event` | event_type, entity_type, entity_id, actor (JSONB), changes (JSONB), details (JSONB), occurred_at, dispatched_at. Written in the business transaction; the worker sets dispatched_at when it fans the event out (ADR 0025) |
+| integration | `webhook_subscription` | client_id, url, event_types (text array), secret (encrypted), previous_secret (encrypted, with expiry), is_active, failing_since, suspended_at |
+| integration | `webhook_delivery` | event_id, subscription_id, status, attempt_count, next_attempt_at, first_attempt_at, last_status_code, last_error, last_response_excerpt, delivered_at. Index on (status, next_attempt_at) |
+| integration | `webhook_attempt` | delivery_id, number, attempted_at, duration_ms, status_code, error, response_excerpt (the delivery log, ADR 0025) |
 | activity | `activity` | type (note / call / meeting / email / task), subject, body, occurred_at, due_at, done_at, owner_id, assignee_id, and nullable links: lead_id, opportunity_id, organization_id, contact_id (at least one required by a check constraint) |
 | audit | `audit_log` | occurred_at, actor_id, action, entity_type, entity_id, before (JSONB), after (JSONB), ip, request_id. Append-only: the application database role has INSERT and SELECT only on this table |
 | dataimport | `import_batch` | entity_type, file_name, status, row counts, created_by, rolled_back_at |
@@ -170,9 +171,9 @@ R1 must therefore keep `opportunity` and `organization` as stable anchors, and m
 ### 4.5 Integration data rules
 
 - `updated_at` is set by the database on every change (trigger), including archive, anonymize and external-reference changes, so sync mode is reliable. Every syncable table has an index on `(updated_at, id)`.
-- `entity_version` in outbox events is the record's `version`, letting consumers discard stale events.
+- Webhook payloads carry the record's `version` (leads and opportunities) taken from the record when the event is delivered, letting consumers discard stale events; it is not stored in the outbox (ADR 0025).
 - Webhook secrets are encrypted at rest with a key from the environment (`APP_ENCRYPTION_KEY`), because they must be readable to sign deliveries; API key secrets are only hashed.
-- Housekeeping jobs in the worker: purge expired idempotency records (24 h), delivered outbox rows and delivery logs older than 30 days, and expired sessions.
+- Housekeeping jobs in the worker: purge expired idempotency records (24 h), outbox events with their deliveries and attempts older than 30 days, usage counters older than 30 days, and expired sessions.
 
 ## 5. API conventions
 

@@ -44,6 +44,7 @@ _SEEDED_TABLES = (
     "loss_reason",
     "pipeline",
     "pipeline_stage",
+    "external_system",
 )
 
 
@@ -82,7 +83,9 @@ _DATA_TABLES = (
     "audit_log, user_session, password_token, app_user, rate_limit_bucket, app_setting, "
     "contact, organization, industry, lead, lead_source, disqualification_reason, "
     "opportunity_stage_history, opportunity, pipeline_stage, pipeline, loss_reason, "
-    "activity, timeline_event, import_row, import_batch"
+    "activity, timeline_event, import_row, import_batch, integration_usage, idempotency_record, "
+    "webhook_attempt, webhook_delivery, webhook_subscription, outbox_event, "
+    "external_reference, api_key, integration_client, external_system"
 )
 
 

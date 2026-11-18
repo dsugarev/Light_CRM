@@ -35,6 +35,7 @@ def test_NFR_01_seed_demo_is_refused_in_production(
         env=Environment.PRODUCTION,
         database_url=PostgresDsn("postgresql+asyncpg://crm_app:s3cr3t@db:5432/crm"),
         app_secret_key="x" * 48,
+        app_encryption_key="y" * 48,
     )
     monkeypatch.setattr(cli, "get_settings", lambda: production)
     with pytest.raises(SystemExit) as stopped:

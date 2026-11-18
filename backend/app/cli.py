@@ -1,7 +1,7 @@
 """Operator commands: `python -m app.cli <command>`.
 
-Commands: `export-openapi`, `create-admin`, `seed-demo` (test and demo environments).
-Phase 6 adds `create-integration-client`.
+Commands: `export-openapi`, `create-admin`, `create-integration-client`, `seed-demo`
+(test and demo environments).
 """
 
 import argparse
@@ -19,6 +19,8 @@ from app.core.errors import AppError
 from app.core.mailer import create_mailer
 from app.main import create_app, create_event_bus
 from app.modules.identity import service as identity_service
+from app.modules.integration import service as integration_service
+from app.modules.integration.schemas import IntegrationClientCreate
 
 
 def export_openapi(output: Path | None) -> None:
@@ -63,6 +65,39 @@ async def create_admin(email: str, full_name: str, locale: str, password: str | 
     return 0
 
 
+async def create_integration_clients(systems: Sequence[str]) -> int:
+    """API spec 19.9: the initial clients with their read-only profiles, inactive and
+    without keys until an Admin issues them (FR-INT-01)."""
+    settings = get_settings()
+    engine = create_engine(settings)
+    try:
+        async with create_session_factory(engine)() as session:
+            ctx = integration_service.Context(
+                session=session, events=create_event_bus(), settings=settings,
+                now=SystemClock().now(),
+            )  # fmt: skip
+            existing = {c.system.code for c in await integration_service.list_clients(ctx)}
+            for system in systems:
+                if system in existing:
+                    print(f"{system}: a client already exists, skipped.")
+                    continue
+                name, scopes = integration_service.PROFILES[system]
+                created = await integration_service.create_client(
+                    ctx,
+                    None,
+                    IntegrationClientCreate.model_validate(
+                        {"name": name, "system": system, "scopes": scopes, "is_active": False}
+                    ),
+                )
+                print(f"{system}: created {created.name} ({created.id}), inactive, no keys.")
+    except AppError as error:
+        print(f"Could not create the client: {error.code.value}", file=sys.stderr)
+        return 1
+    finally:
+        await engine.dispose()
+    return 0
+
+
 async def seed_demo(counts: seed.Counts, seed_value: int) -> int:
     """NFR-01 volumes of fictional data; refused in production."""
     settings = get_settings()
@@ -99,6 +134,17 @@ def main(argv: Sequence[str] | None = None) -> None:
         help="Read the password from stdin instead of printing a set-password link",
     )
 
+    clients = commands.add_parser(
+        "create-integration-client",
+        help="Create the Conclusion, ERP and Billing clients (API spec 19.9), inactive",
+    )
+    clients.add_argument(
+        "--system",
+        choices=[*integration_service.PROFILES, "all"],
+        default="all",
+        help="One system, or all three",
+    )
+
     demo = commands.add_parser("seed-demo", help="Insert fictional data (not in production)")
     defaults = seed.Counts()
     for kind in ("organizations", "contacts", "leads", "opportunities"):
@@ -113,6 +159,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         raise SystemExit(
             asyncio.run(create_admin(args.email, args.full_name, args.locale, password))
         )
+    elif args.command == "create-integration-client":
+        systems = list(integration_service.PROFILES) if args.system == "all" else [args.system]
+        raise SystemExit(asyncio.run(create_integration_clients(systems)))
     elif args.command == "seed-demo":
         counts = seed.Counts(
             organizations=args.organizations,

@@ -128,9 +128,12 @@ jobs:
               -e "s/^CRM_MIGRATOR_PASSWORD=.*/CRM_MIGRATOR_PASSWORD=$(openssl rand -hex 24)/" \
               -e "s/^CRM_APP_PASSWORD=.*/CRM_APP_PASSWORD=$(openssl rand -hex 24)/" \
               -e "s/^APP_SECRET_KEY=.*/APP_SECRET_KEY=$(openssl rand -hex 32)/" \
+              -e "s/^APP_ENCRYPTION_KEY=.*/APP_ENCRYPTION_KEY=$(openssl rand -hex 32)/" \
               .env.example > .env
           # Every browser shares one IP address in CI; keep the per-IP limits out of the way.
           printf 'RATE_LIMIT_LOGIN_PER_MINUTE=500\nRATE_LIMIT_PASSWORD_PER_15_MINUTES=500\n' >> .env
+          # Webhook screens: a host that never resolves, so test events fail visibly.
+          printf 'WEBHOOK_ALLOWED_HOSTS=hooks.example.test\n' >> .env
       - name: Build images and start the stack
         run: docker compose up --build --detach
       - name: Wait for readiness through the proxy

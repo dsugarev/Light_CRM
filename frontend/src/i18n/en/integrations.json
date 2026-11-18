@@ -1,0 +1,158 @@
+{
+  "title": "Integrations",
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "list": {
+    "name": "Client",
+    "system": "System",
+    "status": "Status",
+    "keys": "Active keys",
+    "usage": "Last 24 hours",
+    "usageValue": "{{requests}} requests, {{errors}} errors",
+    "lastUsed": "Last used",
+    "never": "Never",
+    "none": "No integration clients yet.",
+    "webhooks": "Webhooks",
+    "webhooksCount_one": "{{count}} subscription",
+    "webhooksCount_other": "{{count}} subscriptions",
+    "webhooksFailing_one": "{{count}} failing",
+    "webhooksFailing_other": "{{count}} failing"
+  },
+  "new": {
+    "title": "New integration client",
+    "create": "Create client"
+  },
+  "fields": {
+    "name": "Name",
+    "system": "System",
+    "chooseSystem": "Choose a system",
+    "scopes": "Scopes",
+    "defaultOwner": "Default owner",
+    "noOwner": "None",
+    "rateLimit": "Requests per minute",
+    "contact": "Technical contact",
+    "allowlist": "Allowed addresses"
+  },
+  "hints": {
+    "defaultOwner": "Owner of records the client creates without naming one.",
+    "allowlist": "One address range (CIDR) per line, e.g. 10.1.2.0/24; empty: any address."
+  },
+  "detail": {
+    "settings": "Settings",
+    "save": "Save",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "confirmDeactivate": "Deactivate {{name}}? All its requests will be refused.",
+    "usage": "Last 24 hours: {{requests}} requests, {{errors}} errors. Last used: {{lastUsed}}."
+  },
+  "keys": {
+    "title": "API keys",
+    "label": "Label",
+    "prefix": "Key prefix",
+    "expires": "Expires",
+    "lastUsed": "Last used",
+    "state": "State",
+    "active": "Active",
+    "revoked": "Revoked",
+    "expired": "Expired",
+    "revoke": "Revoke",
+    "confirmRevoke": "Revoke the key “{{label}}”? Requests with it will be refused immediately.",
+    "create": "Create key",
+    "onceTitle": "Copy the key now",
+    "onceText": "This is the only time the full key is shown. Give it to the system's technical contact through a secure channel.",
+    "newKey": "New API key"
+  },
+  "references": {
+    "title": "IDs in other systems",
+    "none": "No IDs in other systems.",
+    "system": "System",
+    "externalId": "ID",
+    "url": "Link (https)",
+    "save": "Save",
+    "add": "Add an ID in another system",
+    "remove": "Remove",
+    "confirmRemove": "Remove the ID {{id}}?",
+    "saved": "ID saved.",
+    "removed": "ID removed."
+  },
+  "toasts": {
+    "created": "Client created.",
+    "saved": "Client saved.",
+    "activated": "Client activated.",
+    "deactivated": "Client deactivated.",
+    "keyCreated": "Key created.",
+    "keyRevoked": "Key revoked."
+  },
+  "webhooks": {
+    "title": "Webhooks",
+    "log": "Delivery log",
+    "new": "New subscription",
+    "url": "Endpoint URL",
+    "urlHint": "HTTPS, on a host in WEBHOOK_ALLOWED_HOSTS.",
+    "events": "Event types",
+    "allEvents": "All events",
+    "create": "Subscribe",
+    "created": "Subscription created.",
+    "none": "No subscriptions yet.",
+    "secret": "Signing secret",
+    "secretOnceTitle": "Copy the signing secret now",
+    "secretOnceText": "This is the only time the secret is shown. The receiving system uses it to verify each delivery's signature.",
+    "suspended": "Suspended",
+    "suspendedText": "Suspended on {{at}} after 72 hours of failed deliveries. Fix the endpoint, send a test event, then resume.",
+    "counts": "Last 24 hours: {{succeeded}} delivered, {{failing}} failing, {{pending}} waiting",
+    "previousSecret": "previous secret valid until {{until}}",
+    "test": "Send test event",
+    "testQueued": "Test event queued.",
+    "pause": "Pause",
+    "resume": "Resume",
+    "rotate": "Rotate secret",
+    "confirmRotate": "Create a new signing secret? The current one keeps signing deliveries for 24 hours, so the receiver can switch over.",
+    "remove": "Remove",
+    "confirmRemove": "Remove the subscription to {{url}} and its delivery log?",
+    "removed": "Subscription removed."
+  },
+  "deliveries": {
+    "title": "Webhook deliveries",
+    "client": "Client",
+    "any": "Any",
+    "statusLabel": "Status",
+    "status": {
+      "pending": "Waiting",
+      "retrying": "Retrying",
+      "succeeded": "Delivered",
+      "failed": "Failed"
+    },
+    "eventType": "Event type",
+    "created": "Created",
+    "attempts": "Attempts",
+    "lastResult": "Last result",
+    "redeliver": "Redeliver",
+    "redelivered": "Delivery queued again.",
+    "url": "Endpoint",
+    "eventId": "Event ID",
+    "occurred": "Event time",
+    "nextAttempt": "Next attempt",
+    "delivered": "Delivered",
+    "attemptedAt": "Time",
+    "result": "Result",
+    "duration": "Duration",
+    "response": "Response",
+    "noAttempts": "Not attempted yet.",
+    "ms": "{{ms}} ms",
+    "errors": {
+      "timeout": "No answer within 10 seconds",
+      "connection_failed": "Connection failed",
+      "dns_failed": "Host name not found",
+      "address_not_allowed": "Address not allowed",
+      "url_not_allowed": "URL no longer allowed",
+      "secret_unreadable": "Secret unreadable (encryption key changed)"
+    }
+  },
+  "alert": {
+    "title": "Webhook deliveries are failing",
+    "text": "{{failing}} failing deliveries, {{suspended}} suspended subscriptions.",
+    "link": "Open the delivery log"
+  }
+}

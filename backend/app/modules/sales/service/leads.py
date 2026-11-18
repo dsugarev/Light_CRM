@@ -26,8 +26,9 @@ from app.core.export import (
     reference_name,
 )
 from app.core.export import Locale as ExportLocale
+from app.core.external import ExternalQuery, apply_external
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
-from app.core.policy import check_owner
+from app.core.policy import check_owner, record_owner
 from app.core.principal import Principal
 from app.core.reference import ReferenceList, is_active_item
 from app.core.search import SearchHit, SearchProvider
@@ -94,6 +95,7 @@ class LeadFilters:
     created_from: datetime | None = None
     created_to: datetime | None = None
     fits_target_profile: bool | None = None
+    external: ExternalQuery | None = None
 
 
 # --- Helpers ------------------------------------------------------------------------------
@@ -333,7 +335,7 @@ async def import_create_lead(
 async def _new_lead(
     ctx: Context, principal: Principal, data: LeadCreate, *, import_batch_id: UUID | None = None
 ) -> UUID:
-    owner_id = data.owner_id or principal.user_id
+    owner_id = record_owner(principal, data.owner_id)
     await check_owner_choice(ctx, principal, owner_id)
     await _check_source(ctx, data.source_id)
     await _check_links(ctx, data.organization_id, data.contact_id)
@@ -378,6 +380,7 @@ async def list_leads(
         created_to=filters.created_to,
         fits_target_profile=filters.fits_target_profile,
     )
+    statement = apply_external(statement, ctx.external_filter, "lead", Lead.id, filters.external)
     if query.sync:
         rows, cursor = await fetch_sync(
             ctx.session, statement, query, Lead.updated_at, Lead.id,
@@ -737,6 +740,7 @@ async def export_leads(
         created_to=filters.created_to,
         fits_target_profile=filters.fits_target_profile,
     )
+    statement = apply_external(statement, ctx.external_filter, "lead", Lead.id, filters.external)
     locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
     file, rows = await build_export(
         ctx.session, statement, query, LEAD_SORT, Lead.id, lambda batch: _leads_out(ctx, batch),

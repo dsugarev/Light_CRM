@@ -1,10 +1,12 @@
 """Test helpers shared across suites."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from functools import cache
 from typing import Any
+from uuid import UUID
 
 import httpx
 from argon2 import PasswordHasher
@@ -15,10 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.auth import CSRF_HEADER, CSRF_HEADER_VALUE
 from app.core.clock import FrozenClock
 from app.core.mailer import Email
-from app.core.principal import RoleCode
+from app.core.principal import Principal, PrincipalType, RoleCode
 from app.modules.audit.models import AuditLog
 from app.modules.identity.models import Role, User, UserSession
 from app.modules.identity.tokens import new_token
+from app.modules.integration.models import IntegrationClient
 from tests.factories import UserFactory
 
 BASE_URL = "https://testserver"
@@ -139,9 +142,84 @@ class TestApp:
             await session.commit()
         return self.client(cookies={"session": raw})
 
+    async def integration_client(
+        self,
+        scopes: Sequence[str] = (),
+        *,
+        system: str = "erp",
+        name: str = "ERP",
+        default_owner_id: UUID | None = None,
+        rate_limit_per_minute: int = 300,
+        ip_allowlist: Sequence[str] = (),
+    ) -> IntegrationCaller:
+        """Register a client (FR-INT-01), issue a key, and return a client using only it."""
+        return await _register_integration(
+            self, scopes, system=system, name=name, default_owner_id=default_owner_id,
+            rate_limit_per_minute=rate_limit_per_minute, ip_allowlist=ip_allowlist,
+        )  # fmt: skip
+
     async def audit(self, action: str | None = None) -> list[AuditLog]:
         async with self.sessions() as session:
             statement = select(AuditLog).order_by(AuditLog.occurred_at, AuditLog.id)
             if action is not None:
                 statement = statement.where(AuditLog.action == action)
             return list((await session.execute(statement)).scalars())
+
+
+@dataclass(frozen=True, slots=True)
+class IntegrationCaller:
+    """An integration client registered for a test and an HTTP client using its key."""
+
+    http: httpx.AsyncClient
+    client_id: UUID
+    service_user_id: UUID
+    key: str
+
+
+async def _register_integration(
+    test_app: TestApp,
+    scopes: Sequence[str],
+    *,
+    system: str,
+    name: str,
+    default_owner_id: UUID | None,
+    rate_limit_per_minute: int,
+    ip_allowlist: Sequence[str],
+) -> IntegrationCaller:
+    from app.main import create_event_bus
+    from app.modules.integration import service as integration
+    from app.modules.integration.schemas import ApiKeyCreate, IntegrationClientCreate
+
+    admin = await test_app.create_user(RoleCode.ADMIN)
+    async with test_app.sessions() as session:
+        ctx = integration.Context(
+            session=session,
+            events=create_event_bus(),
+            settings=test_app.app.state.settings,
+            now=test_app.clock.now(),
+        )
+        principal = Principal(
+            type=PrincipalType.USER, user_id=admin.id, role=RoleCode.ADMIN,
+            display_name=admin.full_name,
+        )  # fmt: skip
+        created = await integration.create_client(
+            ctx,
+            principal,
+            IntegrationClientCreate.model_validate(
+                {
+                    "name": name,
+                    "system": system,
+                    "scopes": list(scopes),
+                    "default_owner_id": default_owner_id,
+                    "rate_limit_per_minute": rate_limit_per_minute,
+                    "ip_allowlist": list(ip_allowlist),
+                    "is_active": True,
+                }
+            ),
+        )
+        key = await integration.create_key(ctx, principal, created.id, ApiKeyCreate(label="test"))
+        client_row = await session.get(IntegrationClient, created.id)
+        assert client_row is not None
+        service_user_id = client_row.service_user_id
+    http = test_app.client(csrf=False, headers={"Authorization": f"Bearer {key.key}"})
+    return IntegrationCaller(http, created.id, service_user_id, key.key)

@@ -75,20 +75,38 @@ CurrentPrincipal = Annotated[Principal, Depends(required_principal)]
 
 def _requirement(level: AccessLevel, scope: str | None) -> Callable[..., Awaitable[None]]:
     async def require(request: Request, principal: OptionalPrincipal) -> None:
-        check_access(principal, level, scope)
+        # A scope may name a path parameter, e.g. "{resource}:read" (API spec 19.4).
+        resolved = scope.format(**request.path_params) if scope and "{" in scope else scope
+        check_access(principal, level, resolved)
         if principal is not None:
             settings: Settings = request.app.state.settings
             engine: AsyncEngine = request.app.state.engine
             clock: Clock = request.app.state.clock
+            # FR-INT-09: integration clients have their own, configurable limit.
+            key, limit = (
+                (f"client:{principal.client_id}", principal.rate_limit_per_minute)
+                if principal.is_integration and principal.rate_limit_per_minute
+                else (f"user:{principal.user_id}", settings.rate_limit_user_per_minute)
+            )
             await ratelimit.hit(
-                engine,
-                f"user:{principal.user_id}",
-                limit=settings.rate_limit_user_per_minute,
-                window=timedelta(minutes=1),
-                now=clock.now(),
+                engine, key, limit=limit, window=timedelta(minutes=1), now=clock.now()
             )
 
     return require
+
+
+def combined_authenticator(cookie: Authenticator, bearer: Authenticator) -> Authenticator:
+    """Session cookies for people, bearer API keys for integration clients; both on the
+    same request are refused (architecture section 7)."""
+
+    async def authenticate(request: Request, session: AsyncSession) -> Principal | None:
+        if "authorization" in request.headers:
+            if SESSION_COOKIE in request.cookies:
+                raise AppError(ErrorCode.AUTH_MIXED_CREDENTIALS, HTTPStatus.BAD_REQUEST)
+            return await bearer(request, session)
+        return await cookie(request, session)
+
+    return authenticate
 
 
 def endpoint(level: AccessLevel, *, scope: str | None = None) -> dict[str, Any]:

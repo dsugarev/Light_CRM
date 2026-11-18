@@ -19,6 +19,7 @@ A light B2B CRM for a telecom Commercial team (about 20 internal users, on-premi
 | `docs/Plan.md` | Implementation log: what each phase built, with code excerpts, deviations and open items. Update it with every implemented task |
 | `docs/Test_strategy.md` | Test record: per phase, the test strategy applied, test cases added, runs performed with results, defects found; generated inventory (`python3 scripts/test_inventory.py`) |
 | `docs/api/` | OpenAPI snapshot (`openapi.json`, checked by CI) and how to view the API documentation |
+| `docs/integration-guide.md`, `docs/integration/` | Guide and Postman collection for the Conclusion, ERP and Billing teams; tests run its Python sample and check the collection against the routes |
 
 These documents are the source of truth. If code and documents disagree, raise it; do not silently pick one.
 
@@ -69,11 +70,12 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 uv sync
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
-uv run python -m app.worker                                   # webhook delivery and housekeeping
+uv run python -m app.worker                                   # webhook fan-out and delivery, housekeeping
 uv run python -m app.cli export-openapi --output ../docs/api/openapi.json  # API doc snapshot (CI-checked)
 uv run python -m app.cli create-admin --email … --full-name …  # first Admin; prints a one-time link
                                                               # (--password-stdin for automation)
-uv run python -m app.cli create-integration-client            # Phase 6
+uv run python -m app.cli create-integration-client [--system erp|billing|conclusion|all]
+                                                              # 19.9 profiles, inactive, no keys
 uv run python -m app.cli seed-demo                            # fictional NFR-01 volumes (not in production)
 PERF_EMAIL=… PERF_PASSWORD=… uv run python scripts/perf_check.py https://localhost  # NFR-01 p95 check
 uv run ruff check . && uv run ruff format --check .

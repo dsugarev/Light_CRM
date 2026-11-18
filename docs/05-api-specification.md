@@ -1,6 +1,6 @@
 # 05 — API Specification (Release 1)
 
-Status: Draft v0.8 (updated after Phase 5b, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+Status: Draft v0.10 (updated after Phase 6b, 2026-11-18) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
 
 This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
 
@@ -14,23 +14,23 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | 1.3 Lists: paging, sorting, filters, `q`, `include_archived`, sync mode | 2 | Built (shared machinery, ADR 0017); users and audit-log lists keep their Phase 1 parameters |
 | 2 System and health | 0–1 | Built |
 | 3 Authentication and sessions | 1 | Built, except MFA endpoints (FR-AUTH-07, Phase 8) |
-| 4 Current user | 1, 4 | Built; `/me/tasks` since Phase 4b |
+| 4 Current user | 1, 4, 6 | Built; `/me/tasks` since Phase 4b; integration callers (`system`, `scopes`) since Phase 6a |
 | 5 Users and roles | 1 | Built |
 | 6.1 Application settings | 1, 4 | Built with session timeouts (Phase 1) and the stale-opportunity threshold (Phase 4); further settings added by their phases |
-| 6.2 Reference lists | 2–4 | Built; `industries`, `lead-sources`, `disqualification-reasons`, `loss-reasons` registered; `external-systems` (Phase 6) follows |
+| 6.2 Reference lists | 2–4 | Built; `industries`, `lead-sources`, `disqualification-reasons`, `loss-reasons` registered; `external-systems` since Phase 6a (seeded `conclusion`, `erp`, `billing`) |
 | 6.3 Pipelines and stages | 4 | Built (Phase 4a) |
 | 7 Organizations | 2–5 | Built; `/export` since Phase 5a; `/leads` and the open-lead count added in Phase 3; `/opportunities`, open-opportunity figures and the archive guard in Phase 4a; `/timeline` in Phase 4b |
 | 8 Contacts | 2, 4, 5 | Built, except GDPR `personal-data`/`anonymize` (Phase 8); `/timeline` since Phase 4b; `/export` since Phase 5a |
 | 9 Leads | 3–5 | Built; `conversion-preview`, `convert` and `/timeline` since Phase 4b; `/export` since Phase 5a |
 | 10 Opportunities and pipeline board | 4, 5 | Built; `/export` since Phase 5a |
 | 11 Activities and tasks | 4, 5 | Built (Phase 4b); `/export` since Phase 5a |
-| 12 Search | 2–4 | Built for organizations, contacts, leads and opportunities |
+| 12 Search | 2–4, 6 | Built for organizations, contacts, leads and opportunities; integration clients get only the types they may read (Phase 6a) |
 | 13–14 Reports, exports | 5 | Built (Phase 5a) |
 | 15 Data import | 5 | Built (Phase 5b) |
 | 16 Audit log | 1, 5 | Built; `/audit-log/export` since Phase 5a |
 | 17 AI assistant | 7 | Pending |
-| 18 Rate limits | 1 | Built for sign-in, password endpoints and per user; others with their features |
-| 19 Integration API | 6 | Pending (policy already scope-aware) |
+| 18 Rate limits | 1, 6 | Built for sign-in, password endpoints, per user and per integration client (Phase 6a); others with their features |
+| 19 Integration API | 6 | Built: API keys (19.2), scopes (19.3), external references and filters (19.4), idempotency (19.5) in Phase 6a; webhooks with the outbox, signing, retries, suspension and the delivery log (19.6, 19.7), the integration guide and collection (19.10) in Phase 6b; the initial profiles as a CLI command (19.9) |
 
 `backend/tests/api/catalog_pending.py` lists every endpoint not yet built; the route catalog test fails if this document and the code disagree.
 
@@ -194,6 +194,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `auth.client_inactive` | 401 | Integration client deactivated |
 | `auth.ip_not_allowed` | 403 | Caller IP outside the client's allowlist |
 | `auth.mixed_credentials` | 400 | Both cookie and `Authorization` header sent |
+| `api_key.limit` | 409 | The client already has two active keys; revoke one first. `max` included |
 | `permission.scope_missing` | 403 | Integration client lacks the scope; `required_scope` included |
 | `permission.not_for_integrations` | 403 | Endpoint is not available to integration clients |
 | `idempotency.key_reused` | 422 | Same `Idempotency-Key` sent with a different request body |
@@ -203,7 +204,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `owner.required` | 422 | Integration-created record has no `owner_id` and the client has no default owner |
 | `webhook.url_not_allowed` | 422 | Webhook URL not HTTPS or host not in the allowlist |
 
-**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, `contact.not_found`, `contact.organization_mismatch`, `lead.bant_unknown`, `stage.not_open` (stage must be an active open stage), `stage.order_incomplete`, `export.unknown_column` (field `columns`, status 400), import mapping and row codes `import.unknown_column`, `import.unknown_field`, `import.field_mapped_twice` (field `mapping.<column>`), `import.required_field` (field `field.<key>`), `import.duplicate_in_file` (field `row`), `organization.ambiguous`, `validation.period` (field `from`, status 400: `from` after `to`), `activity.link_required` (field `links`), `activity.due_required`, `activity.task_only`, `assignee.invalid`, `lead.not_found`, `lead.archived`, `opportunity.not_found`, `opportunity.archived`, `validation.use_action_endpoint`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`). Field names are the request body or query field names.
+**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, `contact.not_found`, `contact.organization_mismatch`, `lead.bant_unknown`, `stage.not_open` (stage must be an active open stage), `stage.order_incomplete`, `export.unknown_column` (field `columns`, status 400), import mapping and row codes `import.unknown_column`, `import.unknown_field`, `import.field_mapped_twice` (field `mapping.<column>`), `import.required_field` (field `field.<key>`), `import.duplicate_in_file` (field `row`), `organization.ambiguous`, `validation.period` (field `from`, status 400: `from` after `to`), `activity.link_required` (field `links`), `activity.due_required`, `activity.task_only`, `assignee.invalid`, `lead.not_found`, `lead.archived`, `opportunity.not_found`, `opportunity.archived`, `validation.use_action_endpoint`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`), API keys `api_key.expiry_past` and `api_key.expiry_too_long` (field `expires_at`), `validation.missing` on `external_system` (status 400) when `external_id` or `has_external_reference` is sent without it, `validation.string_too_long` on `Idempotency-Key` (status 422). Field names are the request body or query field names.
 
 ### 1.7 Access levels used in the tables
 
@@ -218,8 +219,11 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | Manager+ | Admin, Sales Manager |
 | Admin | Admin only |
 | Integration: `scope` | An integration client holding that scope (section 19.3) |
+| Signed-in; Integration: read scope of `{resource}` | Any active user; an integration client holding the read scope of the record type in the path (`organizations:read` for `/organizations/...`) |
+| Signed-in; Integration: read scope of the resolved type | Any active user; an integration client holding any record read scope, and the read scope of the record type the reference resolves to (otherwise `403 permission.scope_missing`) |
+| Admin; Integration: `external-references:write` and `{system}` equals the client's system | Admin; an integration client with that scope, for references of its own system only (otherwise `403 external_reference.system_mismatch`) |
 
-Every endpoint below maps to exactly one access level for people. Whether an integration client may call it, and with which scope, is defined only in section 19.3; endpoints not listed there return `403 permission.not_for_integrations` to integration clients. The authorization matrix test (test strategy section 3) is generated from these tables and section 19.3.
+Every endpoint below maps to exactly one access level for people. Whether an integration client may call it, and with which scope, is defined only in section 19.3; endpoints not listed there return `403 permission.not_for_integrations` to integration clients; so do the Public endpoints (sign-in, password set and reset) when called with an API key. The authorization matrix test (test strategy section 3) is generated from these tables and section 19.3.
 
 ## 2. System and health
 
@@ -281,7 +285,13 @@ Login request and response:
 // GET /api/v1/me  (user)
 { "principal_type": "user", "id": "...", "email": "ivan.petrov@example.bg", "full_name": "Ivan Petrov",
   "role": "sales_rep", "locale": "bg",
-  "permissions": ["data.export", "records.create", "records.edit_own", "records.read"] }
+  "permissions": ["data.export", "records.create", "records.edit_own", "records.read"],
+  "system": null, "scopes": [] }
+
+// GET /api/v1/me  (integration client, Phase 6a)
+{ "principal_type": "integration", "id": "<service user id>", "email": "erp-3f9c1a2b7d4e@integration.invalid",
+  "full_name": "ERP (integration)", "role": "integration", "locale": "en", "permissions": [],
+  "system": "erp", "scopes": ["external-references:write", "organizations:read"] }
 ```
 
 Permission codes (derived from the role; the UI uses them only to hide controls): `records.read`, `records.create`, `records.edit_own`, `records.edit_any`, `records.reassign`, `records.restore`, `data.export`, `data.import`, `users.manage`, `settings.manage`, `audit.read`. `PATCH /me` accepts only `full_name` and `locale` (`en` | `bg`); other fields return `422`. `GET /me/sessions` returns `[{ "id", "created_at", "last_seen_at", "expires_at", "ip", "user_agent", "current" }]`; revoking a session that is not the caller's returns `404`.
@@ -685,7 +695,7 @@ Rules (as built, Phase 4b):
 |---|---|---|---|---|
 | GET | `/api/v1/search` | Global quick search across organizations, contacts, leads and opportunities. `q` required (min 2 chars), `types` optional, up to 5 results per type | Signed-in | FR-PARTY-04 |
 
-Response: `{ "items": [ { "type": "organization" | "contact" | "lead" | "opportunity", "id", "label", "detail" } ] }` grouped by type, archived records excluded. `detail` is the city for organizations, the organization name (else email) for contacts, the company name for leads and the organization name for opportunities. `types` may repeat (`organization`, `contact`, `lead`, `opportunity`).
+Response: `{ "items": [ { "type": "organization" | "contact" | "lead" | "opportunity", "id", "label", "detail" } ] }` grouped by type, archived records excluded. `detail` is the city for organizations, the organization name (else email) for contacts, the company name for leads and the organization name for opportunities. `types` may repeat (`organization`, `contact`, `lead`, `opportunity`). For an integration client the types are narrowed to those it holds the read scope for (`organizations:read`, `contacts:read`, `leads:read`, `opportunities:read`); a client with none of them gets an empty result.
 
 ## 13. Reports and dashboard
 
@@ -834,7 +844,7 @@ Defaults, configurable through settings or environment; exceeded limits return `
 | Exports | 10 per minute per user |
 | Imports (upload) | 10 per hour per user |
 | All other authenticated endpoints | 600 per minute per user |
-| Each integration client, all endpoints | 1,200 per minute (configurable per client) |
+| Each integration client, all endpoints | 300 per minute by default (owner decision, Phase 6), set per client with `rate_limit_per_minute` (1–100,000); counted per client, not per service user |
 
 ## 19. Integration API (Conclusion, ERP, Billing)
 
@@ -853,6 +863,13 @@ Defaults, configurable through settings or environment; exceeded limits return `
 - Each key has an expiry (default 12 months, maximum 24) and records `last_used_at` and `last_used_ip`. A client may have two active keys at once so keys can be rotated without downtime. Revocation takes effect on the next request.
 - Optional per-client IP allowlist (CIDR list); requests from other addresses return `403 auth.ip_not_allowed`.
 - Keys never appear in logs, audit entries, error messages or API responses after creation.
+
+As built (Phase 6a, ADR 0024):
+
+- `<env>` is `prod`, `test` or `dev` (from `ENV`); `<key_id>` is 16 hex characters and is what the server looks up; `<secret>` is 43 URL-safe characters (256 bits). The non-secret prefix `crm_<env>_<key_id>` is shown in the key list.
+- A third active key returns `409 api_key.limit`. `expires_at` is optional (default 12 months); a past date returns `422 api_key.expiry_past`, more than 24 months `422 api_key.expiry_too_long`.
+- A malformed, unknown, revoked or expired key returns `401 auth.api_key_invalid`; a deactivated client `401 auth.client_inactive`. `last_used_at` and `last_used_ip` are written at most once a minute per key.
+- An `Authorization` header with a session cookie returns `400 auth.mixed_credentials`; an `Authorization` scheme other than `Bearer` is `401 auth.api_key_invalid`.
 
 ### 19.3 Scopes and the endpoints they open
 
@@ -876,6 +893,8 @@ Every client may call `GET /me` and `GET /openapi.json` without a scope. Reading
 
 Never available to integration clients, whatever their scopes: authentication and password endpoints, `/me/sessions`, `/me/tasks`, user administration, settings, writes to reference data and pipelines, archive and restore, assign, lead convert and reopen, opportunity reopen, imports, exports, the audit log, GDPR endpoints, the AI assistant, and integration administration (19.7).
 
+As built (Phase 6a): the scope is declared on each route (`x-required-scope` in the OpenAPI document) and checked in the same policy function as roles, before any role or ownership rule. Within a write scope the role rules still apply: an integration acts with the `integration` role, which may create records and edit them, but may not change an organization's owner, archive, restore, assign or convert (`403 permission.denied` or `permission.not_for_integrations`). `PATCH /activities/{id}` is allowed only for activities the client created.
+
 Records created by an integration must have a human owner: the request's `owner_id` (for example found with `GET /users/lookup?email=`) or, if omitted, the client's configured `default_owner_id`; otherwise `422 owner.required`.
 
 ### 19.4 External references (cross-system IDs)
@@ -893,11 +912,28 @@ Links a CRM record to its identifier in another system: an ERP customer number, 
 
 Lists accept `external_system` and `external_id` filters, and `external_system` with `has_external_reference=false` to find records not yet linked (for example won opportunities ERP has not picked up). Setting or removing a reference is audited and emits `external_reference.updated`.
 
+As built (Phase 6a):
+
+- `PUT` returns `200` with the reference; `DELETE` returns `204`; both `404` when the record or reference does not exist, `422 reference.invalid` (field `system`) for an unknown or inactive system.
+- An external ID already linked to another record of the same type in the same system returns `409 external_reference.conflict`.
+- The list filters work on `GET /organizations`, `/contacts`, `/leads`, `/opportunities` and their `/export` variants. `external_id` and `has_external_reference` need `external_system` (`400 validation.failed`, field `external_system`, code `validation.missing`).
+- The web UI shows the references on the organization, contact, lead and opportunity pages, as a link when a `url` is stored; Admins add and remove them there.
+
+```json
+// PUT /api/v1/organizations/{id}/external-references/erp  →  200
+{ "entity_type": "organization", "entity_id": "0193...", "external_id": "C-10023",
+  "url": "https://erp.internal/customers/C-10023",
+  "system": { "id": "...", "code": "erp", "name_en": "ERP", "name_bg": "ERP" },
+  "updated_at": "2026-11-17T09:30:00Z", "updated_by": { "id": "...", "full_name": "ERP (integration)" } }
+```
+
 ### 19.5 Idempotency
 
 - Integration `POST` requests that create records (and the lead and opportunity action endpoints) accept an `Idempotency-Key` header (1–255 characters, typically a UUID or the source system's own record ID).
 - The first response for a key is stored for 24 hours per client. A retry with the same key and the same body returns the stored response with header `Idempotent-Replayed: true`. The same key with a different body returns `422 idempotency.key_reused`; a retry while the first is still running returns `409 idempotency.in_progress`.
 - Clients should still check for an existing external reference before creating a record.
+
+As built (Phase 6a): every `POST` by an integration client that carries `Idempotency-Key` is covered (the header is ignored for web sessions). Records are kept per client; the request fingerprint is the method, path and body. A `5xx` response is not stored, so a retry runs again. A replay returns the stored status, body, `Content-Type` and `Location`. A key longer than 255 characters (or empty) returns `422 validation.failed` with field `Idempotency-Key`. Expired records are removed by the worker.
 
 ### 19.6 Webhooks (CRM → integrated applications)
 
@@ -943,6 +979,17 @@ Contact events for an anonymized contact carry the anonymized object. The `objec
 
 **URL rules.** HTTPS only (HTTP allowed only when `ENV` is not `production`), host must match the `WEBHOOK_ALLOWED_HOSTS` allowlist, no credentials in the URL. This prevents the CRM being used to reach arbitrary internal addresses.
 
+As built (Phase 6b, ADR 0025):
+
+- **Outbox.** The integration module subscribes to the domain event bus and writes an `outbox_event` row in the business transaction for each mapped action. Actions without an event type of their own (`<record>.archived` for leads and opportunities, `.restored`, `.owner_changed`) are sent as `<record>.updated`; audit-only actions (sign-in, exports, imports' own events, user administration) are not sent. `contact.anonymized` is accepted in subscriptions and sent once GDPR anonymization exists (Phase 8). `changes` lists the fields whose values differ between before and after (empty for creations). `actor` is `{ "type": "user" | "integration" | "system", "id", "name" }`, plus `client_id` for integrations.
+- **Fan-out.** The worker (every `WORKER_POLL_INTERVAL_SECONDS`, default 5) turns new events into one delivery per active, non-suspended subscription whose `event_types` match (`*`, `<record>.*` or the exact type) and whose client may read the record type (AC4); it then attempts what is due, four at a time. Deliveries for a deactivated client wait and are sent once it is active again.
+- **Object and version.** `data.object` is built when the delivery is attempted, through the same service functions as `GET` (so retries carry current data); `null` if the record no longer exists. `data.version` is the record's `version` for leads and opportunities and `null` for organizations and contacts, which have none. For `external_reference.updated`, `data.system` is the system code and `object` is the reference (`null` after removal).
+- **Request.** Body is compact UTF-8 JSON; headers as above plus `User-Agent: LightCRM-Webhooks/1`. The host is resolved, and the delivery is refused (`address_not_allowed`) if any address is loopback, link-local, unspecified, multicast, reserved or a cloud metadata address; otherwise the connection goes to the vetted address (no second lookup) while TLS still verifies the certificate for the URL's host. Private ranges (on-premises systems) are allowed. The URL is re-checked against the allowlist at each attempt. 10 seconds in total; redirects are failures; at most 4 KB of the response is read and 1,000 characters stored.
+- **Ordering.** A delivery waits while an earlier one (by event time, then event ID) for the same record and subscription is pending or retrying.
+- **Retry and suspension.** Delays after attempts 1–5 are 1 min, 5 min, 30 min, 2 h, 6 h (±10 % jitter), then every 6 h; after 72 hours from the first attempt the delivery is `failed`. A subscription whose deliveries have failed without a success for 72 hours is suspended (`suspended_at`); `PATCH ... {"is_active": true}` resumes it. Test events (`ping`) are attempted once, whatever the client, subscription or suspension state, and never count towards suspension or the failing figure.
+- **Error names** recorded for attempts without an HTTP status: `timeout`, `connection_failed`, `dns_failed`, `address_not_allowed`, `url_not_allowed`, `secret_unreadable` (the encryption key changed).
+- **Housekeeping.** Events older than 30 days are deleted with their deliveries and attempts.
+
 ### 19.7 Integration administration (Admin)
 
 | Method | Path | Purpose | Access | Req. |
@@ -961,12 +1008,59 @@ Contact events for an anonymized contact carry the anonymized object. The `objec
 | PATCH | `/api/v1/webhook-subscriptions/{subscription_id}` | Change URL, event types, active flag | Admin | FR-INT-07 |
 | DELETE | `/api/v1/webhook-subscriptions/{subscription_id}` | Remove | Admin | FR-INT-07 |
 | POST | `/api/v1/webhook-subscriptions/{subscription_id}/rotate-secret` | New secret, returned once; old one valid for 24 hours | Admin | FR-INT-07 |
-| POST | `/api/v1/webhook-subscriptions/{subscription_id}/test` | Send a `ping` event and return the receiver's status code and timing | Admin | FR-INT-07 |
+| POST | `/api/v1/webhook-subscriptions/{subscription_id}/test` | Queue a `ping` event (`202` with the delivery); the worker sends it once, and the receiver's status code and timing appear in the delivery (no outbound call inside a request) | Admin | FR-INT-07 |
 | GET | `/api/v1/webhook-deliveries` | Delivery log. Filters: `subscription_id`, `client_id`, `event_type`, `status` (`pending`, `succeeded`, `retrying`, `failed`), `created_at_from/to` | Admin | FR-INT-07, 08 |
 | GET | `/api/v1/webhook-deliveries/{delivery_id}` | Attempts with status codes, timings and truncated response bodies | Admin | FR-INT-07 |
 | POST | `/api/v1/webhook-deliveries/{delivery_id}/redeliver` | Queue the event again | Admin | FR-INT-07 |
 
 Delivery log entries are kept 30 days. Creating, changing, deactivating clients, keys and subscriptions is audited.
+
+As built (Phase 6a for clients and keys, Phase 6b for webhooks): `GET /integration-clients` returns a plain array (a few clients, no paging). `POST /integration-clients` creates the client **inactive** unless `is_active: true` is sent, because clients are switched on only after the owner confirms the data flow (19.9); the web UI always creates inactive clients. `ip_allowlist` takes up to 50 CIDR ranges; `rate_limit_per_minute` defaults to 300. The service user is named `<name> (integration)` and never appears in user lists or owner pickers. Audit actions: `integration_client.created`, `.updated`, `.activated`, `.deactivated`, `api_key.created`, `api_key.revoked` (never with the key).
+
+```json
+// POST /api/v1/integration-clients  →  201
+// body: { "name": "ERP", "system": "erp", "scopes": ["organizations:read", "external-references:write"],
+//         "default_owner_id": "0193...", "ip_allowlist": ["10.1.2.0/24"], "technical_contact": "erp-team@example.bg" }
+{ "id": "0193...", "name": "ERP", "system": { "id": "...", "code": "erp", "name_en": "ERP", "name_bg": "ERP" },
+  "scopes": ["external-references:write", "organizations:read"], "default_owner": { "id": "0193...", "full_name": "Ivan Petrov" },
+  "ip_allowlist": ["10.1.2.0/24"], "technical_contact": "erp-team@example.bg", "rate_limit_per_minute": 300,
+  "is_active": false, "last_used_at": null, "usage": { "requests_24h": 0, "errors_24h": 0 }, "active_keys": 0,
+  "created_at": "...", "updated_at": "..." }
+
+// POST /api/v1/integration-clients/{client_id}/api-keys  →  201   body: { "label": "Production" }
+{ "id": "0193...", "label": "Production", "prefix": "crm_prod_3f9c1a2b7d4e5f60",
+  "key": "crm_prod_3f9c1a2b7d4e5f60_<43 characters, shown only here>",
+  "created_at": "...", "expires_at": "2027-11-17T09:30:00Z", "revoked_at": null,
+  "last_used_at": null, "last_used_ip": null, "created_by": { "id": "...", "full_name": "Ada Admin" } }
+```
+
+`usage` counts the client's requests and error responses (status 400 and above) over the last 24 hours, from hourly counters kept in PostgreSQL for 30 days. `webhooks` gives `subscriptions`, `failing_deliveries` (now retrying, or failed in the last 24 hours, test events excluded) and `suspended_subscriptions`; the web UI shows a banner in the admin area and a badge on the Integrations link while either of the last two is above zero (FR-INT-08).
+
+Webhook administration (Phase 6b):
+
+- Subscriptions: `url` (≤ 500 characters, URL rules of 19.6, else `422 webhook.url_not_allowed` with field `url`), `event_types` (1–40 of the types of 19.6, `<record>.*` or `*`; others `422` with `validation.value_error` on `event_types.<n>`; duplicates removed), `is_active` (default `true`). The secret (`whsec_` + 43 characters) is returned by `POST` and `rotate-secret` only, stored encrypted with `APP_ENCRYPTION_KEY`. `previous_secret_valid_until` is set for 24 hours after a rotation. `DELETE` removes the subscription with its deliveries.
+- `POST .../test` returns `202` with the queued `ping` delivery; its attempt appears in `GET /webhook-deliveries/{id}` within one worker poll.
+- `GET /webhook-deliveries` is paginated (`page`, `page_size` ≤ 100), newest first; `status` must be one of the four statuses (`422` otherwise). `POST .../redeliver` returns `202` with a new delivery of the same event to the same subscription; the receiver sees the same event `id`.
+- Audit actions: `webhook_subscription.created`, `.updated`, `.deleted`, `.secret_rotated`, `.test_sent`, `webhook_delivery.redelivered` (never with a secret). Automatic suspension is logged by the worker (`webhook_subscription_suspended`).
+
+```json
+// POST /api/v1/integration-clients/{client_id}/webhook-subscriptions  →  201
+// body: { "url": "https://erp.internal/hooks/crm", "event_types": ["opportunity.closed_won", "organization.*"] }
+{ "id": "0193...", "client_id": "0193...", "url": "https://erp.internal/hooks/crm",
+  "event_types": ["opportunity.closed_won", "organization.*"], "is_active": true,
+  "suspended_at": null, "failing_since": null, "previous_secret_valid_until": null,
+  "deliveries_24h": { "succeeded": 0, "pending": 0, "retrying": 0, "failed": 0 },
+  "created_at": "...", "updated_at": "...", "secret": "whsec_<43 characters, shown only here>" }
+
+// GET /api/v1/webhook-deliveries/{delivery_id}
+{ "id": "0193...", "subscription_id": "0193...", "client_id": "0193...", "event_id": "evt_0193f1c2...",
+  "event_type": "opportunity.closed_won", "entity_type": "opportunity", "entity_id": "0193...",
+  "occurred_at": "...", "status": "retrying", "attempt_count": 1, "next_attempt_at": "...",
+  "last_status_code": 503, "last_error": null, "delivered_at": null, "created_at": "...",
+  "url": "https://erp.internal/hooks/crm",
+  "attempts": [ { "number": 1, "attempted_at": "...", "duration_ms": 87, "status_code": 503,
+                  "error": null, "response_excerpt": "Service Unavailable" } ] }
+```
 
 ### 19.8 Versioning and change policy for integrators
 
@@ -984,11 +1078,15 @@ The data flows below are working assumptions so the build can proceed; they star
 | Billing (`billing`) | Set up the billing account and services for a won deal; write the billing account ID back to the organization and opportunity | `organizations:read`, `contacts:read`, `opportunities:read`, `reference:read`, `external-references:write` | `opportunity.closed_won`, `organization.updated` |
 | Conclusion (`conclusion`) | Purpose to be confirmed | `organizations:read`, `opportunities:read`, `reference:read`, `external-references:write` | None until the purpose is confirmed |
 
+`python -m app.cli create-integration-client [--system erp|billing|conclusion|all]` creates these clients with the scopes above, inactive and without keys; it skips a system that already has a client.
+
 Typical ERP flow under these assumptions: receive `opportunity.closed_won` → read the organization and contacts → create the customer in ERP → `PUT /organizations/{id}/external-references/erp` with the customer number. Nightly, call `GET /opportunities?stage_type=won&external_system=erp&has_external_reference=false` and a sync-mode `GET /organizations?updated_since=...` to catch anything missed.
 
 ### 19.10 Integration guide deliverable
 
-Phase 6 produces `docs/integration-guide.md` for the Conclusion, ERP and Billing teams: how to obtain a key, authentication, scopes, sync mode, external references, idempotency, webhook verification with code samples (Python, C#, Java), error codes, rate limits, the versioning policy, and a ready-to-import Postman or Bruno collection in `docs/integration/`.
+Delivered in Phase 6b: [`integration-guide.md`](integration-guide.md), the Postman v2.1 collection [`integration/light-crm.postman_collection.json`](integration/light-crm.postman_collection.json) (checked against the routes by a test) and the reference receiver `deploy/examples/webhook_receiver.py`. Only the Python verification sample is executed by the test suite (owner decision); the C# and Java samples are marked untested.
+
+Original scope: Phase 6 produces `docs/integration-guide.md` for the Conclusion, ERP and Billing teams: how to obtain a key, authentication, scopes, sync mode, external references, idempotency, webhook verification with code samples (Python, C#, Java), error codes, rate limits, the versioning policy, and a ready-to-import Postman or Bruno collection in `docs/integration/`.
 
 ## 20. Future extensions (not in R1)
 

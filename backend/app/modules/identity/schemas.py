@@ -77,6 +77,9 @@ class Me(BaseModel):
     role: RoleCode
     locale: Locale
     permissions: list[str]
+    # Integration clients (API spec 4): their system code and granted scopes.
+    system: str | None = None
+    scopes: list[str] = []
 
 
 class MeUpdate(_Request):

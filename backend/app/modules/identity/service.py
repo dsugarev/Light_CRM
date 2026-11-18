@@ -19,6 +19,7 @@ from app.core.auth import SESSION_COOKIE
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.events import DomainEvent, EventBus
+from app.core.ids import new_id
 from app.core.mailer import Mailer
 from app.core.policy import CONTRIBUTOR_ROLES, permissions_for
 from app.core.principal import Principal, PrincipalType, RoleCode
@@ -177,13 +178,9 @@ async def _set_password(ctx: Context, user: User, password: str) -> None:
 
 
 async def authenticate_request(request: Request, session: AsyncSession) -> Principal | None:
-    """Resolve the caller from the session cookie (the `Authenticator` used by core.auth)."""
+    """Resolve the caller from the session cookie. Bearer API keys are handled by the
+    integration module; app.main combines both (core.auth.combined_authenticator)."""
     cookie = request.cookies.get(SESSION_COOKIE)
-    if cookie and "authorization" in request.headers:
-        raise AppError(ErrorCode.AUTH_MIXED_CREDENTIALS, HTTPStatus.BAD_REQUEST)
-    if "authorization" in request.headers:
-        # Integration API keys arrive in Phase 6; until then no bearer key is valid.
-        raise AppError(ErrorCode.AUTH_API_KEY_INVALID, HTTPStatus.UNAUTHORIZED)
     if not cookie:
         return None
 
@@ -426,13 +423,15 @@ async def get_me(ctx: Context, principal: Principal) -> Me:
     if user is None:
         raise _not_found()
     return Me(
-        principal_type="user",
+        principal_type="integration" if principal.is_integration else "user",
         id=user.id,
         email=user.email,
         full_name=user.full_name,
         role=RoleCode(user.role.code),
         locale=user.locale,  # type: ignore[arg-type]
         permissions=sorted(permissions_for(RoleCode(user.role.code))),
+        system=principal.system,
+        scopes=sorted(principal.scopes),
     )
 
 
@@ -784,3 +783,36 @@ async def purge_expired(session: AsyncSession, now: datetime) -> dict[str, int]:
     tokens = await repository.delete_stale_password_tokens(session, now - timedelta(days=7))
     await session.commit()
     return {"sessions": sessions, "password_tokens": tokens}
+
+
+# --- Service users for integration clients (FR-INT-01) -----------------------------------------
+
+
+async def create_service_user(session: AsyncSession, name: str, system: str) -> UUID:
+    """A non-human user that represents an integration client: it has no password, cannot
+    sign in or own records, and is shown as the actor (e.g. "ERP (integration)")."""
+    role = await repository.get_role_by_code(session, RoleCode.INTEGRATION.value)
+    assert role is not None  # noqa: S101 - roles are seeded by migration 0002
+    user = User(
+        email=f"{system}-{new_id().hex[:12]}@integration.invalid",
+        full_name=f"{name} (integration)",
+        user_type="service",
+        role_id=role.id,
+        locale="en",
+        is_active=True,
+    )
+    session.add(user)
+    await session.flush()
+    return user.id
+
+
+async def update_service_user(
+    session: AsyncSession, user_id: UUID, *, name: str | None = None, active: bool | None = None
+) -> None:
+    user = await repository.get_user(session, user_id)
+    if user is None or user.is_human:
+        return
+    if name is not None:
+        user.full_name = f"{name} (integration)"
+    if active is not None:
+        user.is_active = active

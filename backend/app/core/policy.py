@@ -32,6 +32,10 @@ _ROLES_BY_LEVEL: dict[AccessLevel, frozenset[RoleCode]] = {
     AccessLevel.OWNER_PLUS_OR_ASSIGNEE: CONTRIBUTOR_ROLES,
     AccessLevel.MANAGER_PLUS: MANAGER_ROLES,
     AccessLevel.ADMIN: frozenset({RoleCode.ADMIN}),
+    AccessLevel.SIGNED_IN_OR_TYPE_SCOPE: HUMAN_ROLES,
+    AccessLevel.SIGNED_IN_OR_RESOURCE_SCOPE: HUMAN_ROLES,
+    AccessLevel.ADMIN_OR_OWN_SYSTEM: frozenset({RoleCode.ADMIN}),
+    AccessLevel.ADMIN_OR_OWN_SYSTEM_DELETE: frozenset({RoleCode.ADMIN}),
 }
 
 
@@ -85,6 +89,10 @@ def permissions_for(role: RoleCode) -> frozenset[Permission]:
 def check_access(principal: Principal | None, level: AccessLevel, scope: str | None = None) -> None:
     """Route-level check. Raises AppError (401/403) when the caller may not proceed."""
     if level is AccessLevel.PUBLIC:
+        # Public routes are for people (sign-in, password links); an API key is refused
+        # there too (API spec 19.3: deny by default).
+        if principal is not None and principal.is_integration:
+            raise AppError(ErrorCode.PERMISSION_NOT_FOR_INTEGRATIONS, HTTPStatus.FORBIDDEN)
         return
     if principal is None:
         raise AppError(ErrorCode.AUTH_SESSION_EXPIRED, HTTPStatus.UNAUTHORIZED)
@@ -100,12 +108,39 @@ def _check_integration(principal: Principal, level: AccessLevel, scope: str | No
         return
     if scope is None:
         raise AppError(ErrorCode.PERMISSION_NOT_FOR_INTEGRATIONS, HTTPStatus.FORBIDDEN)
-    if scope not in principal.scopes:
+    # "a|b": any of the scopes (the service narrows it down, e.g. external references).
+    if not principal.scopes & set(scope.split("|")):
         raise AppError(
             ErrorCode.PERMISSION_SCOPE_MISSING,
             HTTPStatus.FORBIDDEN,
             extra={"required_scope": scope},
         )
+
+
+def has_scope(principal: Principal, scope: str) -> bool:
+    """Object-level scope check for integrations (people pass; their role was checked)."""
+    return not principal.is_integration or scope in principal.scopes
+
+
+def require_scope(principal: Principal, scope: str) -> None:
+    if not has_scope(principal, scope):
+        raise AppError(
+            ErrorCode.PERMISSION_SCOPE_MISSING,
+            HTTPStatus.FORBIDDEN,
+            extra={"required_scope": scope},
+        )
+
+
+def record_owner(principal: Principal, requested: UUID | None) -> UUID:
+    """Owner of a record being created (API spec 19.3): the requested one, else the caller;
+    an integration falls back to its client's default owner, or `422 owner.required`."""
+    if requested is not None:
+        return requested
+    if not principal.is_integration:
+        return principal.user_id
+    if principal.default_owner_id is None:
+        raise AppError(ErrorCode.OWNER_REQUIRED, HTTPStatus.UNPROCESSABLE_CONTENT)
+    return principal.default_owner_id
 
 
 def can_edit_owned(principal: Principal, owner_id: UUID | None) -> bool:

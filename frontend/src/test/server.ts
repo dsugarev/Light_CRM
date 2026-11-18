@@ -15,6 +15,9 @@ export const handlers = [
   http.get('*/api/v1/:records/:id/timeline', () =>
     HttpResponse.json({ items: [], total: 0, page: 1, page_size: 20 }),
   ),
+  // ...and IDs in other systems (FR-INT-04); none unless a test says otherwise.
+  http.get('*/api/v1/:records/:id/external-references', () => HttpResponse.json([])),
+  http.get('*/api/v1/reference/external-systems', () => HttpResponse.json([])),
 ]
 
 export const server = setupServer(...handlers)

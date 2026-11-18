@@ -27,7 +27,7 @@ from app.core.export import (
 )
 from app.core.export import Locale as ExportLocale
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
-from app.core.policy import MANAGER_ROLES, can_edit_owned
+from app.core.policy import MANAGER_ROLES, can_edit_owned, record_owner
 from app.core.principal import Principal
 from app.core.text import search_terms
 from app.modules.activity import repository
@@ -281,7 +281,10 @@ async def _check_assignee(ctx: Context, assignee_id: UUID) -> None:
 
 
 def _may_edit(principal: Principal, activity: Activity) -> bool:
-    """Owner+, or the assignee of a task (API spec 11)."""
+    """Owner+, or the assignee of a task (API spec 11); an integration client only the
+    activities it created (API spec 19.3)."""
+    if principal.is_integration:
+        return activity.created_by == principal.user_id
     if can_edit_owned(principal, activity.owner_id):
         return True
     return activity.type == "task" and activity.assignee_id == principal.user_id
@@ -326,7 +329,7 @@ async def _commit(
 
 async def create_activity(ctx: Context, principal: Principal, data: ActivityCreate) -> ActivityOut:
     """FR-ACT-01, FR-ACT-02: log an interaction or create a task."""
-    owner_id = data.owner_id or principal.user_id
+    owner_id = record_owner(principal, data.owner_id)
     await _check_owner(ctx, principal, owner_id)
     await _check_links(ctx, data)
     assignee_id: UUID | None = None

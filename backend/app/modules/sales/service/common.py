@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.events import DomainEvent, EventBus
+from app.core.external import ExternalFilter
 from app.core.policy import MANAGER_ROLES
 from app.core.principal import Principal
 from app.modules.identity import service as identity
@@ -24,6 +25,8 @@ class Context:
     events: EventBus
     settings: Settings
     now: datetime
+    # List filters on external references (API spec 19.4), registered in app.main.
+    external_filter: ExternalFilter | None = None
 
 
 def not_found() -> AppError:

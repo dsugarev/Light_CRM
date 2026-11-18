@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { NavLink, Outlet, useNavigate } from 'react-router'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Toaster } from 'sonner'
 
 import { api, call } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { ME_QUERY_KEY, useMe } from '@/features/auth/useMe'
+import { useWebhookHealth } from '@/features/integrations/useWebhookHealth'
+import { WebhookAlert } from '@/features/integrations/WebhookAlert'
 import { HeaderSearch } from '@/features/search/HeaderSearch'
 import { ApiStatus } from '@/features/system/ApiStatus'
 import { LanguageSwitcher } from '@/features/system/LanguageSwitcher'
@@ -25,6 +27,9 @@ export function AppLayout() {
     settings: can('settings.manage'),
     imports: can('data.import'),
   }
+  const webhookHealth = useWebhookHealth(show.users)
+  const webhookProblems = webhookHealth.failing + webhookHealth.suspended
+  const inAdminArea = useLocation().pathname.startsWith('/admin')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const signOut = useMutation({
@@ -84,6 +89,19 @@ export function AppLayout() {
                   {t('nav.imports')}
                 </NavLink>
               ) : null}
+              {show.users ? (
+                <NavLink to="/admin/integrations" className={linkClass}>
+                  {t('nav.integrations')}
+                  {webhookProblems > 0 ? (
+                    <span
+                      className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-white"
+                      aria-label={t('nav.failingDeliveries', { count: webhookProblems })}
+                    >
+                      {webhookProblems}
+                    </span>
+                  ) : null}
+                </NavLink>
+              ) : null}
               {show.audit ? (
                 <NavLink to="/admin/audit-log" className={linkClass}>
                   {t('nav.auditLog')}
@@ -130,6 +148,7 @@ export function AppLayout() {
         </div>
       </header>
       <main className="flex-1 px-6 py-6">
+        {show.users && inAdminArea ? <WebhookAlert {...webhookHealth} /> : null}
         <Outlet />
       </main>
       <Toaster position="bottom-right" richColors closeButton />

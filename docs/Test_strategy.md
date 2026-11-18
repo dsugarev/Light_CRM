@@ -25,7 +25,7 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | End-to-end | `frontend/e2e/` | Playwright (Chromium, Firefox) | Composed Docker stack over HTTPS; Admins created with `create-admin --password-stdin` | Every commit (CI `e2e` job) and locally on demand |
 | Dependency audit | CI | pip-audit (hashed lock export), `pnpm audit --audit-level high` | Lockfiles | Every commit |
 
-## 2. Requirement coverage (Phases 0–5)
+## 2. Requirement coverage (Phases 0–6)
 
 | Requirement | Covered by (examples; see appendix for all) | Levels |
 |---|---|---|
@@ -68,10 +68,23 @@ Test names carry requirement IDs (`test_FR_AUTH_01_AC3_lockout_after_5_failures_
 | FR-REP-03 win/loss | `test_FR_REP_03_win_loss_by_reason_owner_and_month`; Vitest win/loss page; E2E | API, component, E2E |
 | FR-IMP-01 import (AC1 preview, AC2 all or nothing, AC3 duplicates, AC4 tag and rollback) | `tests/api/test_imports.py` (templates, CSV encoding/delimiter, mapping rules, file checks, `AC1_AC3` preview with reasons, `AC2` strict refusal and late failure, `AC2_AC3_AC4` commit with updates and rollback, `AC4` changed records kept, contacts, leads, opportunities, discard and expiry); `tests/unit/test_import_parsing.py`; Vitest import wizard; E2E import journey | Unit, API, component, E2E |
 | NFR-01 performance at volume | `backend/scripts/perf_check.py` against the seeded stack (section 10); `test_NFR_01_seed_creates_fictional_volumes`, `test_NFR_01_seed_demo_is_refused_in_production` | Manual run, API, unit |
+| FR-INT-01 integration clients (AC1 deactivation refuses, AC2 client is the actor) | `test_FR_INT_01_admin_registers_a_client_backed_by_a_service_user`, `_AC1_deactivated_client_is_refused`, `_AC2_client_is_the_actor_of_its_changes`, `_admin_updates_a_client`, `_cli_creates_the_initial_profiles_inactive`; Vitest integrations pages; E2E integrations journey | API, component, E2E |
+| FR-INT-02 API keys (AC1 shown once, AC2 rotation and expiry, AC3 revocation) | `test_FR_INT_02_key_is_shown_once_and_only_its_hash_is_stored`, `_AC2_rotation_limit_expiry_and_revocation`, `_malformed_and_mixed_credentials`, `_ip_allowlist`, `_last_use_is_recorded`; Vitest key shown once, revoke, limit; E2E | API, component, E2E |
+| FR-INT-03 scopes (AC1–AC4) | `test_FR_INT_03_AC1_AC2_scopes_and_refused_areas`, `_AC3_no_archive_assign_convert_or_owner_change`, `_AC4_created_records_need_a_human_owner`, `_search_is_limited_to_readable_types`, `_activities_patch_only_own`; `test_FR_INT_03_integration_scope_matrix` (every route, all scopes vs. none); policy unit tests; E2E scoped access | Unit, API, matrix, E2E |
+| FR-INT-04 external references | `test_FR_INT_04_client_writes_its_own_system_and_finds_records`, `_reference_rules`; Vitest references on record pages; E2E | API, component, E2E |
+| FR-INT-05 sync mode with a key | `test_FR_INT_05_sync_with_an_api_key` | API |
+| FR-INT-06 idempotency | `test_FR_INT_06_idempotent_creation`, `_idempotency_edge_cases` | API |
+| FR-INT-08 usage counters (webhook figures in 6b) | `test_FR_INT_08_usage_counters` | API |
+| FR-INT-09 per-client rate limit | `test_FR_INT_09_rate_limit_per_client` | API |
+| FR-INT-07 webhooks (AC1 outbox in the transaction, AC2 signed with event ID, AC3 retries for 72 h and redelivery, AC4 readable record types only, AC5 HTTPS and allowlisted hosts) | `tests/api/test_webhooks.py` (`AC1` rollback and mapped events, `AC2` signed delivery to the reference receiver with the current record, `AC3` backoff, failure after 72 h, suspension, redirects, `AC4` scope filtering, `AC5` allowlist at subscription and delivery, loopback refused after resolution, address rules, rotation with two signatures, ordering per record, inactive client); `tests/api/test_phase6_exit.py`; Vitest subscriptions; E2E webhook journey | Unit, API, component, E2E |
+| FR-INT-08 failing deliveries and alert | `test_FR_INT_07_AC3_retries_with_backoff_then_fails_after_72_hours` (client figures), ping excluded; Vitest badge and banner | API, component |
+| FR-INT-10 documentation | `test_FR_INT_10_integration_guide_python_sample_verifies_crm_signatures`, `test_FR_INT_10_reference_receiver_verifies_signatures`, `test_FR_INT_10_collection_requests_match_routes` | API, unit |
+| FR-INT-12 admin screens (subscriptions, delivery log, test event, redeliver) | `test_FR_INT_12_*`; Vitest delivery log and detail; E2E webhook journey | API, component, E2E |
+| NFR-13 first attempt within a poll | `test_NFR_13_worker_job_dispatches_and_attempts_on_each_poll` | API |
+| Phase 6 exit | `test_phase_6_exit_erp_round_trip` | API |
 | FR-ACT-03 timelines | `test_FR_ACT_03_opportunity_timeline_merges_activities_and_events`, `..._organization_timeline_includes_its_records`; Vitest timeline rendering and freshness; E2E journey (converted and stage-change entries) | API, component, E2E |
 | FR-ADM-02 stages and loss reasons | `test_FR_ADM_02_admin_adds_renames_reorders_and_deletes_a_stage`, `test_FR_ADM_02_loss_reasons_are_seeded_and_protected_when_used` | API, component |
 | Optimistic concurrency (architecture 4.1) | `test_stale_version_returns_409_with_the_current_lead`, `test_patch_needs_a_version`, `test_unchanged_patch_keeps_the_version`; Vitest "shows the latest version after a conflict" | API, component |
-| FR-INT-03 scopes (policy only until Phase 6) | `test_FR_INT_03_*` in `tests/unit/test_policy.py` | Unit |
 | FR-INT-10 OpenAPI document | `test_FR_INT_10_openapi_document_is_public_outside_production`, `..._requires_sign_in_in_production`, `test_FR_INT_10_export_openapi_writes_document` | Unit, API |
 | NFR-04 security (secrets, CSRF, headers, DB roles) | `tests/unit/test_config.py`; CSRF tests in `test_auth.py`; `test_NFR_04_application_role_cannot_run_ddl`; E2E "security headers", "CSRF header" | Unit, API, migration, E2E |
 | NFR-08 health, JSON logs, request IDs | `tests/api/test_health.py`; `tests/unit/test_logging.py`; `tests/unit/test_errors.py`; Vitest API status; E2E readiness through proxy | Unit, API, component, E2E |
@@ -511,12 +524,121 @@ NFR-01 measurement (milliseconds):
 - Imports through integration clients and asynchronous large imports are out of R1 scope.
 - The performance figures come from one developer machine; the on-premises server should be measured again before go-live (Phase 8 hardening).
 
+## 11. Phase 6a — Integration clients, API keys, scopes, external references, idempotency
+
+### Strategy
+
+- **Real keys through HTTP on PostgreSQL**: `TestApp.integration_client(scopes, …)` registers a client through the service, issues a key and returns an httpx client that sends only `Authorization: Bearer` (no cookies), so every integration test exercises the real authenticator, policy, middleware and services.
+- **Authentication edges**: malformed, unknown, revoked and expired keys, a deactivated client, an address outside the allowlist, cookie plus key, a third active key, expiry in the past and beyond 24 months; the key never appears in responses after creation, in the audit log or in the database (only its hash).
+- **Authorization matrix for integration callers**: for every route, a client holding **all** scopes and a client with **none** must get exactly the outcome the spec's access level and section 19.3 give, with path parameters filled for scope templates (`{resource}`, `{system}`). This is what found Public routes open to keys.
+- **Scope rules inside services**: owner required on create (`owner.required`, default owner used), no owner change, archive, assign or convert, activities editable only by their creator, search narrowed to readable types, reference resolution needing the resolved type's scope, writing only the client's own system.
+- **Idempotency**: replay with `Idempotent-Replayed` (status, body, `Location`, content type), a different body, a request still in progress, a `5xx` not stored, key length, keys per client, 24 h expiry via the worker purge.
+- **Usage and rate limit**: hourly counters with errors over 24 h and after a clock jump; a client limited to 2/min gets `429` on the third call while another client is unaffected.
+- **Migration 0008** in the up/down/up suite; model/schema drift check.
+- **Frontend**: client list, new client sent inactive with chosen scopes, settings with the allowlist split into lines and server field errors, activation, key shown once with copy field, revoke after confirmation, two-key limit message, navigation only for Admins; references shown as links, hidden for non-Admins when empty, Admin add and remove.
+- **E2E** in both languages: an Admin creates and activates a client, creates a key (shown once, gone after reload), adds an ERP ID with a link to a new organization; a separate cookie-less request context with the key resolves the ID, reads the organization, is refused leads (`permission.scope_missing`), and gets `401` after the key is revoked in the UI.
+
+### Test cases added (summary)
+
+| Area | Cases | Files |
+|---|---|---|
+| Integration API (clients, keys, scopes, references, sync, idempotency, usage, rate limit, CLI) | 22 | `backend/tests/api/test_integration.py` |
+| Integration scope matrix (all scopes vs. none, every route) | +126 (one per route) | `backend/tests/api/test_authorization_matrix.py` |
+| Authorization matrix and route catalog: 13 new routes and access levels | +13 matrix, +26 catalog | `backend/tests/api/test_authorization_matrix.py`, `test_route_catalog.py` |
+| Policy: new access levels, scope alternatives, `has_scope`, `record_owner` | +24 | `backend/tests/unit/test_policy.py` |
+| Integration screens and references | 12 | `frontend/src/features/integrations/integrations.test.tsx` |
+| Integrations journey (en, bg) | 1 × 2 languages × 2 browsers | `frontend/e2e/integrations.spec.ts` |
+
+### Runs performed
+
+| Date | Where | What | Result |
+|---|---|---|---|
+| 2026-11-17 | Developer Mac, scratch PostgreSQL 18.7 | Migration 0008 up/down/up; `alembic check` | OK, no drift |
+| 2026-11-17 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 1089 passed, 96% coverage; clean |
+| 2026-11-17 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (891 keys), `pnpm audit` (high, one approved ignore) and `--prod`, OpenAPI snapshot and generated types | 114 passed; clean. `pnpm audit` also reports a moderate dev-only advisory (minimatch via typescript-eslint, GHSA-g3hv-75wg-m249), below the CI threshold |
+| 2026-11-17 | Docker Desktop, rebuilt stack | Playwright, integrations journey (Chromium) | 2/2 (en, bg) on the first run |
+| 2026-11-17 | Same | Playwright, full suite | Chromium 24/24. The unfiltered run reported 28 passed (the 24 Chromium tests and 4 Firefox tests) and the other Firefox tests failed with `browserType.launch` (an environment problem on this machine; an earlier version of this record wrongly said Chromium 28/28). Firefox is covered by CI |
+| 2026-11-17 | GitHub Actions, PR #12 run 44172903654 | All four jobs | Green; Playwright on Chromium and Firefox |
+
+### Defects found by testing and fixed
+
+| Found by | Defect | Fix |
+|---|---|---|
+| Integration scope matrix | Public routes (sign-in, password set and reset) accepted requests carrying an API key | The policy refuses integration principals on Public routes (`permission.not_for_integrations`) |
+| Migration/model tests | `ExternalSystem` had no primary key mapping | Uses the shared id and timestamp mixins like the other reference lists |
+| API tests | `PUT` on a reference raised `MissingGreenlet` after the session was expired following commit | The system ID is read before the commit |
+| API tests | An idempotent replay of an error lost `application/problem+json` | The replay keeps `Content-Type` (and sets `Content-Length`) |
+| Review while documenting | `POST /integration-clients` created clients active by default, against the "inactive until confirmed" decision | Default `is_active: false`; tests create active clients explicitly |
+| API tests (test defects) | Field names are `scopes.0` / `ip_allowlist.0`; the admin's session expired after a 25-hour clock jump in the usage test | Expectations corrected; a fresh session after the jump |
+
+### Gaps and deferred
+
+- Webhooks, the delivery log, alerts and the exit test with a real receiver: Phase 6b.
+- Firefox could not launch on the developer Mac during this phase's local E2E run (browser launch error, all Firefox tests); Firefox runs in CI.
+- The C# and Java samples of the integration guide (6b) are not executed; only the Python sample is tested (owner decision).
+- The moderate minimatch advisory (dev-only, below the CI threshold) is left until typescript-eslint updates it; no ignore entry is needed.
+
+## 12. Phase 6b — Webhooks, delivery log, integration guide
+
+### Strategy
+
+- **Real deliveries over HTTP.** The reference receiver (`deploy/examples/webhook_receiver.py`) runs in a thread on 127.0.0.1 and verifies every signature with its own code; tests pass a `Network` that allows loopback, while the default policy is tested to refuse it after DNS resolution. Delivered payloads are compared with what `GET` returns. A fixed-status endpoint (500, 302) and a closed port cover failures.
+- **Transactions.** Events published and rolled back leave no outbox row; committed ones do, with `changes` and `actor`. A won opportunity writes `organization.created`, `opportunity.created` and `opportunity.closed_won`; audit-only actions write nothing.
+- **Time.** Retries are driven by passing explicit times to the worker functions: first retry after 54–66 s, nothing sent before it is due, `failed` after 72 hours, suspension of a subscription failing for 72 hours, and resumption lifting it. Receivers check signatures against the real clock, so successful deliveries use the real time.
+- **Rules.** Scope filtering per client (AC4), event-type patterns, URL allowlist at subscription and at delivery (allowlist narrowed between), address classes (loopback, link-local, metadata, IPv4-mapped, multicast, unspecified; private allowed), rotation (both secrets for 24 h, then one), test events (sent for an inactive client, one attempt, not counted), per-record ordering, deliveries waiting while a client is inactive, redelivery deduplicated by the receiver, log filters and paging, purge after 30 days.
+- **Exit test** (implementation plan): an ERP client with the 19.9 profile and only its API key receives the signed `opportunity.closed_won`, reads the organization, writes the ERP reference, finds it by filter, syncs with `updated_since`, and gets `403` on leads, activities, writes, users, audit, export, imports, integration admin, deliveries and reports.
+- **Documentation checks.** The integration guide's Python sample is extracted and run against the CRM's signer; every Postman request must match a route in the OpenAPI document.
+- **Authorization matrix** grows by 9 routes (Admin; closed to integration clients with all or no scopes).
+- **Frontend**: subscribe with the secret shown once, URL rule error, list with 24-hour counts, rotate (new secret shown), test event leading to the delivery, resume a suspended subscription, delivery log filters in the URL, detail with attempts, redeliver, badge and banner.
+- **E2E** in both languages against the composed stack with `WEBHOOK_ALLOWED_HOSTS=hooks.example.test`: the Admin creates a client and a subscription (secret shown once), sends a test event, and sees the **real worker's** attempt fail with "host name not found", then finds it in the delivery log.
+
+### Test cases added (summary)
+
+| Area | Cases | Files |
+|---|---|---|
+| Webhooks: outbox, mapping, subscriptions, fan-out, delivery, retries, suspension, rotation, test events, ordering, log, redeliver, purge, network guard, receiver, guide sample, worker job | 42 | `backend/tests/api/test_webhooks.py` |
+| Phase 6 exit | 1 | `backend/tests/api/test_phase6_exit.py` |
+| Postman collection matches the routes | 1 | `backend/tests/unit/test_integration_docs.py` |
+| Settings: encryption key refused as placeholder, host list parsing | +2 | `backend/tests/unit/test_config.py` |
+| Authorization matrix and integration scope matrix: 9 new routes | +18 | `backend/tests/api/test_authorization_matrix.py` |
+| Route catalog: new routes | +18 | `backend/tests/api/test_route_catalog.py` |
+| Webhook screens, delivery log, alert | +8 | `frontend/src/features/integrations/integrations.test.tsx` |
+| Webhook journey (en, bg) | 1 × 2 languages × 2 browsers | `frontend/e2e/integrations.spec.ts` |
+
+### Runs performed
+
+| Date | Where | What | Result |
+|---|---|---|---|
+| 2026-11-18 | Developer Mac, scratch PostgreSQL 18.7 | Migration 0009 up/down/up; `alembic check` | OK, no drift |
+| 2026-11-18 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 1171 passed, 96% coverage; clean |
+| 2026-11-18 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (959 keys), `pnpm audit` (high) and `--prod`, OpenAPI snapshot and generated types | 122 passed; clean |
+| 2026-11-18 | Docker Desktop, stack rebuilt with migration 0009, `APP_ENCRYPTION_KEY` and `WEBHOOK_ALLOWED_HOSTS` | Playwright Chromium, integrations spec, then full suite | 4/4, then 26/26 |
+| 2026-11-18 | GitHub Actions, PR #13 run 44209396859 | All four jobs | Green; Playwright on Chromium and Firefox |
+
+### Defects found by testing and fixed
+
+| Found by | Defect | Fix |
+|---|---|---|
+| Ordering test | Two events for one record at the same instant (same transaction) were both claimed: the tie-break compared delivery creation times, which are equal after one fan-out | Ties broken by the UUIDv7 event ID |
+| Matrix (deprecation as error) | `Result.tuples()` is deprecated in SQLAlchemy 2.1 | Rows unpacked directly |
+| Ruff auto-fix review | An unsafe fix turned a comprehension into `dict(result)`, which fails at runtime | Explicit comprehension over `.all()` |
+| E2E design review | A failed test ping counted as a failing delivery, raising the admin alert for a deliberate check | Test events excluded from the failing figure (API test added) |
+| Collection test (test defect) | FastAPI 0.163 nests included routers, so `app.routes` did not list API routes | The test reads paths from the OpenAPI document |
+| Recount for this record | The Phase 6a record said Chromium 28/28; the unfiltered run counted 4 Firefox tests | Corrected to 24/24 in section 11, the 6a log and PR #12 |
+
+### Gaps and deferred
+
+- A slow receiver (10-second timeout) is not exercised end to end, to keep the suite fast; the timeout path is shared with connection errors in `send`.
+- HTTPS delivery with certificate verification against the pinned address is covered by the design (httpcore keeps the URL host for TLS) but not by a test with a local certificate authority.
+- `contact.anonymized` can be subscribed to but is only produced once GDPR anonymization exists (Phase 8).
+- The C# and Java samples are not executed (owner decision).
+
 ## Appendix — test case inventory
 
 <!-- inventory:start -->
 _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 
-### Backend (pytest: unit, API, authorization matrix, migrations) — 878 test cases
+### Backend (pytest: unit, API, authorization matrix, migrations) — 1171 test cases
 
 **`backend/tests/api/test_activities.py`** (13)
 
@@ -568,12 +690,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Login is rate limited per ip | — | 1 |
 | Rate limit response has retry after | — | 1 |
 
-**`backend/tests/api/test_authorization_matrix.py`** (114)
+**`backend/tests/api/test_authorization_matrix.py`** (271)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| Route role matrix | FR-AUTH-05 | 113 |
+| Route role matrix | FR-AUTH-05 | 135 |
 | Matrix covers every api route | — | 1 |
+| Integration scope matrix | FR-INT-03 | 135 |
 
 **`backend/tests/api/test_contacts_reference_search.py`** (12)
 
@@ -646,6 +769,33 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Opportunities with lookups | FR-IMP-01 | 1 |
 | Discard and expiry | — | 1 |
 | Seed creates fictional volumes | NFR-01 | 1 |
+
+**`backend/tests/api/test_integration.py`** (22)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Admin registers a client backed by a service user | FR-INT-01 | 1 |
+| Deactivated client is refused | FR-INT-01 AC1 | 1 |
+| Client is the actor of its changes | FR-INT-01 AC2 | 1 |
+| Key is shown once and only its hash is stored | FR-INT-02 | 1 |
+| Rotation limit expiry and revocation | FR-INT-02 AC2 | 1 |
+| Malformed and mixed credentials | FR-INT-02 | 1 |
+| Ip allowlist | FR-INT-02 | 1 |
+| Last use is recorded | FR-INT-02 | 1 |
+| Ac2 scopes and refused areas | FR-INT-03 AC1 | 1 |
+| No archive assign convert or owner change | FR-INT-03 AC3 | 1 |
+| Created records need a human owner | FR-INT-03 AC4 | 1 |
+| Search is limited to readable types | FR-INT-03 | 1 |
+| Activities patch only own | FR-INT-03 | 1 |
+| Client writes its own system and finds records | FR-INT-04 | 1 |
+| Reference rules | FR-INT-04 | 1 |
+| Sync with an api key | FR-INT-05 | 1 |
+| Idempotent creation | FR-INT-06 | 1 |
+| Usage counters | FR-INT-08 | 1 |
+| Rate limit per client | FR-INT-09 | 1 |
+| Admin updates a client | FR-INT-01 | 1 |
+| Cli creates the initial profiles inactive | FR-INT-01 | 1 |
+| Idempotency edge cases | FR-INT-06 | 1 |
 
 **`backend/tests/api/test_leads.py`** (21)
 
@@ -754,6 +904,12 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Filters sorting and paging | FR-PARTY-04 | 1 |
 | Unknown sort or filter is 400 | — | 1 |
 
+**`backend/tests/api/test_phase6_exit.py`** (1)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Phase 6 exit erp round trip | — | 1 |
+
 **`backend/tests/api/test_reports.py`** (8)
 
 | Test | Requirement | Cases |
@@ -767,13 +923,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Report export with total row | FR-REP-02 | 1 |
 | Forecast conversion and win loss exports | FR-REP-02 | 1 |
 
-**`backend/tests/api/test_route_catalog.py`** (389)
+**`backend/tests/api/test_route_catalog.py`** (433)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Catalog is parsed | — | 1 |
-| Every route is in the catalog | — | 117 |
-| Every api route declares the catalog access level | — | 115 |
+| Every route is in the catalog | — | 139 |
+| Every api route declares the catalog access level | — | 137 |
 | Every catalog entry is built or pending | — | 154 |
 | Pending list only names catalog entries | — | 1 |
 | No route is hidden from the openapi document | — | 1 |
@@ -811,6 +967,38 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Admin revokes all sessions of a user | — | 1 |
 | Roles list permissions | — | 1 |
 
+**`backend/tests/api/test_webhooks.py`** (42)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Events commit or roll back with the change | FR-INT-07 AC1 | 1 |
+| Business changes write mapped events | FR-INT-07 AC1 | 1 |
+| Domain actions map to event types | FR-INT-07 | 1 |
+| Subscription secret shown once and encrypted | FR-INT-07 | 1 |
+| Url must be on the allowlist | FR-INT-07 AC5 | 5 |
+| Subscription validation update and delete | FR-INT-07 | 1 |
+| Only events the client may read | FR-INT-07 AC4 | 1 |
+| Signed delivery with the current record | FR-INT-07 AC2 | 1 |
+| Wrong signature is refused by the receiver | FR-INT-07 | 1 |
+| Retries with backoff then fails after 72 hours | FR-INT-07 AC3 | 1 |
+| Backoff schedule | FR-INT-07 AC3 | 1 |
+| Redirects are not followed | FR-INT-07 | 1 |
+| Loopback is refused after resolution | FR-INT-07 AC5 | 1 |
+| Url rechecked at delivery | FR-INT-07 | 1 |
+| Rotation signs with both secrets for 24 hours | FR-INT-07 | 1 |
+| Test event is sent once even for an inactive client | FR-INT-12 | 1 |
+| Deliveries wait while the client is inactive | FR-INT-01 | 1 |
+| Events for one record are delivered in order | FR-INT-07 | 1 |
+| Delivery log filters and redeliver | FR-INT-12 | 1 |
+| Old events are purged | FR-INT-07 | 1 |
+| Host and url rules | FR-INT-07 AC5 | 1 |
+| Address rules | FR-INT-07 AC5 | 12 |
+| Reference receiver verifies signatures | FR-INT-10 | 1 |
+| Worker job dispatches and attempts on each poll | NFR-13 | 1 |
+| Integration guide python sample verifies crm signatures | FR-INT-10 | 1 |
+| Reference changes are sent with the reference | FR-INT-04 | 1 |
+| Connection failures are recorded | FR-INT-07 | 1 |
+
 **`backend/tests/migrations/test_migrations.py`** (4)
 
 | Test | Requirement | Cases |
@@ -829,13 +1017,15 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Command is required | — | 1 |
 | Seed demo is refused in production | NFR-01 | 1 |
 
-**`backend/tests/unit/test_config.py`** (7)
+**`backend/tests/unit/test_config.py`** (9)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Production refuses default database secret | NFR-04 | 1 |
 | Production refuses default migration secret | NFR-04 | 1 |
 | Production starts with real secrets | NFR-04 | 1 |
+| Production refuses default encryption key | NFR-04 | 1 |
+| Webhook hosts are parsed from a list | FR-INT-07 | 1 |
 | Production refuses default secret key | NFR-04 | 1 |
 | Development allows placeholder secrets | — | 1 |
 | Settings are read from environment | — | 1 |
@@ -873,6 +1063,12 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Unreadable files | FR-IMP-01 | 4 |
 | Mapping suggestion by key and both languages | FR-IMP-01 | 1 |
 
+**`backend/tests/unit/test_integration_docs.py`** (1)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Collection requests match routes | FR-INT-10 | 1 |
+
 **`backend/tests/unit/test_lead_lifecycle.py`** (34)
 
 | Test | Requirement | Cases |
@@ -902,13 +1098,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Stored only as argon2id hash | FR-AUTH-03 | 1 |
 | Garbage hash never verifies | — | 1 |
 
-**`backend/tests/unit/test_policy.py`** (64)
+**`backend/tests/unit/test_policy.py`** (88)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| Role matrix | FR-AUTH-05 | 36 |
-| Public is open to everyone | — | 10 |
-| Anonymous callers get 401 | FR-AUTH-05 | 9 |
+| Role matrix | FR-AUTH-05 | 52 |
+| Public is open to everyone | — | 14 |
+| Anonymous callers get 401 | FR-AUTH-05 | 13 |
 | Integrations are denied routes without a scope | FR-INT-03 | 1 |
 | Missing scope names the required scope | FR-INT-03 AC1 | 1 |
 | Scope opens the route | FR-INT-03 | 1 |
@@ -938,7 +1134,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Failing job does not stop other jobs | — | 1 |
 | Worker runs jobs until stopped | — | 1 |
 
-### Frontend (Vitest + Testing Library + MSW) — 97 test cases
+### Frontend (Vitest + Testing Library + MSW) — 117 test cases
 
 **`frontend/src/app/app.test.tsx`** (15)
 
@@ -1000,16 +1196,16 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
 | FR-AUTH-04 settings › FR-OPP-06 saves the stale-opportunity threshold | FR-AUTH-04, FR-OPP-06 | 1 |
 
-**`frontend/src/features/auth/setPassword.test.tsx`** (6)
+**`frontend/src/features/imports/imports.test.tsx`** (6)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-AUTH-02 set password from a one-time link › checks the token from the URL fragment and sets the password | FR-AUTH-02 | 1 |
-| FR-AUTH-02 set password from a one-time link › explains an invalid or used link | FR-AUTH-02 | 1 |
-| FR-AUTH-02 set password from a one-time link › shows the policy error returned by the server | FR-AUTH-02 | 1 |
-| forgot password › always confirms without revealing whether the account exists | — | 1 |
-| safeNext | — | 1 |
-| set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
+| FR-IMP-01 import wizard › uploads a file and opens the batch | FR-IMP-01 | 1 |
+| FR-IMP-01 import wizard › FR-IMP-01 AC1 maps columns, then saves and checks the rows | FR-IMP-01, FR-IMP-01 AC1 | 1 |
+| FR-IMP-01 import wizard › FR-IMP-01 AC1 AC2 shows invalid rows with reasons and imports without them | FR-IMP-01, FR-IMP-01 AC1 | 1 |
+| FR-IMP-01 import wizard › FR-IMP-01 AC4 only an Admin can roll back | FR-IMP-01, FR-IMP-01 AC4 | 1 |
+| FR-IMP-01 import wizard › shows all rows once imported (the checking filter does not carry over) | FR-IMP-01 | 1 |
+| FR-IMP-01 import wizard › is hidden from Sales Reps | FR-IMP-01 | 1 |
 
 **`frontend/src/features/leads/leads.test.tsx`** (14)
 
@@ -1029,6 +1225,62 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-LEAD-04 conversion › shows the opportunity a converted lead became | FR-LEAD-04 | 1 |
 | FR-LEAD-04 conversion › suggests the matching organization and converts in one request | FR-LEAD-04 | 1 |
 | FR-LEAD-04 conversion › asks before creating a duplicate organization | FR-LEAD-04 | 1 |
+
+**`frontend/src/features/integrations/integrations.test.tsx`** (20)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-INT-01 integration clients › lists clients and creates a new one inactive | FR-INT-01 | 1 |
+| FR-INT-01 integration clients › keeps non-Admins out and hides the navigation link | FR-INT-01 | 1 |
+| FR-INT-01 integration clients › shows the navigation link to Admins | FR-INT-01 | 1 |
+| FR-INT-01 client settings › saves settings with the allowlist split into lines | FR-INT-01 | 1 |
+| FR-INT-01 client settings › shows field errors from the server | FR-INT-01 | 1 |
+| FR-INT-01 client settings › activates an inactive client | FR-INT-01 | 1 |
+| FR-INT-02 API keys › AC1 shows a new key once, then only its prefix | FR-INT-02 | 1 |
+| FR-INT-02 API keys › AC3 revokes a key after confirmation | FR-INT-02 | 1 |
+| FR-INT-02 API keys › explains the two-key limit | FR-INT-02 | 1 |
+| FR-INT-04 IDs in other systems on record pages › AC4 shows a stored ID as a link to the other system | FR-INT-04 | 1 |
+| FR-INT-04 IDs in other systems on record pages › is hidden from non-Admins when there is nothing to show | FR-INT-04 | 1 |
+| FR-INT-04 IDs in other systems on record pages › lets an Admin add and remove an ID | FR-INT-04 | 1 |
+| FR-INT-07 webhook subscriptions › subscribes an endpoint and shows the signing secret once | FR-INT-07 | 1 |
+| FR-INT-07 webhook subscriptions › AC5 shows the URL rule when the host is not allowed | FR-INT-07 | 1 |
+| FR-INT-07 webhook subscriptions › lists a subscription, rotates its secret and queues a test event | FR-INT-07 | 1 |
+| FR-INT-07 webhook subscriptions › resumes a suspended subscription | FR-INT-07 | 1 |
+| FR-INT-12 delivery log › filters by status in the URL and opens a delivery with its attempts | FR-INT-12 | 1 |
+| FR-INT-12 delivery log › AC3 redelivers a delivery | FR-INT-12 | 1 |
+| FR-INT-08 failing-delivery alert › shows a badge on the navigation and a banner in the admin area | FR-INT-08 | 1 |
+| FR-INT-08 failing-delivery alert › is not shown without problems | FR-INT-08 | 1 |
+
+**`frontend/src/features/auth/setPassword.test.tsx`** (6)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-AUTH-02 set password from a one-time link › checks the token from the URL fragment and sets the password | FR-AUTH-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › explains an invalid or used link | FR-AUTH-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › shows the policy error returned by the server | FR-AUTH-02 | 1 |
+| forgot password › always confirms without revealing whether the account exists | — | 1 |
+| safeNext | — | 1 |
+| set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
+
+**`frontend/src/features/contacts/contacts.test.tsx`** (7)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
+| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
+| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
+
+**`frontend/src/features/profile/profile.test.tsx`** (3)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
+| profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
+| profile › shows the server error for a wrong current password | — | 1 |
 
 **`frontend/src/features/opportunities/opportunities.test.tsx`** (12)
 
@@ -1061,37 +1313,6 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
 | FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
 
-**`frontend/src/features/contacts/contacts.test.tsx`** (7)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
-| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
-| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
-
-**`frontend/src/features/profile/profile.test.tsx`** (3)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
-| profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
-| profile › shows the server error for a wrong current password | — | 1 |
-
-**`frontend/src/features/imports/imports.test.tsx`** (6)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-IMP-01 import wizard › uploads a file and opens the batch | FR-IMP-01 | 1 |
-| FR-IMP-01 import wizard › FR-IMP-01 AC1 maps columns, then saves and checks the rows | FR-IMP-01, FR-IMP-01 AC1 | 1 |
-| FR-IMP-01 import wizard › FR-IMP-01 AC1 AC2 shows invalid rows with reasons and imports without them | FR-IMP-01, FR-IMP-01 AC1 | 1 |
-| FR-IMP-01 import wizard › FR-IMP-01 AC4 only an Admin can roll back | FR-IMP-01, FR-IMP-01 AC4 | 1 |
-| FR-IMP-01 import wizard › shows all rows once imported (the checking filter does not carry over) | FR-IMP-01 | 1 |
-| FR-IMP-01 import wizard › is hidden from Sales Reps | FR-IMP-01 | 1 |
-
 **`frontend/src/features/reports/reports.test.tsx`** (5)
 
 | Test | Requirement | Cases |
@@ -1102,7 +1323,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-REP-02 export › downloads the list with its filters and without paging | FR-REP-02 | 1 |
 | FR-REP-02 export › explains when the export is too large | FR-REP-02 | 1 |
 
-### End-to-end (Playwright, composed stack) — 44 test cases
+### End-to-end (Playwright, composed stack) — 52 test cases
 
 **`frontend/e2e/identity.spec.ts`** (8)
 
@@ -1125,6 +1346,19 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Import in bg › FR-IMP-01 upload, preview with reasons, import valid rows, roll back (chromium) | FR-IMP-01 | 1 |
 | Import in en › FR-IMP-01 upload, preview with reasons, import valid rows, roll back (firefox) | FR-IMP-01 | 1 |
 | Import in bg › FR-IMP-01 upload, preview with reasons, import valid rows, roll back (firefox) | FR-IMP-01 | 1 |
+
+**`frontend/e2e/integrations.spec.ts`** (8)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Integrations in en › FR-INT-01..04 client, key shown once, scoped access, external ID, revocation (chromium) | FR-INT-01 | 1 |
+| Integrations in en › FR-INT-07, 12 subscription with secret shown once, test event through the worker, delivery log (chromium) | FR-INT-07 | 1 |
+| Integrations in bg › FR-INT-01..04 client, key shown once, scoped access, external ID, revocation (chromium) | FR-INT-01 | 1 |
+| Integrations in bg › FR-INT-07, 12 subscription with secret shown once, test event through the worker, delivery log (chromium) | FR-INT-07 | 1 |
+| Integrations in en › FR-INT-01..04 client, key shown once, scoped access, external ID, revocation (firefox) | FR-INT-01 | 1 |
+| Integrations in en › FR-INT-07, 12 subscription with secret shown once, test event through the worker, delivery log (firefox) | FR-INT-07 | 1 |
+| Integrations in bg › FR-INT-01..04 client, key shown once, scoped access, external ID, revocation (firefox) | FR-INT-01 | 1 |
+| Integrations in bg › FR-INT-07, 12 subscription with secret shown once, test event through the worker, delivery log (firefox) | FR-INT-07 | 1 |
 
 **`frontend/e2e/journey.spec.ts`** (4)
 

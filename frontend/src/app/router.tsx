@@ -28,6 +28,9 @@ import { SearchPage } from '@/features/search/SearchPage'
 import { MyTasksPage } from '@/features/activities/MyTasksPage'
 import { ImportBatchPage } from '@/features/imports/ImportBatchPage'
 import { ImportsPage } from '@/features/imports/ImportsPage'
+import { ClientPage } from '@/features/integrations/ClientPage'
+import { DeliveriesPage, DeliveryPage } from '@/features/integrations/DeliveriesPage'
+import { IntegrationsPage } from '@/features/integrations/IntegrationsPage'
 import { WinLossPage } from '@/features/reports/WinLossPage'
 import { ConvertPage } from '@/features/leads/ConvertPage'
 import { LeadPage } from '@/features/leads/LeadPage'
@@ -102,6 +105,13 @@ export const routes: RouteObject[] = [
                       { path: 'users', element: <UsersPage /> },
                       { path: 'users/new', element: <UserNewPage /> },
                       { path: 'users/:userId', element: <UserDetailPage /> },
+                      { path: 'integrations', element: <IntegrationsPage /> },
+                      { path: 'integrations/deliveries', element: <DeliveriesPage /> },
+                      {
+                        path: 'integrations/deliveries/:deliveryId',
+                        element: <DeliveryPage />,
+                      },
+                      { path: 'integrations/:clientId', element: <ClientPage /> },
                     ],
                   },
                   {

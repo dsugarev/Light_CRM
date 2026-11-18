@@ -2,7 +2,7 @@
 
 A light B2B CRM for the Commercial team: lead and opportunity management, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, Docker Compose.
 
-Status: **Phase 5 (dashboard, export and import)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. The integration API for Conclusion, ERP and Billing follows in Phase 6. See [`docs/Plan.md`](docs/Plan.md) for what is built.
+Status: **Phase 6 (integration API with webhooks)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records, and receive signed webhooks with a delivery log; see the [integration guide](docs/integration-guide.md). See [`docs/Plan.md`](docs/Plan.md) for what is built.
 
 ## Documentation
 
@@ -13,6 +13,7 @@ Status: **Phase 5 (dashboard, export and import)**. Users sign in; Admins manage
 | [`docs/03-implementation-plan.md`](docs/03-implementation-plan.md) | Phases and definition of done |
 | [`docs/04-test-strategy.md`](docs/04-test-strategy.md) | Required tests |
 | [`docs/05-api-specification.md`](docs/05-api-specification.md) | Every REST endpoint, error codes, integration API |
+| [`docs/integration-guide.md`](docs/integration-guide.md) | For the Conclusion, ERP and Billing teams: keys, sync, external IDs, webhooks, samples, Postman collection |
 | [`docs/adr/`](docs/adr/README.md) | Architecture decision records |
 | [`docs/Plan.md`](docs/Plan.md) | Implementation log: what was built, with code excerpts |
 | [`docs/Test_strategy.md`](docs/Test_strategy.md) | Test record: strategy per phase, test cases performed and results |
@@ -42,6 +43,14 @@ docker compose exec backend python -m app.cli create-admin --email you@company.b
 
 Without SMTP (`SMTP_HOST` empty) nothing is emailed: Admins create users in the UI and hand over the one-time link shown there.
 
+Integration clients for Conclusion, ERP and Billing (read-only profiles, API spec 19.9) can be created with the command below; they start inactive and without keys. An Admin activates a client and issues its API key under **Integrations** once the owner has confirmed the data flow.
+
+```bash
+docker compose exec backend python -m app.cli create-integration-client   # --system erp|billing|conclusion|all
+```
+
+Webhooks are sent by the `worker` service only to hosts listed in `WEBHOOK_ALLOWED_HOSTS` (`.env`, comma-separated, exact names or `*.suffix`); the worker needs outbound HTTPS to them. Webhook signing secrets are encrypted with `APP_ENCRYPTION_KEY`, which the start script generates: keep it with the database backups, because without it stored secrets must be rotated.
+
 ## Develop
 
 Development stack (backend with hot reload on http://localhost:8000, interactive API docs at http://localhost:8000/api/docs, PostgreSQL on localhost:5432 with a `crm_test` database):
@@ -60,6 +69,8 @@ uv run uvicorn app.main:app --reload
 uv run python -m app.worker
 uv run python -m app.cli export-openapi --output openapi.json
 uv run python -m app.cli create-admin --email admin@example.test --full-name "Admin"
+uv run python -m app.cli create-integration-client [--system erp|billing|conclusion|all]
+uv run python -m app.cli seed-demo   # fictional NFR-01 volumes; refused in production
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run lint-imports

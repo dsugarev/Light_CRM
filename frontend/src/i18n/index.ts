@@ -7,6 +7,7 @@ import bgAuth from './bg/auth.json'
 import bgCommon from './bg/common.json'
 import bgErrors from './bg/errors.json'
 import bgImports from './bg/imports.json'
+import bgIntegrations from './bg/integrations.json'
 import bgLeads from './bg/leads.json'
 import bgOpportunities from './bg/opportunities.json'
 import bgParty from './bg/party.json'
@@ -18,6 +19,7 @@ import enAuth from './en/auth.json'
 import enCommon from './en/common.json'
 import enErrors from './en/errors.json'
 import enImports from './en/imports.json'
+import enIntegrations from './en/integrations.json'
 import enLeads from './en/leads.json'
 import enOpportunities from './en/opportunities.json'
 import enParty from './en/party.json'
@@ -44,6 +46,7 @@ export const resources = {
     activities: enActivities,
     reports: enReports,
     imports: enImports,
+    integrations: enIntegrations,
   },
   bg: {
     common: bgCommon,
@@ -57,6 +60,7 @@ export const resources = {
     activities: bgActivities,
     reports: bgReports,
     imports: bgImports,
+    integrations: bgIntegrations,
   },
 } as const
 

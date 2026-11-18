@@ -22,6 +22,7 @@ import { useCan } from '@/lib/permissions'
 import { useListParams } from '@/lib/useListParams'
 import { useLocale } from '@/lib/useLocale'
 import { RecordTimeline } from '@/features/activities/RecordTimeline'
+import { ExternalReferences } from '@/features/integrations/ExternalReferences'
 import { ExportMenu } from '@/features/reports/ExportMenu'
 
 import { ContactForm } from './ContactForm'
@@ -374,6 +375,7 @@ export function ContactPage() {
           {c.notes ? <p className="mt-4 whitespace-pre-wrap text-sm">{c.notes}</p> : null}
         </CardContent>
       </Card>
+      <ExternalReferences resource="contacts" id={c.id} />
       <RecordTimeline record={{ kind: 'contact', id: c.id }} canLog={!c.archived_at} />
     </section>
   )
