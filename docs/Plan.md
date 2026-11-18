@@ -1895,7 +1895,7 @@ Requirements: FR-AI-01 (conversations, streaming, stop), FR-AI-02 (questions ove
 | # | Task | Result |
 |---|---|---|
 | 7a.1 | `litellm` 1.108.3; settings `AI_ENABLED` (default off), `OPENROUTER_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, `LLM_TIMEOUT_SECONDS`, `LLM_FAKE`, `AI_DAILY_TOKEN_BUDGET`, `AI_HISTORY_TOKENS`, `RATE_LIMIT_ASSISTANT_PER_10_MINUTES` in settings, `.env.example` and compose | Done |
-| 7a.2 | `app/llm`: protocol and types, LiteLLM client (OpenRouter, Cerebras only), factory, scripted demo model | Done |
+| 7a.2 | `app/llm`: protocol and types, LiteLLM client (OpenRouter, Cerebras only), factory, scripted demo model, scripted provider server for the E2E stack (`LLM_API_BASE`) | Done |
 | 7a.3 | Schema: `chat_conversation`, `chat_message`, `assistant_usage` | Done: migration `0010` |
 | 7a.4 | The eight read-only tools over the services | Done |
 | 7a.5 | Tool loop, SSE streaming, record context, citations, stop, usage, history | Done (ADR 0026) |
@@ -1987,7 +1987,7 @@ The record in view is inserted before the question as a `get_record` call and it
 |---|---|
 | ruff, format, mypy (strict), import-linter (14) | clean |
 | Migration 0010 up → down → up; `alembic check` | OK, no drift |
-| pytest (PostgreSQL 18) | 1247 passed, 95.7% coverage (assistant service 95%, tools 89%, LLM client 85%) |
+| pytest (PostgreSQL 18) | 1248 passed, 95.6% coverage (assistant service 95%, tools 89%) |
 | pip-audit with `litellm` 1.108.3 | no known vulnerabilities |
 | OpenAPI snapshot and generated frontend types; `tsc` | up to date; clean |
 | Live evaluation | not run: the OpenRouter account has no credits (`402`); harness checked with `--fake` |
@@ -2012,6 +2012,8 @@ The record in view is inserted before the question as a `get_record` call and it
 - **`assistant_usage`** (one row per answer) is new in the data model; the budget does not depend on chat history.
 - **Rate limit and budget are refused before the stream starts** as `429` problem responses; only provider failures (and unexpected errors, `server.internal_error`) are `error` events. Spec section 17 updated.
 - **`stop` returns `204`, `save-as-note` returns `201`**, and `message_end` carries `status` (`complete` or `stopped`): details the draft spec left open.
+- **LiteLLM's MCP import with tools** was found by running the real client against the scripted provider server: every call with tools failed (`No module named 'mcp'`), including the first live smoke call. The client passes LiteLLM's `_skip_mcp_handler=True`; the test guards it.
+- **`LLM_API_BASE` and `app.llm.fake_server`**: the end-to-end stack runs with `ENV=production`, where `LLM_FAKE` is refused, so it points the real client at a scripted OpenAI-compatible server instead (deviation from the approved "fake through a setting refused in production"; the in-process `LLM_FAKE` remains for development).
 - **LiteLLM's import-time `.env` loading** was found while testing (it read the repository's `.env`, including `ENV=production`, into the test process). The client sets `LITELLM_MODE=PRODUCTION` first; a unit test guards it.
 - **The Cerebras skill named in CLAUDE.md is not installed** in this environment; the call follows architecture 8.1 (owner informed).
 

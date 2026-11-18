@@ -87,6 +87,8 @@ filterwarnings = [
     "error",
     # LiteLLM's own types (third-party): harmless pydantic notice about ReadOnly items.
     "ignore:Items? .* on TypedDict class .* using the `ReadOnly` qualifier:UserWarning",
+    # LiteLLM's own code (third-party) reads a deprecated pydantic attribute; only from litellm.
+    "ignore::pydantic.warnings.PydanticDeprecatedSince211:litellm",
 ]
 
 [tool.coverage.run]

@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     llm_model: str = "openrouter/openai/gpt-oss-120b"
     llm_provider: str = "cerebras"
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
+    # An OpenAI-compatible endpoint to use instead of OpenRouter's, e.g. a company gateway;
+    # the end-to-end stack points it at the scripted server (app.llm.fake_server).
+    llm_api_base: str | None = None
     # Development and end-to-end tests only: a scripted model instead of the provider.
     llm_fake: bool = False
     ai_daily_token_budget: int = Field(default=200_000, ge=1)

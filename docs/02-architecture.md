@@ -244,7 +244,7 @@ async def chat(messages, tools=None, stream=True):
     )
 ```
 
-Configuration comes from environment variables: `OPENROUTER_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, `LLM_TIMEOUT_SECONDS`, `AI_ENABLED`, `AI_DAILY_TOKEN_BUDGET`, plus `AI_HISTORY_TOKENS`, `RATE_LIMIT_ASSISTANT_PER_10_MINUTES` and `LLM_FAKE` (a scripted model for development and end-to-end tests, refused in production). Nothing else in the codebase imports `litellm`; an import-linter rule enforces this, which also makes the model swappable and the tests mockable.
+Configuration comes from environment variables: `OPENROUTER_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, `LLM_TIMEOUT_SECONDS`, `AI_ENABLED`, `AI_DAILY_TOKEN_BUDGET`, plus `AI_HISTORY_TOKENS`, `RATE_LIMIT_ASSISTANT_PER_10_MINUTES`, `LLM_API_BASE` (an OpenAI-compatible endpoint instead of OpenRouter's; the end-to-end stack points it at the scripted server `app.llm.fake_server`) and `LLM_FAKE` (an in-process scripted model for development, refused in production). Nothing else in the codebase imports `litellm`; an import-linter rule enforces this, which also makes the model swappable and the tests mockable.
 
 As built (Phase 7a, ADR 0026): the rest of the backend depends only on the `LLM` protocol in `app/llm/types.py`; `app/llm/factory.py` loads the LiteLLM client only when `AI_ENABLED` is on. The client sets `LITELLM_MODE=PRODUCTION` before importing LiteLLM, which otherwise loads the nearest `.env` file into the environment, and `LITELLM_LOCAL_MODEL_COST_MAP=True`, which otherwise downloads a price list.
 

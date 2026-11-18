@@ -6,6 +6,7 @@ the real streaming and chunk-assembly code.
 
 import asyncio
 import json
+import threading
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -25,6 +26,7 @@ from app.core.config import Environment, Settings
 from app.llm import client as llm_client
 from app.llm.factory import create_llm
 from app.llm.fake import DemoLLM
+from app.llm.fake_server import make_server
 from app.llm.types import Completed, LLMUnavailableError, StreamItem, TextDelta
 
 MESSAGES = [{"role": "user", "content": "Hi"}]
@@ -202,3 +204,52 @@ async def test_demo_model_answers_from_the_tool_result_in_the_users_language() -
     assert "| Квалификация | 2 | 900.00 |" in text
     with pytest.raises(LLMUnavailableError):
         await _collect(demo.stream([{"role": "user", "content": "#fail now"}], tools))
+
+
+async def test_real_client_against_the_scripted_provider_server() -> None:
+    """The end-to-end stack's path: LiteLLM -> LLM_API_BASE -> app.llm.fake_server, with
+    tool calls and text streamed in the provider's format."""
+    server = make_server("127.0.0.1", 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_address[1]}/v1"
+        client = llm_client.LiteLLMClient(_settings(llm_api_base=base))
+        tools = [{"type": "function", "function": {"name": "pipeline_summary", "parameters": {}}}]
+        question = [{"role": "user", "content": "Show the pipeline by stage"}]
+        [first] = await _collect(client.stream(question, tools))
+        assert isinstance(first, Completed)
+        [tool_call] = first.tool_calls
+        assert tool_call.name == "pipeline_summary"
+        assert json.loads(tool_call.arguments) == {"owner": "anyone"}
+
+        result = {"stages": [{"stage": "Prospecting", "count": 1, "total_amount": "10.00"}]}
+        follow: list[dict[str, Any]] = [
+            *question,
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": tool_call.id,
+                        "type": "function",
+                        "function": {"name": tool_call.name, "arguments": tool_call.arguments},
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(result)},
+        ]
+        items = await _collect(client.stream(follow, tools))
+        deltas = [i for i in items if isinstance(i, TextDelta)]
+        assert len(deltas) > 3
+        assert "| Prospecting | 1 | 10.00 |" in "".join(d.text for d in deltas)
+        final = items[-1]
+        assert isinstance(final, Completed)
+        assert final.tool_calls == ()
+        assert final.usage.completion_tokens > 0
+
+        with pytest.raises(LLMUnavailableError):
+            await _collect(client.stream([{"role": "user", "content": "#fail"}], tools))
+    finally:
+        server.shutdown()
+        server.server_close()

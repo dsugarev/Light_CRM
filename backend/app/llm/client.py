@@ -44,6 +44,7 @@ class LiteLLMClient:
         self._model = settings.llm_model
         self._provider = settings.llm_provider
         self._timeout = settings.llm_timeout_seconds
+        self._api_base = settings.llm_api_base
 
     async def stream(
         self, messages: Sequence[Message], tools: Sequence[Tool] | None
@@ -59,8 +60,12 @@ class LiteLLMClient:
                     stream_options={"include_usage": True},
                     timeout=self._timeout,
                     api_key=self._api_key,
+                    api_base=self._api_base,
                     # OpenRouter provider routing: Cerebras only, never another provider.
                     extra_body={"provider": {"order": [self._provider], "allow_fallbacks": False}},
+                    # With tools, LiteLLM 1.108 imports its MCP gateway, which needs the
+                    # optional `mcp` package; we use no MCP tools, so skip that path.
+                    _skip_mcp_handler=True,
                 )
                 async for chunk in response:
                     chunks.append(chunk)
