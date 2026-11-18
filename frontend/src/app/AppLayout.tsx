@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { Dialog } from '@base-ui/react/dialog'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Toaster } from 'sonner'
 
 import { api, call } from '@/api/client'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { AssistantLauncher } from '@/features/assistant/AssistantLauncher'
 import { ME_QUERY_KEY, useMe } from '@/features/auth/useMe'
 import { useWebhookHealth } from '@/features/integrations/useWebhookHealth'
@@ -15,19 +16,17 @@ import { ApiStatus } from '@/features/system/ApiStatus'
 import { LanguageSwitcher } from '@/features/system/LanguageSwitcher'
 import { useCan } from '@/lib/permissions'
 
-const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `rounded-md px-2 py-1 text-sm ${isActive ? 'bg-secondary font-medium' : 'hover:bg-muted'}`
+import { AppNav } from './AppNav'
+import { UserMenu } from './UserMenu'
+import { useSidebarCollapsed } from './useSidebarCollapsed'
 
 export function AppLayout() {
   const { t, i18n } = useTranslation()
   const { data: me } = useMe()
   const can = useCan()
-  const show = {
-    users: can('users.manage'),
-    audit: can('audit.read'),
-    settings: can('settings.manage'),
-    imports: can('data.import'),
-  }
+  const show = { users: can('users.manage') }
+  const [collapsed, setCollapsed] = useSidebarCollapsed()
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const webhookHealth = useWebhookHealth(show.users)
   const webhookProblems = webhookHealth.failing + webhookHealth.suspended
   const inAdminArea = useLocation().pathname.startsWith('/admin')
@@ -56,112 +55,94 @@ export function AppLayout() {
       >
         {t('nav.skipToContent')}
       </a>
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b px-6 py-3">
-        <div className="flex items-center gap-6">
-          <NavLink to="/" className="font-semibold">
-            {t('app.name')}
-          </NavLink>
-          {me ? (
-            <nav aria-label={t('nav.label')} className="flex flex-wrap gap-1">
-              <NavLink to="/" end className={linkClass}>
-                {t('nav.home')}
-              </NavLink>
-              <NavLink to="/organizations" className={linkClass}>
-                {t('nav.organizations')}
-              </NavLink>
-              <NavLink to="/contacts" className={linkClass}>
-                {t('nav.contacts')}
-              </NavLink>
-              <NavLink to="/leads" className={linkClass}>
-                {t('nav.leads')}
-              </NavLink>
-              <NavLink to="/opportunities" end className={linkClass}>
-                {t('nav.opportunities')}
-              </NavLink>
-              <NavLink to="/opportunities/board" className={linkClass}>
-                {t('nav.board')}
-              </NavLink>
-              <NavLink to="/tasks" className={linkClass}>
-                {t('nav.tasks')}
-              </NavLink>
-              <NavLink to="/reports/win-loss" className={linkClass}>
-                {t('nav.reports')}
-              </NavLink>
-              {show.users ? (
-                <NavLink to="/admin/users" className={linkClass}>
-                  {t('nav.users')}
-                </NavLink>
-              ) : null}
-              {show.imports ? (
-                <NavLink to="/admin/imports" className={linkClass}>
-                  {t('nav.imports')}
-                </NavLink>
-              ) : null}
-              {show.users ? (
-                <NavLink to="/admin/integrations" className={linkClass}>
-                  {t('nav.integrations')}
-                  {webhookProblems > 0 ? (
-                    <span
-                      className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground"
-                      aria-label={t('nav.failingDeliveries', { count: webhookProblems })}
-                    >
-                      {webhookProblems}
-                    </span>
-                  ) : null}
-                </NavLink>
-              ) : null}
-              {show.audit ? (
-                <NavLink to="/admin/audit-log" className={linkClass}>
-                  {t('nav.auditLog')}
-                </NavLink>
-              ) : null}
-              {show.settings ? (
-                <NavLink to="/admin/settings" className={linkClass}>
-                  {t('nav.settings')}
-                </NavLink>
-              ) : null}
-              {show.settings ? (
-                <NavLink to="/admin/reference/industries" className={linkClass}>
-                  {t('nav.reference')}
-                </NavLink>
-              ) : null}
-              {show.settings ? (
-                <NavLink to="/admin/stages" className={linkClass}>
-                  {t('nav.stages')}
-                </NavLink>
-              ) : null}
-            </nav>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-3">
-          {me ? <HeaderSearch /> : null}
-          {me ? <AssistantLauncher /> : null}
-          <LanguageSwitcher />
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2 lg:px-6">
+        <div className="flex items-center gap-2">
           {me ? (
             <>
-              <NavLink to="/profile" className={linkClass} title={t('nav.profile')}>
-                {me.full_name}
-              </NavLink>
+              {/* UX-02: below 1024 px the navigation opens as a drawer. */}
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                className="lg:hidden"
+                aria-haspopup="dialog"
                 onClick={() => {
-                  signOut.mutate()
+                  setDrawerOpen(true)
                 }}
               >
-                {t('nav.signOut')}
+                {t('nav.menu')}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="hidden lg:inline-flex"
+                aria-expanded={!collapsed}
+                aria-controls="app-sidebar"
+                onClick={() => {
+                  setCollapsed(!collapsed)
+                }}
+              >
+                {collapsed ? t('nav.show') : t('nav.hide')}
               </Button>
             </>
           ) : null}
+          <NavLink to="/" className="px-2 font-semibold">
+            {t('app.name')}
+          </NavLink>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {me ? <HeaderSearch /> : null}
+          {me ? <AssistantLauncher /> : null}
+          {me ? (
+            <UserMenu
+              fullName={me.full_name}
+              onSignOut={() => {
+                signOut.mutate()
+              }}
+            />
+          ) : (
+            <LanguageSwitcher />
+          )}
         </div>
       </header>
-      <main id="main" tabIndex={-1} className="flex-1 px-6 py-6 outline-none">
-        {show.users && inAdminArea ? <WebhookAlert {...webhookHealth} /> : null}
-        <Outlet />
-      </main>
+      <div className="flex flex-1">
+        {me ? (
+          <div
+            id="app-sidebar"
+            className={`w-56 shrink-0 border-r px-2 py-4 ${collapsed ? 'hidden' : 'hidden lg:block'}`}
+          >
+            <AppNav webhookProblems={webhookProblems} />
+          </div>
+        ) : null}
+        <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 outline-none lg:px-6">
+          {show.users && inAdminArea ? <WebhookAlert {...webhookHealth} /> : null}
+          <Outlet />
+        </main>
+      </div>
+      {me ? (
+        <Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <Dialog.Portal>
+            <Dialog.Backdrop className="fixed inset-0 z-40 bg-overlay/20" />
+            <Dialog.Popup className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col gap-4 overflow-y-auto bg-background p-4 shadow-lg outline-none">
+              <div className="flex items-center justify-between">
+                <Dialog.Title className="font-semibold">{t('app.name')}</Dialog.Title>
+                <Dialog.Close className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                  {t('nav.close')}
+                </Dialog.Close>
+              </div>
+              <AppNav
+                webhookProblems={webhookProblems}
+                onNavigate={() => {
+                  setDrawerOpen(false)
+                }}
+              />
+            </Dialog.Popup>
+          </Dialog.Portal>
+        </Dialog.Root>
+      ) : null}
       <Toaster position="bottom-right" richColors closeButton />
-      <footer className="border-t px-6 py-2">
+      <footer className="border-t px-4 py-2 lg:px-6">
         <ApiStatus />
       </footer>
     </div>

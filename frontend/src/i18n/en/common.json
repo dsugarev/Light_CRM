@@ -40,7 +40,14 @@
     "integrations": "Integrations",
     "failingDeliveries_one": "{{count}} webhook problem",
     "failingDeliveries_other": "{{count}} webhook problems",
-    "skipToContent": "Skip to main content"
+    "skipToContent": "Skip to main content",
+    "groupSales": "Sales",
+    "groupAdmin": "Administration",
+    "hide": "Hide navigation",
+    "show": "Show navigation",
+    "menu": "Menu",
+    "close": "Close navigation",
+    "accountMenu": "Account menu: {{name}}"
   },
   "roles": {
     "admin": "Admin",

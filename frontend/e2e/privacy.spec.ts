@@ -33,6 +33,7 @@ const UI = {
     turnOn: 'Turn on',
     recovery: 'Recovery codes',
     saved: 'I have saved them',
+    accountMenu: /^Account menu: /,
     signOut: 'Sign out',
     codeStep: 'Two-factor sign-in',
     code: 'Code',
@@ -51,6 +52,7 @@ const UI = {
     turnOn: 'Включи',
     recovery: 'Кодове за възстановяване',
     saved: 'Запазих ги',
+    accountMenu: /^Меню на профила: /,
     signOut: 'Изход',
     codeStep: 'Двуфакторно влизане',
     code: 'Код',
@@ -96,7 +98,8 @@ for (const language of ['en', 'bg'] as const) {
       expect(recoveryCode).toMatch(/^[0-9a-f]{5}-[0-9a-f]{5}$/)
       await codes.getByRole('button', { name: ui.saved }).click()
 
-      await page.getByRole('button', { name: ui.signOut }).click()
+      await page.getByRole('button', { name: ui.accountMenu }).click()
+      await page.getByRole('menuitem', { name: ui.signOut }).click()
       await expect(page).toHaveURL(/\/sign-in(\?|$)/) // sign-out finished (the session is gone)
       await signIn(page, rep, password, ui.signIn)
       await expect(page.getByRole('heading', { name: ui.codeStep })).toBeVisible()

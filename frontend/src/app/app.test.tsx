@@ -89,7 +89,8 @@ describe('app shell and sign-in', () => {
       }),
     )
     await renderApp('/')
-    await userEvent.click(await screen.findByRole('button', { name: 'Български' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu: Ada Admin' }))
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Български' }))
     await waitFor(() => {
       expect(saved).toEqual({ locale: 'bg' })
     })
@@ -126,7 +127,8 @@ describe('app shell and sign-in', () => {
     signedInAs(ADMIN_ME)
     server.use(http.post('*/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })))
     const { router } = await renderApp('/')
-    await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu: Ada Admin' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/sign-in')
   })

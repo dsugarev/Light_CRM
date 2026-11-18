@@ -40,7 +40,14 @@
     "integrations": "Интеграции",
     "failingDeliveries_one": "{{count}} проблем с уебхукове",
     "failingDeliveries_other": "{{count}} проблема с уебхукове",
-    "skipToContent": "Към основното съдържание"
+    "skipToContent": "Към основното съдържание",
+    "groupSales": "Продажби",
+    "groupAdmin": "Администрация",
+    "hide": "Скрий навигацията",
+    "show": "Покажи навигацията",
+    "menu": "Меню",
+    "close": "Затвори навигацията",
+    "accountMenu": "Меню на профила: {{name}}"
   },
   "roles": {
     "admin": "Администратор",
