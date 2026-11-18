@@ -166,3 +166,22 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - edit from the user page in Bulgarian.
 - **Looked at:** the form sheet and the link sheet in en/bg at 1440 and 768 px; axe with the sheet open: no violations.
 - **Gate:** lint, prettier, typecheck, Vitest 202/202, i18n 1100 keys; Playwright Chromium 41/41 + 2 screenshot specs (2 workers, 1.4 min); backend ruff, mypy, import-linter 14/14, pytest 1304 passed. Runs with the default 4 workers had many timeouts while Spotlight indexing or Microsoft Teams loaded the host (load 16–28; 81 backend requests over 2 s), so E2E now runs with 2 workers.
+
+## UX-10 — 2026-11-18 18:25
+
+- **What changed:**
+  - **Filters:** the audit log page now has a **User** select (from `GET /users`, page size 100), a **Record type** select (the 15 entity types the backend audits, translated), the action as text with an example placeholder, from/to dates, and presets **Today**, **Last 7 days** and **Last 30 days** (Sofia calendar days, applied at once). Filters, the page and the open entry are in the URL. The list runs on `DataTable`, shows the translated record type, hides the IP column below 1024 px, and shows `ErrorState` with retry.
+  - **Drawer:** clicking an entry's time opens it in the shared `Sheet` (`?entry=<id>`, so the link can be shared; Escape or Close removes the parameter). The new `AuditEntryDetails` (also used by the stand-alone entry page) shows who, when, the record, IP and request ID; **Changes** as an `AuditDiff` table; and the details as formatted JSON when there are any. "Open as a page" leads to `/admin/audit-log/<id>`.
+  - `AuditDiff` shows one row per field with before and after side by side. Changed fields are highlighted, marked with a dot, and announced "(changed)" to screen readers; missing and null count as the same. Nested values are formatted JSON; values wrap anywhere (long text, ids, Cyrillic). It falls back to two formatted JSON blocks when either side is not a field map. Values are always text, never HTML.
+  - **Translations:** 52 audit action names were added in en/bg (organization, contact, lead, opportunity, activity, import, integration client, API key, webhook, external ID, stage, assistant conversation), plus the entity-type names.
+- **Files:** `frontend/src/features/admin/{AuditLogPage,AuditEntryPage,AuditEntryDetails,AuditDiff,auditLabels}.tsx|ts`, `src/i18n/{en,bg}/admin.json`.
+- **Tests:** `src/features/admin/auditViewer.test.tsx`, 10 `UX-10 ...` cases:
+  - filter by user and record type;
+  - each preset's range in the URL and the API;
+  - the drawer with changed and unchanged rows, a long Cyrillic value and the request ID, closed with Escape;
+  - a shared `?entry=` link in Bulgarian;
+  - diff: a created record, nested JSON, the JSON fallback, empty fields not flagged.
+
+  `admin.test.tsx` now expects the value as diff text (it still asserts no HTML is rendered).
+- **Looked at:** the list and the drawer in en/bg at 1440 and 768 px; axe on both: no violations. Fixed after looking: empty fields flagged as changed on creation, and the action hint pushing the date fields out of line.
+- **Gate:** lint, prettier, typecheck, Vitest 212/212, i18n 1184 keys; Playwright Chromium 41/41 + 2 screenshot specs; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
