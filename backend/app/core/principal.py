@@ -38,6 +38,8 @@ class Principal:
     system: str | None = None
     default_owner_id: UUID | None = None
     rate_limit_per_minute: int | None = None
+    # FR-AUTH-07: an Admin who must enrol in MFA before using anything else.
+    mfa_setup_required: bool = False
 
     @property
     def is_integration(self) -> bool:

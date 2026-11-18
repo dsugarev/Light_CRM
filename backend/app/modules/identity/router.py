@@ -1,6 +1,7 @@
 """HTTP layer only: parse requests, call the service, shape responses."""
 
 from datetime import timedelta
+from http import HTTPStatus
 from typing import Annotated, cast
 from uuid import UUID
 
@@ -12,14 +13,20 @@ from app.core.auth import SESSION_COOKIE, CurrentPrincipal, endpoint
 from app.core.clock import Clock
 from app.core.config import Settings
 from app.core.db import DbSession
+from app.core.errors import AppError, ErrorCode
 from app.core.principal import RoleCode
-from app.modules.identity import service
+from app.modules.identity import mfa, service
 from app.modules.identity.schemas import (
     Locale,
+    LoginMfaRequest,
     LoginRequest,
     LoginResponse,
     Me,
     MeUpdate,
+    MfaConfirmRequest,
+    MfaDisableRequest,
+    MfaRecoveryCodes,
+    MfaSetup,
     PasswordChangeRequest,
     PasswordForgotRequest,
     PasswordLink,
@@ -37,6 +44,8 @@ from app.modules.identity.schemas import (
 )
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
+# The pending-MFA cookie reaches only the sign-in endpoints.
+MFA_COOKIE_PATH = "/api/v1/auth/login"
 me_router = APIRouter(prefix="/me", tags=["me"])
 users_router = APIRouter(prefix="/users", tags=["users"])
 roles_router = APIRouter(prefix="/roles", tags=["users"])
@@ -108,6 +117,21 @@ async def login(
         ctx, request, "login", ctx.settings.rate_limit_login_per_minute, timedelta(minutes=1)
     )
     new = await service.login(ctx, body.email, body.password)
+    if isinstance(new, service.MfaChallenge):
+        # FR-AUTH-07: the code step follows; only that step can use this cookie.
+        raise AppError(
+            ErrorCode.AUTH_MFA_REQUIRED,
+            HTTPStatus.UNAUTHORIZED,
+            headers={
+                "Set-Cookie": mfa.cookie_header(
+                    new.token, int(mfa.PENDING_LIFETIME.total_seconds()), MFA_COOKIE_PATH
+                )
+            },
+        )
+    return _signed_in(response, new, ctx)
+
+
+def _signed_in(response: Response, new: service.NewSession, ctx: service.Context) -> LoginResponse:
     _set_session_cookie(response, ctx.settings, new, ctx)
     user = new.user
     return LoginResponse(
@@ -118,6 +142,54 @@ async def login(
             locale=cast(Locale, user.locale),
         )
     )
+
+
+@auth_router.post(
+    "/login/mfa",
+    summary="Complete sign-in with a TOTP code (or a recovery code) when MFA is enabled",
+    **endpoint(AccessLevel.PUBLIC),
+)
+async def login_mfa(
+    body: LoginMfaRequest, request: Request, response: Response, ctx: Ctx
+) -> LoginResponse:
+    await _limit(
+        ctx, request, "login", ctx.settings.rate_limit_login_per_minute, timedelta(minutes=1)
+    )
+    new = await service.login_mfa(ctx, request.cookies.get(mfa.PENDING_COOKIE), body.code)
+    response.delete_cookie(
+        mfa.PENDING_COOKIE, path=MFA_COOKIE_PATH, secure=True, httponly=True, samesite="strict"
+    )
+    return _signed_in(response, new, ctx)
+
+
+@auth_router.post(
+    "/mfa/setup",
+    summary="Start TOTP enrolment; returns the secret and provisioning URI",
+    **endpoint(AccessLevel.SIGNED_IN),
+)
+async def mfa_setup(ctx: Ctx, principal: CurrentPrincipal) -> MfaSetup:
+    return await service.mfa_setup(ctx, principal)
+
+
+@auth_router.post(
+    "/mfa/confirm",
+    summary="Confirm enrolment with a code; returns recovery codes once",
+    **endpoint(AccessLevel.SIGNED_IN),
+)
+async def mfa_confirm(
+    body: MfaConfirmRequest, ctx: Ctx, principal: CurrentPrincipal
+) -> MfaRecoveryCodes:
+    return await service.mfa_confirm(ctx, principal, body.code)
+
+
+@auth_router.post(
+    "/mfa/disable",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Disable own MFA (requires password); not allowed where enforced",
+    **endpoint(AccessLevel.SIGNED_IN),
+)
+async def mfa_disable(body: MfaDisableRequest, ctx: Ctx, principal: CurrentPrincipal) -> None:
+    await service.mfa_disable(ctx, principal, body.password)
 
 
 @auth_router.post(

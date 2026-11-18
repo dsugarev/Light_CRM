@@ -13,7 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, SmallInteger, select
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, SmallInteger, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -43,6 +43,10 @@ class AppSetting(TimestampMixin, Base):
     stale_opportunity_days: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="14"
     )
+    # FR-AUTH-07: Admins must use two-factor sign-in.
+    mfa_required_for_admins: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
     updated_by: Mapped[UUID | None] = mapped_column(ForeignKey("app_user.id"), nullable=True)
 
 
@@ -52,6 +56,7 @@ class RuntimeSettings(BaseModel):
     session_idle_timeout_minutes: int = Field(ge=15, le=1440)
     session_absolute_timeout_minutes: int = Field(ge=60, le=43200)
     stale_opportunity_days: int = Field(ge=1, le=365)
+    mfa_required_for_admins: bool = False
 
 
 class RuntimeSettingsUpdate(BaseModel):
@@ -60,6 +65,7 @@ class RuntimeSettingsUpdate(BaseModel):
     session_idle_timeout_minutes: int | None = Field(default=None, ge=15, le=1440)
     session_absolute_timeout_minutes: int | None = Field(default=None, ge=60, le=43200)
     stale_opportunity_days: int | None = Field(default=None, ge=1, le=365)
+    mfa_required_for_admins: bool | None = None
 
 
 class _Cache:

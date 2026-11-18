@@ -28,6 +28,16 @@ CSRF_HEADER = "X-Requested-With"
 CSRF_HEADER_VALUE = "XMLHttpRequest"
 _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 _UNSET = object()
+# FR-AUTH-07: what an Admin may still reach while MFA is required but not set up.
+MFA_SETUP_ROUTES = frozenset(
+    {
+        "/api/v1/me",
+        "/api/v1/system/info",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/mfa/setup",
+        "/api/v1/auth/mfa/confirm",
+    }
+)
 
 Authenticator = Callable[[Request, AsyncSession], Awaitable[Principal | None]]
 
@@ -78,6 +88,13 @@ def _requirement(level: AccessLevel, scope: str | None) -> Callable[..., Awaitab
         # A scope may name a path parameter, e.g. "{resource}:read" (API spec 19.4).
         resolved = scope.format(**request.path_params) if scope and "{" in scope else scope
         check_access(principal, level, resolved)
+        # These routes have no path parameters, so the request path identifies them.
+        if (
+            principal is not None
+            and principal.mfa_setup_required
+            and request.url.path.rstrip("/") not in MFA_SETUP_ROUTES
+        ):
+            raise AppError(ErrorCode.AUTH_MFA_SETUP_REQUIRED, HTTPStatus.FORBIDDEN)
         if principal is not None:
             settings: Settings = request.app.state.settings
             engine: AsyncEngine = request.app.state.engine

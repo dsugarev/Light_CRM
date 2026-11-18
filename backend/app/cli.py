@@ -98,6 +98,25 @@ async def create_integration_clients(systems: Sequence[str]) -> int:
     return 0
 
 
+async def reset_mfa(email: str) -> int:
+    """Switch two-factor sign-in off for a user who lost the device and the recovery
+    codes (operations guide). Their sessions end; the change is audited."""
+    settings = get_settings()
+    engine = create_engine(settings)
+    try:
+        async with create_session_factory(engine)() as session:
+            done = await identity_service.reset_mfa(
+                session, create_event_bus(), SystemClock().now(), email
+            )
+    finally:
+        await engine.dispose()
+    if not done:
+        print(f"No user with the email {email}.", file=sys.stderr)
+        return 1
+    print(f"Two-factor sign-in switched off for {email}; they can set it up again.")
+    return 0
+
+
 async def seed_demo(counts: seed.Counts, seed_value: int) -> int:
     """NFR-01 volumes of fictional data; refused in production."""
     settings = get_settings()
@@ -145,6 +164,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         help="One system, or all three",
     )
 
+    reset = commands.add_parser(
+        "reset-mfa", help="Switch off two-factor sign-in for a user who lost their device"
+    )
+    reset.add_argument("--email", required=True)
+
     demo = commands.add_parser("seed-demo", help="Insert fictional data (not in production)")
     defaults = seed.Counts()
     for kind in ("organizations", "contacts", "leads", "opportunities"):
@@ -162,6 +186,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     elif args.command == "create-integration-client":
         systems = list(integration_service.PROFILES) if args.system == "all" else [args.system]
         raise SystemExit(asyncio.run(create_integration_clients(systems)))
+    elif args.command == "reset-mfa":
+        raise SystemExit(asyncio.run(reset_mfa(args.email)))
     elif args.command == "seed-demo":
         counts = seed.Counts(
             organizations=args.organizations,

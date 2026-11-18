@@ -80,6 +80,9 @@ class Me(BaseModel):
     # Integration clients (API spec 4): their system code and granted scopes.
     system: str | None = None
     scopes: list[str] = []
+    # FR-AUTH-07: whether two-factor sign-in is on, and whether it must be set up first.
+    mfa_enabled: bool = False
+    mfa_setup_required: bool = False
 
 
 class MeUpdate(_Request):
@@ -166,3 +169,27 @@ class RoleOut(BaseModel):
     code: RoleCode
     name: str
     permissions: list[str]
+
+
+# --- Two-factor sign-in (FR-AUTH-07) ------------------------------------------------
+
+
+class LoginMfaRequest(_Request):
+    code: str = Field(min_length=6, max_length=20, description="TOTP code or a recovery code")
+
+
+class MfaSetup(BaseModel):
+    secret: str = Field(description="Base32 secret, for typing into an authenticator app")
+    provisioning_uri: str = Field(description="otpauth:// URI, for a QR code")
+
+
+class MfaConfirmRequest(_Request):
+    code: str = Field(min_length=6, max_length=10)
+
+
+class MfaRecoveryCodes(BaseModel):
+    recovery_codes: list[str] = Field(description="Shown once; each works once")
+
+
+class MfaDisableRequest(_Request):
+    password: str = Field(min_length=1, max_length=128)
