@@ -246,3 +246,25 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - `src/lib/format.test.ts`: 5 `UX-13 …` compact-money cases (en/bg).
   - Final sweep: 68 checks per language, no findings.
 - **Gate:** lint, prettier, typecheck, Vitest 225/225, i18n 1190 keys; Playwright Chromium 45/45 (including the new layout spec); backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
+
+## UX-14 — 2026-11-18 19:00
+
+- **What changed:**
+  - New `frontend/e2e/visual.spec.ts`: 152 screenshot baselines, 38 views in English and Bulgarian at 1440 and 768 px:
+    - signed out: sign-in, forgot password, a used set-password link;
+    - the 23 main pages and the not-found page;
+    - record, edit and convert pages for fixed-name records created by the test (organization, contact, lead, opportunity, user, integration client).
+  - **Making it repeatable:** the E2E database grows with every run, so the test intercepts GET responses in the browser:
+    - lists come back empty, so pages show their empty states;
+    - integration clients, API keys and subscriptions come back empty;
+    - sessions keep only the current one;
+    - board columns have no cards.
+
+    What still varies is masked: `<time>`, date and time text, charts, and the dashboard and win/loss figure cards. The tolerance is `maxDiffPixelRatio: 0.002`; animations are off and the caret hidden.
+  - **Own project:** `visual` in `playwright.config.ts`. `pnpm e2e` now runs only `chromium` and `firefox` (so CI is unchanged); `pnpm e2e:visual` runs the baselines, and `--update-snapshots` updates them. Documented in CLAUDE.md.
+- **Why not in CI:** baselines depend on the platform's font rendering. These were made on macOS (`*-visual-darwin.png`) and CI runs Linux. Linux baselines would need the Playwright Docker image or a CI job, which is new infrastructure; proposed as C-10 rather than added.
+- **AC:**
+  - Generated once, then two runs in a row: `4 passed` and `4 passed` (no diffs).
+  - Sensitivity checked: swapping one baseline for another page's image fails with 19,972 different pixels; restoring it passes.
+  - The first attempt had the dashboard figures unmasked, and both runs still passed within the pixel tolerance even though the totals change per run. They are now masked and the baselines regenerated.
+- **Gate:** lint, prettier, typecheck, Vitest 225/225; Playwright Chromium 45/45 (visual excluded from the normal run); visual 4/4 twice.

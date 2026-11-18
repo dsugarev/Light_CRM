@@ -23,7 +23,7 @@ Why now: Phase 1 sets the patterns every later phase reuses (app shell, tables, 
 - [x] **UX-11 Form conventions.** Shared form field components: label, required marker, help text, inline errors translated from backend field codes, consistent spacing; a warning before leaving a page with unsaved changes. AC: all existing forms use them.
 - [x] **UX-12 Accessibility.** Visible focus rings, a skip-to-content link, landmarks, labelled controls, sufficient contrast; axe check with no serious or critical violations on every page. AC: axe runs inside Playwright for every existing page.
 - [x] **UX-13 Bulgarian layout check.** No truncated or overflowing text with Bulgarian strings at 1440 and 768 px; dates and numbers formatted per locale. AC: screenshots reviewed for both languages; any fixes made in components, not by shortening translations.
-- [ ] **UX-14 Visual baselines.** Playwright screenshot tests for every existing page, in English and Bulgarian, at 1440 and 768 px, with baselines committed. Done last, after the other A items. AC: suite passes twice in a row (no flaky diffs; dynamic values masked).
+- [x] **UX-14 Visual baselines.** Playwright screenshot tests for every existing page, in English and Bulgarian, at 1440 and 768 px, with baselines committed. Done last, after the other A items. AC: suite passes twice in a row (no flaky diffs; dynamic values masked).
 
 ## B. Small functional improvements (approved, within the existing spec)
 
@@ -50,4 +50,5 @@ These need a product or design decision. The loop may add notes here but must no
 - **C-06 Sign-in notice:** an acceptable-use or data-protection notice on the sign-in page, if company policy needs one.
 - **C-07 Dashboard chart polish:** fixed in UX-13: compact locale money on the Y axis ("340 млн. €", "€1.3bn") and a darker weighted series.
 - **C-08 Assistant "Save note" flake:** fixed (commit `fix(assistant): keep an opened note form …`): the reload after an answer remounted the message and dropped an opened note form.
+- **C-10 Visual baselines in CI:** the UX-14 baselines are macOS renderings; running them in CI needs Linux baselines, made in the official Playwright Docker image or a CI job that uploads them. That is new infrastructure, so it needs approval.
 - **C-09 Locked-users filter:** `GET /users` has no `is_locked` filter, so the status filter offers active/deactivated only; adding one would let admins list locked accounts directly.
