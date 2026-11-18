@@ -329,3 +329,13 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
     - the target URL in each case.
   - **E2E** `e2e/session.spec.ts`: a rep signs in; an Admin (another browser context) signs the rep out everywhere; the rep's next navigation shows the message at `/sign-in?next=%2Fleads&expired=1`; signing in returns to `/leads`.
 - **Gate:** lint, prettier, typecheck, Vitest 245/245, i18n 1196 keys; Playwright Chromium 46/46; visual 4/4; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
+
+## FN-05 — 2026-11-18 20:20 — blocked `[!]`: needs an owner decision (API spec)
+
+- **Blocker:** to warn 5 minutes before the idle timeout, the frontend must know the timeout. It is the setting `session_idle_timeout_minutes`, readable only through `GET /api/v1/settings`, which is **Admin only**. `GET /me` does not include it, and `GET /me/sessions` gives `last_seen_at` and the absolute `expires_at`, not the idle deadline. Section B allows backend work only "exactly as specified", and no specified endpoint provides this to every signed-in user. Guessing the default (8 h) would warn at the wrong time once an Admin changes the setting.
+- **Proposal (additive, for approval):** add to `GET /api/v1/me` for user principals
+  `"session": { "idle_timeout_minutes": 480, "expires_at": "<absolute expiry>" }`, documented in API spec section 4 (`/me`).
+  - The frontend then keeps the time of the last request in `localStorage` and a `BroadcastChannel`, so every tab shares activity.
+  - It shows the dialog at `last activity + idle − 5 min` with **Stay signed in** (`GET /me`, which refreshes `last_seen_at`) and **Sign out**; choosing in one tab closes the dialog in all.
+  - Note: the backend refreshes `last_seen_at` at most every `_TOUCH_INTERVAL` (`identity/service.py`), so the client deadline should be computed from the last request minus that interval, to stay on the safe side.
+- Nothing was built for FN-05.
