@@ -8,6 +8,8 @@ import { api, call } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/sheet'
 import { AssistantLauncher } from '@/features/assistant/AssistantLauncher'
+import { IdleWarning } from '@/features/auth/IdleWarning'
+import { broadcastSignOut } from '@/features/auth/sessionActivity'
 import { ME_QUERY_KEY, useMe } from '@/features/auth/useMe'
 import { useWebhookHealth } from '@/features/integrations/useWebhookHealth'
 import { WebhookAlert } from '@/features/integrations/WebhookAlert'
@@ -35,6 +37,8 @@ export function AppLayout() {
   const signOut = useMutation({
     mutationFn: () => call(api.POST('/api/v1/auth/logout')),
     onSettled: async () => {
+      // FN-05: the other open tabs sign out too.
+      broadcastSignOut()
       queryClient.setQueryData(ME_QUERY_KEY, null)
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== ME_QUERY_KEY[0] })
       await navigate('/sign-in', { replace: true })
@@ -135,6 +139,14 @@ export function AppLayout() {
             }}
           />
         </Sheet>
+      ) : null}
+      {me?.session ? (
+        <IdleWarning
+          session={me.session}
+          onSignOut={() => {
+            signOut.mutate()
+          }}
+        />
       ) : null}
       <Toaster position="bottom-right" richColors closeButton />
       <footer className="border-t px-4 py-2 lg:px-6">

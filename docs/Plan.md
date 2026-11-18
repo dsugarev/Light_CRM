@@ -2383,7 +2383,7 @@ Open after the release (none blocking): the integrating teams' addresses and det
 
 ## UI polish after Release 1 (2026-11-18)
 
-Run as a loop over `docs/loops/ui-polish-backlog.md` (prompt `docs/loops/PROMPT-ui-polish.md`; the owner pre-approved sections A and B). The per-item record with files, tests, screenshots and gate results is `docs/loops/ui-polish-progress.md`. 21 of 22 items are done; FN-05 is blocked on an API decision.
+Run as a loop over `docs/loops/ui-polish-backlog.md` (prompt `docs/loops/PROMPT-ui-polish.md`; the owner pre-approved sections A and B). The per-item record with files, tests, screenshots and gate results is `docs/loops/ui-polish-progress.md`. All 22 items are done (FN-05 after the owner approved its API addition).
 
 | Item | What was built |
 |---|---|
@@ -2406,7 +2406,7 @@ Run as a loop over `docs/loops/ui-polish-backlog.md` (prompt `docs/loops/PROMPT-
 | FN-04 | A 401 records whether a session was lost; `RequireAuth` sends to `/sign-in?next=…&expired=1` with a message, and back after signing in |
 | FN-06, FN-07 | Already built; tests added (language at sign-in on another device; audit export with the current filters) |
 | FN-08 | Last active Admin: role locked and Deactivate explained (`useLastAdmin`); the backend 409 was already specified and tested |
-| FN-05 | **Blocked:** the idle timeout is readable only by Admins; proposal to add `session.idle_timeout_minutes` to `GET /me` is in the progress log |
+| FN-05 | Idle-timeout warning across tabs (`IdleWarning`, `sessionActivity.ts`); **API:** `GET /me` gained `session: { idle_timeout_minutes, expires_at }` (additive, owner-approved 2026-11-18) |
 
 Also fixed on the way: the assistant's live answer remounted when the conversation reloaded and dropped an opened "save as note" form (the cause of an intermittent E2E failure); table cells with `display: flex` in stages and lists; a missing value and `null` shown as a change in the audit diff.
 

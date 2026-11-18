@@ -296,7 +296,8 @@ Login request and response:
 { "principal_type": "user", "id": "...", "email": "ivan.petrov@example.bg", "full_name": "Ivan Petrov",
   "role": "sales_rep", "locale": "bg",
   "permissions": ["data.export", "records.create", "records.edit_own", "records.read"],
-  "system": null, "scopes": [] }
+  "system": null, "scopes": [],
+  "session": { "idle_timeout_minutes": 480, "expires_at": "2026-11-25T09:00:00Z" } }
 
 // GET /api/v1/me  (integration client, Phase 6a)
 { "principal_type": "integration", "id": "<service user id>", "email": "erp-3f9c1a2b7d4e@integration.invalid",
@@ -305,6 +306,8 @@ Login request and response:
 ```
 
 Permission codes (derived from the role; the UI uses them only to hide controls): `records.read`, `records.create`, `records.edit_own`, `records.edit_any`, `records.reassign`, `records.restore`, `data.export`, `data.import`, `users.manage`, `settings.manage`, `audit.read`. `PATCH /me` accepts only `full_name` and `locale` (`en` | `bg`); other fields return `422`. `GET /me/sessions` returns `[{ "id", "created_at", "last_seen_at", "expires_at", "ip", "user_agent", "current" }]`; revoking a session that is not the caller's returns `404`.
+
+`session` (added after Release 1 for the idle-timeout warning, FN-05; additive): for a signed-in user, the current setting `idle_timeout_minutes` and the session's absolute `expires_at`; `null` for integration clients. Any request (including `GET /me` itself) counts as activity; the server records it at most once a minute, so a client should count the idle time from one minute before its own last request.
 
 ## 5. Users and roles (administration)
 

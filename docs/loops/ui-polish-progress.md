@@ -405,3 +405,22 @@ C-03 (two-factor sign-in) was built in Phase 8a. C-07 (chart polish) and C-08 (a
 - backend: ruff, mypy, import-linter 14/14, pytest 1304 passed (95.57%), OpenAPI snapshot up to date.
 
 `docs/Plan.md`, `docs/Test_strategy.md` (section 19 and the regenerated inventory), `docs/accessibility.md`, the README and CLAUDE.md are updated. Nothing is pushed.
+
+## FN-05 — 2026-11-18 21:50 — done after owner approval
+
+- **Owner decision (2026-11-18):** approved the proposed additive API change.
+- **API:** `GET /api/v1/me` returns `session: { "idle_timeout_minutes", "expires_at" }` for a signed-in user (`null` for integration clients). The API spec (section 4) is updated first, then the backend (`SessionTimeouts` schema, `_session_timeouts` in `identity/service.py`, `repository.get_session`), `docs/api/openapi.json` and the generated types. The setting is read live, so an Admin's change applies at the next `/me`.
+- **Frontend:**
+  - `api/client.ts` gained `onApiRequest` for every `/api/v1` request (health checks are left out because they do not touch the session; the 30-second status poll would otherwise have kept the warning away for ever).
+  - New `features/auth/sessionActivity.ts`: the last request time in `localStorage`, shared with other tabs through the `storage` event, plus `idleSchedule`: deadline = last request − 1 min (the server's touch interval) + idle timeout, capped at the absolute expiry; the warning comes 5 minutes earlier.
+  - New `features/auth/IdleWarning.tsx`, mounted in the layout: an alert dialog "Still there?" with a live countdown.
+    - **Stay signed in** calls `GET /me`; that request is activity in every tab, so the dialog closes everywhere.
+    - **Sign out** signs this tab out and, through `crm.signed-out`, the other tabs too. Ordinary sign-out from the account menu broadcasts as well.
+    - With no answer, at the deadline the tab calls `POST /auth/logout` and goes through the FN-04 path ("Your session has ended", then back to the page).
+  - Mount time counts as activity, so a value left in storage by an earlier session cannot end a new one.
+- **Tests:**
+  - Backend `test_FN_05_me_gives_the_session_timeouts`: the timeout and the session's expiry, the setting change shown at once, `null` for an integration client.
+  - `src/features/auth/idleWarning.test.tsx`, 6 `FN-05 …` cases with fake timers: the schedule, the warning at 24 of 30 minutes and Stay, activity from another tab, the deadline leading to sign-in with the message, Sign out broadcast, another tab's sign-out in Bulgarian.
+  - E2E `e2e/idle.spec.ts`: two tabs in one browser with Playwright's clock; both show the warning; Stay in one closes it in both.
+- **Looked at:** the dialog in en/bg at 1440 and 768 px; axe: no violations. "Stay signed in" was made the primary button after looking.
+- **Gate:** lint, prettier, typecheck, Vitest 257/257, i18n 1200 keys, API types regenerated; Playwright Chromium 47/47; visual 4/4; backend ruff, mypy, import-linter 14/14, pytest 1305 passed (95.55%).

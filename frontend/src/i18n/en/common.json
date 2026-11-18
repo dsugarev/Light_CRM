@@ -112,5 +112,10 @@
     "unsavedText": "You have changes on this page that are not saved. If you leave, they are lost.",
     "stay": "Stay on this page",
     "leave": "Leave without saving"
+  },
+  "idle": {
+    "title": "Still there?",
+    "text": "You will be signed out in {{time}} because of inactivity.",
+    "stay": "Stay signed in"
   }
 }

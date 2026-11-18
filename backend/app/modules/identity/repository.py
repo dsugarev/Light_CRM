@@ -147,6 +147,10 @@ async def list_user_sessions(
     return list((await session.execute(statement)).scalars())
 
 
+async def get_session(session: AsyncSession, session_id: UUID) -> UserSession | None:
+    return await session.get(UserSession, session_id)
+
+
 async def delete_session(session: AsyncSession, session_id: UUID) -> None:
     await session.execute(delete(UserSession).where(UserSession.id == session_id))
 
