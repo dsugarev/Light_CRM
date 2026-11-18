@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { api, ApiError, call } from '@/api/client'
@@ -27,6 +26,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { applyServerErrors } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 
 import { STAGE_TYPES, type Stage } from './opportunityValues'
 import { usePipeline } from './usePipeline'
@@ -53,6 +53,7 @@ const FIELDS = ['name_en', 'name_bg', 'default_probability', 'stage_type'] as co
 
 /** FR-OPP-02 / FR-ADM-02: Admins configure the pipeline's stages. */
 export function StagesPage() {
+  const notify = useNotify()
   const { t } = useTranslation('opportunities')
   const pipeline = usePipeline()
   const queryClient = useQueryClient()
@@ -80,7 +81,7 @@ export function StagesPage() {
       ),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('stages.saved'))
+      notify.success(t('stages.saved'))
     },
   })
   const reorder = useMutation({
@@ -98,7 +99,7 @@ export function StagesPage() {
       call(api.DELETE('/api/v1/pipelines/{pipeline_id}/stages/{stage_id}', stagePath(id))),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('stages.deleted'))
+      notify.success(t('stages.deleted'))
     },
   })
   const move = (stages: Stage[], index: number, delta: number) => {
@@ -312,6 +313,7 @@ function AddStage({
   pipelineId: string
   onAdded: () => Promise<unknown>
 }) {
+  const notify = useNotify()
   const { t } = useTranslation('opportunities')
   const form = useForm<Input_, unknown, Values>({
     resolver: zodResolver(schema),
@@ -328,7 +330,7 @@ function AddStage({
     onSuccess: async () => {
       form.reset()
       await onAdded()
-      toast.success(t('stages.added'))
+      notify.success(t('stages.added'))
     },
     onError: (error) => {
       const code = applyServerErrors(error, form.setError, FIELDS)

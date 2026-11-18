@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, asPage, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -25,12 +24,14 @@ import { useErrorText } from '@/lib/errors'
 import { formatDate, formatMoney, formatNumber } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useLocale } from '@/lib/useLocale'
+import { useNotify } from '@/lib/notify'
 
 type Contact = Schemas['ContactOut']
 
 /** FR-PARTY-03: the organization with its contacts; leads, opportunities and the
  * timeline fill in as Phases 3 and 4 add them. */
 export function OrganizationPage() {
+  const notify = useNotify()
   const { orgId = '' } = useParams()
   const { t } = useTranslation('party')
   const crumbs = useSectionCrumbs()
@@ -60,14 +61,14 @@ export function OrganizationPage() {
     mutationFn: () => call(api.DELETE('/api/v1/organizations/{org_id}', path)),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('organization.toasts.archived'))
+      notify.success(t('organization.toasts.archived'))
     },
   })
   const restore = useMutation({
     mutationFn: () => call(api.POST('/api/v1/organizations/{org_id}/restore', path)),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('organization.toasts.restored'))
+      notify.success(t('organization.toasts.restored'))
     },
   })
 

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, call } from '@/api/client'
 import { DataTable, type Column } from '@/components/DataTable'
@@ -19,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { referenceName, useReferenceList } from '@/features/reference/useReferenceList'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
+import { useNotify } from '@/lib/notify'
 
 import { DEFAULT_RATE_LIMIT, type IntegrationClient, type Scope } from './integrationValues'
 import { ScopePicker } from './ScopePicker'
@@ -113,6 +113,7 @@ export function IntegrationsPage() {
 }
 
 function NewClient() {
+  const notify = useNotify()
   const { t } = useTranslation('integrations')
   const locale = useLocale()
   const navigate = useNavigate()
@@ -138,7 +139,7 @@ function NewClient() {
       ),
     onSuccess: async (client) => {
       await queryClient.invalidateQueries({ queryKey: ['integration-clients'] })
-      toast.success(t('toasts.created'))
+      notify.success(t('toasts.created'))
       await navigate(`/admin/integrations/${client.id}`)
     },
   })

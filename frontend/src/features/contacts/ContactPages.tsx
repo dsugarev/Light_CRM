@@ -1,7 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, asPage, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -25,6 +24,7 @@ import { useLocale } from '@/lib/useLocale'
 import { RecordTimeline } from '@/features/activities/RecordTimeline'
 import { ExternalReferences } from '@/features/integrations/ExternalReferences'
 import { ExportMenu } from '@/features/reports/ExportMenu'
+import { useNotify } from '@/lib/notify'
 
 import { ContactForm } from './ContactForm'
 import { contactDefaults, contactPayload, type ContactValues } from './contactValues'
@@ -161,12 +161,13 @@ export function ContactsPage() {
 }
 
 function useAfterSave() {
+  const notify = useNotify()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   return async (contact: Contact, message: string) => {
     await queryClient.invalidateQueries({ queryKey: ['contacts'] })
     await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-    toast.success(message)
+    notify.success(message)
     await navigate(`/contacts/${contact.id}`)
   }
 }
@@ -274,6 +275,7 @@ export function ContactEditPage() {
 }
 
 export function ContactPage() {
+  const notify = useNotify()
   const { contactId = '' } = useParams()
   const { t } = useTranslation('party')
   const crumbs = useSectionCrumbs()
@@ -292,14 +294,14 @@ export function ContactPage() {
     mutationFn: () => call(api.DELETE('/api/v1/contacts/{contact_id}', path)),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('contact.toasts.archived'))
+      notify.success(t('contact.toasts.archived'))
     },
   })
   const restore = useMutation({
     mutationFn: () => call(api.POST('/api/v1/contacts/{contact_id}/restore', path)),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('contact.toasts.restored'))
+      notify.success(t('contact.toasts.restored'))
     },
   })
   if (contact.isError)

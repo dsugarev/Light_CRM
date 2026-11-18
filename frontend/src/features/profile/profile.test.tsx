@@ -45,6 +45,11 @@ describe('profile', () => {
     const table = await screen.findByRole('table')
     expect(within(table).getByText('This session')).toBeInTheDocument()
     await userEvent.click(within(table).getByRole('button', { name: 'Sign out' }))
+    // UX-05: a destructive action waits for confirmation.
+    const dialog = await screen.findByRole('alertdialog', { name: 'Sign out this session?' })
+    expect(revoked).toBe('')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+    expect(await screen.findByText('That session is signed out.')).toBeInTheDocument()
     expect(revoked).toBe('s2')
   })
 

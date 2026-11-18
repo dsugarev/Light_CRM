@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { api, ApiError, call } from '@/api/client'
+import { ConfirmButton } from '@/components/ConfirmButton'
 import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
@@ -29,6 +30,7 @@ import { SUPPORTED_LOCALES } from '@/i18n'
 import { applyServerErrors } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import { storeLocale } from '@/lib/locale'
+import { useNotify } from '@/lib/notify'
 import { useLocale } from '@/lib/useLocale'
 
 import { MfaCard } from './MfaCard'
@@ -234,6 +236,7 @@ function SessionsCard() {
   const { t } = useTranslation('profile')
   const locale = useLocale()
   const queryClient = useQueryClient()
+  const notify = useNotify()
   const sessions = useQuery({
     queryKey: SESSIONS_KEY,
     queryFn: () => call(api.GET('/api/v1/me/sessions')),
@@ -245,7 +248,10 @@ function SessionsCard() {
           params: { path: { session_id: sessionId } },
         }),
       ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: SESSIONS_KEY }),
+    onSuccess: async () => {
+      notify.success(t('sessions.revoked'))
+      await queryClient.invalidateQueries({ queryKey: SESSIONS_KEY })
+    },
   })
   return (
     <Card>
@@ -278,17 +284,17 @@ function SessionsCard() {
                     {session.current ? (
                       <Badge variant="secondary">{t('sessions.current')}</Badge>
                     ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
+                      <ConfirmButton
+                        label={t('sessions.revoke')}
+                        title={t('sessions.revokeTitle')}
+                        description={t('sessions.revokeDescription')}
                         size="sm"
+                        variant="destructive"
                         disabled={revoke.isPending}
-                        onClick={() => {
+                        onConfirm={() => {
                           revoke.mutate(session.id)
                         }}
-                      >
-                        {t('sessions.revoke')}
-                      </Button>
+                      />
                     )}
                   </TableCell>
                 </TableRow>

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { toast } from 'sonner'
 
 import { ApiError } from '@/api/client'
 import { NativeSelect } from '@/components/NativeSelect'
@@ -9,6 +8,7 @@ import { Textarea } from '@/components/Textarea'
 import { Button } from '@/components/ui/button'
 import { useErrorText } from '@/lib/errors'
 import { useCan } from '@/lib/permissions'
+import { useNotify } from '@/lib/notify'
 
 import { Markdown } from './Markdown'
 import type { RecordRef } from './stream'
@@ -183,6 +183,7 @@ function NoteForm({
   targets: Target[]
   onDone: () => void
 }) {
+  const notify = useNotify()
   const { t } = useTranslation('assistant')
   const { t: tc } = useTranslation()
   const errorText = useErrorText()
@@ -212,7 +213,7 @@ function NoteForm({
           },
           {
             onSuccess: () => {
-              toast.success(t('noteSaved'))
+              notify.success(t('noteSaved'))
               onDone()
             },
           },

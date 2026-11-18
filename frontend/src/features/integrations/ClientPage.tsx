@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -29,7 +28,7 @@ import {
 } from '@/components/ui/table'
 import { useUserLookup } from '@/features/auth/useUserLookup'
 import { referenceName } from '@/features/reference/useReferenceList'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 
@@ -93,17 +92,17 @@ export function ClientPage() {
 
 function useClientMutation<V>(clientId: string, fn: (v: V) => Promise<unknown>, message: string) {
   const queryClient = useQueryClient()
-  const errorText = useErrorText()
+  const notify = useNotify()
   return useMutation({
     mutationFn: fn,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['integration-clients'] })
       await queryClient.invalidateQueries({ queryKey: ['api-keys', clientId] })
-      toast.success(message)
+      notify.success(message)
     },
     onError: (error) => {
       if (!(error instanceof ApiError && error.errors.length > 0)) {
-        toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+        notify.error(error)
       }
     },
   })

@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Navigate, useParams } from 'react-router'
-import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { api, ApiError, call } from '@/api/client'
@@ -32,6 +31,7 @@ import {
   type ReferenceListName,
 } from '@/features/reference/useReferenceList'
 import { applyServerErrors } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 
 const schema = z.object({
   code: z
@@ -61,6 +61,7 @@ export function ReferenceListPage() {
 }
 
 function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
+  const notify = useNotify()
   const { t } = useTranslation('admin')
   const items = useReferenceList(LIST, true)
   const queryClient = useQueryClient()
@@ -77,7 +78,7 @@ function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
       ),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('reference.saved'))
+      notify.success(t('reference.saved'))
     },
   })
   const reorder = useMutation({
@@ -94,7 +95,7 @@ function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
       ),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('reference.deleted'))
+      notify.success(t('reference.deleted'))
     },
   })
 
@@ -217,6 +218,7 @@ function AddValue({
   list: ReferenceListName
   onAdded: () => Promise<unknown>
 }) {
+  const notify = useNotify()
   const { t } = useTranslation('admin')
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -233,7 +235,7 @@ function AddValue({
     onSuccess: async () => {
       form.reset()
       await onAdded()
-      toast.success(t('reference.added'))
+      notify.success(t('reference.added'))
     },
     onError: (error) => {
       const code = applyServerErrors(error, form.setError, ['code', 'name_en', 'name_bg'])

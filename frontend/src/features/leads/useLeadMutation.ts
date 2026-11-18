@@ -1,9 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { ApiError } from '@/api/client'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 
 import type { Lead } from './leadValues'
 
@@ -19,23 +18,23 @@ export function useLeadMutation<V>(
 ) {
   const queryClient = useQueryClient()
   const { t } = useTranslation('leads')
-  const errorText = useErrorText()
+  const notify = useNotify()
   return useMutation({
     mutationFn,
     onSuccess: async (lead) => {
       queryClient.setQueryData(['leads', leadId], lead)
       await queryClient.invalidateQueries({ queryKey: ['leads'], refetchType: 'none' })
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(successMessage(lead))
+      notify.success(successMessage(lead))
     },
     onError: (error) => {
       if (error instanceof ApiError && error.code === 'conflict.version_mismatch') {
         queryClient.setQueryData(['leads', leadId], error.problem['current'])
-        toast.error(t('toasts.conflict'))
+        notify.error(error, t('toasts.conflict'))
         return
       }
       if (!(error instanceof ApiError && error.errors.length > 0)) {
-        toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+        notify.error(error)
       }
     },
   })

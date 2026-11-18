@@ -1,7 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, asPage, call } from '@/api/client'
 import { DataTable, type Column } from '@/components/DataTable'
@@ -20,6 +19,7 @@ import { useCan } from '@/lib/permissions'
 import { useListParams } from '@/lib/useListParams'
 import { useLocale } from '@/lib/useLocale'
 import { ExportMenu } from '@/features/reports/ExportMenu'
+import { useNotify } from '@/lib/notify'
 
 import { OpportunityForm } from './OpportunityForm'
 import {
@@ -231,6 +231,7 @@ export function OpportunitiesPage() {
 }
 
 export function OpportunityNewPage() {
+  const notify = useNotify()
   const { t } = useTranslation('opportunities')
   const crumbs = useSectionCrumbs()
   const [params] = useSearchParams()
@@ -257,7 +258,7 @@ export function OpportunityNewPage() {
     onSuccess: async (opportunity) => {
       await queryClient.invalidateQueries({ queryKey: ['opportunities'] })
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(t('toasts.created'))
+      notify.success(t('toasts.created'))
       await navigate(`/opportunities/${opportunity.id}`)
     },
   })
@@ -284,6 +285,7 @@ export function OpportunityNewPage() {
 }
 
 export function OpportunityEditPage() {
+  const notify = useNotify()
   const { opportunityId = '' } = useParams()
   const { t } = useTranslation('opportunities')
   const crumbs = useSectionCrumbs()
@@ -306,7 +308,7 @@ export function OpportunityEditPage() {
     onSuccess: async (updated) => {
       queryClient.setQueryData(['opportunities', opportunityId], updated)
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(t('toasts.saved'))
+      notify.success(t('toasts.saved'))
       await navigate(`/opportunities/${opportunityId}`)
     },
   })

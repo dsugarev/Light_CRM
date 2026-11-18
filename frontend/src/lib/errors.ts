@@ -5,13 +5,17 @@ import { ApiError } from '@/api/client'
 
 /** Translate an error code (API problem code or field code) to a message. */
 export function useErrorText() {
-  const { t, i18n } = useTranslation('errors')
+  const { i18n } = useTranslation('errors')
   // Codes come from the server at runtime, so the typed key union cannot apply;
   // existence is checked first and unknown codes fall back to a generic message.
-  const translate = t as unknown as (key: string, options?: Record<string, string>) => string
+  // Translated when called, so a toast raised after a language switch uses the new language.
+  const translate = i18n.t.bind(i18n) as unknown as (
+    key: string,
+    options?: Record<string, string>,
+  ) => string
   return (code: string | undefined, values?: Record<string, string>): string => {
     const key = code && i18n.exists(`errors:${code}`) ? code : 'unknown'
-    return translate(key, values)
+    return translate(`errors:${key}`, values)
   }
 }
 

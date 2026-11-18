@@ -2,7 +2,6 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -26,6 +25,7 @@ import {
 } from '@/components/ui/table'
 import { useMe } from '@/features/auth/useMe'
 import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 import { useLocale } from '@/lib/useLocale'
 
 import type { ImportBatch, ImportRow } from './upload'
@@ -91,17 +91,17 @@ export function ImportBatchPage() {
 
 function useBatchMutation<V>(batchId: string, fn: (v: V) => Promise<unknown>, message: string) {
   const queryClient = useQueryClient()
-  const errorText = useErrorText()
+  const notify = useNotify()
   return useMutation({
     mutationFn: fn,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['imports'] })
       await queryClient.invalidateQueries({ queryKey: ['import-rows', batchId] })
-      toast.success(message)
+      notify.success(message)
     },
     onError: (error) => {
       if (!(error instanceof ApiError && error.errors.length > 0)) {
-        toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+        notify.error(error)
       }
     },
   })

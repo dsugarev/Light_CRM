@@ -1,18 +1,19 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { api, ApiError, call, type Schemas } from '@/api/client'
 import { FormMessage } from '@/components/FormMessage'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { useNotify } from '@/lib/notify'
 
 const CONFIRM_WORD = 'ANONYMIZE'
 
 /** FR-ADM-04: an Admin exports a contact's personal data or anonymizes the contact. */
 export function PersonalData({ contact }: { contact: Schemas['ContactOut'] }) {
+  const notify = useNotify()
   const { t } = useTranslation('party')
   const queryClient = useQueryClient()
   const [typed, setTyped] = useState('')
@@ -41,7 +42,7 @@ export function PersonalData({ contact }: { contact: Schemas['ContactOut'] }) {
       setTyped('')
       await queryClient.invalidateQueries({ queryKey: ['contacts'] })
       await queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      toast.success(t('contact.gdpr.anonymized'))
+      notify.success(t('contact.gdpr.anonymized'))
     },
   })
   const failure = [download.error, anonymize.error].find((e) => e instanceof ApiError)

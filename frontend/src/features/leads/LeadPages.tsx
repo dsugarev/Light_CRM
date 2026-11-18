@@ -1,7 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, asPage, call } from '@/api/client'
 import { DataTable, type Column } from '@/components/DataTable'
@@ -21,6 +20,7 @@ import { useCan } from '@/lib/permissions'
 import { useListParams } from '@/lib/useListParams'
 import { useLocale } from '@/lib/useLocale'
 import { ExportMenu } from '@/features/reports/ExportMenu'
+import { useNotify } from '@/lib/notify'
 
 import { LeadForm } from './LeadForm'
 import { LeadStatusBadge } from './LeadStatusBadge'
@@ -215,6 +215,7 @@ export function LeadsPage() {
 }
 
 export function LeadNewPage() {
+  const notify = useNotify()
   const { t } = useTranslation('leads')
   const crumbs = useSectionCrumbs()
   const [params] = useSearchParams()
@@ -237,7 +238,7 @@ export function LeadNewPage() {
     onSuccess: async (lead) => {
       await queryClient.invalidateQueries({ queryKey: ['leads'] })
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(t('toasts.created'))
+      notify.success(t('toasts.created'))
       await navigate(`/leads/${lead.id}`)
     },
   })
@@ -263,6 +264,7 @@ export function LeadNewPage() {
 }
 
 export function LeadEditPage() {
+  const notify = useNotify()
   const { leadId = '' } = useParams()
   const { t } = useTranslation('leads')
   const crumbs = useSectionCrumbs()
@@ -285,7 +287,7 @@ export function LeadEditPage() {
     onSuccess: async (updated) => {
       queryClient.setQueryData(['leads', leadId], updated)
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(t('toasts.saved'))
+      notify.success(t('toasts.saved'))
       await navigate(`/leads/${leadId}`)
     },
   })

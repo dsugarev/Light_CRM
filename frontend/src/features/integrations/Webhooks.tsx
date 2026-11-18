@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, call } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -15,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 
@@ -92,11 +91,11 @@ function SubscriptionItem({
   const { t } = useTranslation('integrations')
   const locale = useLocale()
   const navigate = useNavigate()
-  const errorText = useErrorText()
+  const notify = useNotify()
   const refresh = useRefresh(s.client_id)
   const path = { params: { path: { subscription_id: s.id } } }
   const onError = (error: Error) => {
-    toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+    notify.error(error)
   }
   const toggle = useMutation({
     mutationFn: () =>
@@ -112,7 +111,7 @@ function SubscriptionItem({
   const test = useMutation({
     mutationFn: () => call(api.POST('/api/v1/webhook-subscriptions/{subscription_id}/test', path)),
     onSuccess: async (delivery) => {
-      toast.success(t('webhooks.testQueued'))
+      notify.success(t('webhooks.testQueued'))
       await navigate(`/admin/integrations/deliveries/${delivery.id}`)
     },
     onError,
@@ -129,7 +128,7 @@ function SubscriptionItem({
   const remove = useMutation({
     mutationFn: () => call(api.DELETE('/api/v1/webhook-subscriptions/{subscription_id}', path)),
     onSuccess: async () => {
-      toast.success(t('webhooks.removed'))
+      notify.success(t('webhooks.removed'))
       await refresh()
     },
     onError,
@@ -225,6 +224,7 @@ function NewSubscription({
   clientId: string
   onSecret: (secret: string) => void
 }) {
+  const notify = useNotify()
   const { t } = useTranslation('integrations')
   const refresh = useRefresh(clientId)
   const [url, setUrl] = useState('')
@@ -241,7 +241,7 @@ function NewSubscription({
       onSecret(created.secret)
       setUrl('')
       setEvents([])
-      toast.success(t('webhooks.created'))
+      notify.success(t('webhooks.created'))
       await refresh()
     },
   })

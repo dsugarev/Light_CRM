@@ -1,9 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router'
-import { toast } from 'sonner'
 
-import { api, ApiError, call } from '@/api/client'
+import { api, call } from '@/api/client'
 import { EmptyState } from '@/components/EmptyState'
 import { ErrorState } from '@/components/ErrorState'
 import { FormField } from '@/components/FormField'
@@ -22,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 
@@ -217,7 +216,7 @@ export function DeliveryPage() {
   const { t } = useTranslation('integrations')
   const crumbs = useSectionCrumbs()
   const locale = useLocale()
-  const errorText = useErrorText()
+  const notify = useNotify()
   const queryClient = useQueryClient()
   const delivery = useQuery({
     queryKey: ['webhook-deliveries', deliveryId],
@@ -239,12 +238,12 @@ export function DeliveryPage() {
         }),
       ),
     onSuccess: async () => {
-      toast.success(t('deliveries.redelivered'))
+      notify.success(t('deliveries.redelivered'))
       await queryClient.invalidateQueries({ queryKey: ['webhook-deliveries'] })
       await queryClient.invalidateQueries({ queryKey: ['integration-clients'] })
     },
     onError: (error) => {
-      toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+      notify.error(error)
     },
   })
   if (delivery.isError)

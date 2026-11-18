@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router'
 
 import { api, asPage, call, type Schemas } from '@/api/client'
+import { useNotify } from '@/lib/notify'
 
 export type RecordContext = Schemas['RecordContext']
 export type Conversation = Schemas['ConversationOut']
@@ -47,6 +48,10 @@ export function useConversation(conversationId: string | null) {
 
 export function useAssistantMutations() {
   const queryClient = useQueryClient()
+  const notify = useNotify()
+  const onError = (error: Error) => {
+    notify.error(error)
+  }
   const refresh = () => queryClient.invalidateQueries({ queryKey: ASSISTANT_KEY })
   return {
     create: useMutation({
@@ -62,6 +67,7 @@ export function useAssistantMutations() {
           }),
         ),
       onSuccess: refresh,
+      onError,
     }),
     remove: useMutation({
       mutationFn: (id: string) =>
@@ -71,6 +77,7 @@ export function useAssistantMutations() {
           }),
         ),
       onSuccess: refresh,
+      onError,
     }),
     stop: useMutation({
       mutationFn: ({ conversationId, messageId }: { conversationId: string; messageId: string }) =>
@@ -79,6 +86,7 @@ export function useAssistantMutations() {
             params: { path: { conversation_id: conversationId, message_id: messageId } },
           }),
         ),
+      onError,
     }),
     saveAsNote: useMutation({
       mutationFn: ({ messageId, body }: { messageId: string; body: Schemas['SaveAsNote'] }) =>

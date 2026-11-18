@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { api, ApiError, call } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -13,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { useMe } from '@/features/auth/useMe'
 import { referenceName, useReferenceList } from '@/features/reference/useReferenceList'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 import { useLocale } from '@/lib/useLocale'
 
 type Resource = 'organizations' | 'contacts' | 'leads' | 'opportunities'
@@ -25,7 +24,7 @@ export function ExternalReferences({ resource, id }: { resource: Resource; id: s
   const { data: me } = useMe()
   const isAdmin = me?.role === 'admin'
   const queryClient = useQueryClient()
-  const errorText = useErrorText()
+  const notify = useNotify()
   const systems = useReferenceList('external-systems')
   const [system, setSystem] = useState('')
   const [externalId, setExternalId] = useState('')
@@ -53,7 +52,7 @@ export function ExternalReferences({ resource, id }: { resource: Resource; id: s
       setExternalId('')
       setUrl('')
       await refresh()
-      toast.success(t('references.saved'))
+      notify.success(t('references.saved'))
     },
   })
   const remove = useMutation({
@@ -65,10 +64,10 @@ export function ExternalReferences({ resource, id }: { resource: Resource; id: s
       ),
     onSuccess: async () => {
       await refresh()
-      toast.success(t('references.removed'))
+      notify.success(t('references.removed'))
     },
     onError: (error) => {
-      toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+      notify.error(error)
     },
   })
   const items = references.data ?? []

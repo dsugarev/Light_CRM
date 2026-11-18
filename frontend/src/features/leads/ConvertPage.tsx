@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, ApiError, call, type Schemas } from '@/api/client'
 import { ErrorState } from '@/components/ErrorState'
@@ -18,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { stageName } from '@/features/opportunities/opportunityValues'
 import { usePipeline } from '@/features/opportunities/usePipeline'
 import { useLocale } from '@/lib/useLocale'
+import { useNotify } from '@/lib/notify'
 
 type Preview = Schemas['ConversionPreview']
 type Match = Schemas['Match']
@@ -92,6 +92,7 @@ function defaultChoice(linked: { id: string } | null, matches: Match[], fallback
 }
 
 function ConvertForm({ lead, preview }: { lead: Schemas['LeadOut']; preview: Preview }) {
+  const notify = useNotify()
   const { t } = useTranslation('leads')
   const crumbs = useSectionCrumbs()
   const locale = useLocale()
@@ -165,7 +166,7 @@ function ConvertForm({ lead, preview }: { lead: Schemas['LeadOut']; preview: Pre
       await queryClient.invalidateQueries({ queryKey: ['leads'] })
       await queryClient.invalidateQueries({ queryKey: ['opportunities'] })
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(t('convert.done'))
+      notify.success(t('convert.done'))
       await navigate(`/opportunities/${result.opportunity.id}`)
     },
     onError: (error) => {

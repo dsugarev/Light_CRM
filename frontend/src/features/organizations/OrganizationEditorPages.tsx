@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router'
-import { toast } from 'sonner'
 
 import { api, call, type Schemas } from '@/api/client'
 import { ErrorState } from '@/components/ErrorState'
@@ -9,19 +8,19 @@ import { Loading } from '@/components/Loading'
 import { PageHeader } from '@/components/PageHeader'
 import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Card, CardContent } from '@/components/ui/card'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 
 import { OrganizationForm } from './OrganizationForm'
 import { organizationPayload, type OrganizationValues } from './organizationValues'
 
 function useAfterSave() {
+  const notify = useNotify()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const errorText = useErrorText()
   return async (org: Schemas['OrganizationOut'], message: string) => {
     await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-    toast.success(message)
-    for (const warning of org.warnings) toast.warning(errorText(warning.code))
+    notify.success(message)
+    for (const warning of org.warnings) notify.warning(warning.code)
     await navigate(`/organizations/${org.id}`)
   }
 }

@@ -14,16 +14,15 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { toast } from 'sonner'
 
-import { api, ApiError, call } from '@/api/client'
+import { api, call } from '@/api/client'
 import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { buttonVariants } from '@/components/ui/button'
-import { useErrorText } from '@/lib/errors'
+import { useNotify } from '@/lib/notify'
 import { formatDay, formatMoney, formatNumber } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useListParams } from '@/lib/useListParams'
@@ -51,7 +50,7 @@ export function BoardPage() {
   const { t } = useTranslation('opportunities')
   const locale = useLocale()
   const can = useCan()
-  const errorText = useErrorText()
+  const notify = useNotify()
   const queryClient = useQueryClient()
   const list = useListParams({ sort: '', filters: ['owner_id'] as const })
   const [losing, setLosing] = useState<BoardCard | null>(null)
@@ -87,7 +86,7 @@ export function BoardPage() {
     onSuccess: async (updated) => {
       await queryClient.invalidateQueries({ queryKey: ['opportunities'] })
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      toast.success(
+      notify.success(
         updated.stage.stage_type === 'won'
           ? t('toasts.won')
           : t('toasts.stageChanged', { stage: stageName(updated.stage, locale) }),
@@ -95,7 +94,7 @@ export function BoardPage() {
     },
     onError: async (error) => {
       await queryClient.invalidateQueries({ queryKey: ['opportunities', 'board'] })
-      toast.error(errorText(error instanceof ApiError ? error.code : undefined))
+      notify.error(error)
     },
   })
   const sensors = useSensors(

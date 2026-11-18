@@ -23,7 +23,10 @@
     "ip": "IP address",
     "current": "This session",
     "revoke": "Sign out",
-    "unknownDevice": "Unknown browser"
+    "unknownDevice": "Unknown browser",
+    "revoked": "That session is signed out.",
+    "revokeTitle": "Sign out this session?",
+    "revokeDescription": "The browser using that session will be signed out and has to sign in again."
   },
   "mfa": {
     "title": "Two-factor sign-in",
