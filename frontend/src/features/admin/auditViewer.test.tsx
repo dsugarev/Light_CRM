@@ -154,3 +154,42 @@ describe('UX-10 diff of a created record', () => {
     expect(city).not.toHaveAttribute('data-changed')
   })
 })
+
+describe('FN-07 audit log export', () => {
+  it('FN-07 exports the log with the current filters and without paging', async () => {
+    auditApi()
+    let url = ''
+    server.use(
+      http.get('*/api/v1/audit-log/export', ({ request }) => {
+        url = request.url
+        return new HttpResponse('﻿time\r\n', {
+          headers: {
+            'Content-Type': 'text/csv; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="audit-log.csv"',
+          },
+        })
+      }),
+    )
+    const created = vi.fn(() => 'blob:audit')
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() }))
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    await renderApp(
+      `/admin/audit-log?actor_id=${USER.id}&entity_type=lead&action=lead.updated&from=2026-11-01&to=2026-11-17&page=3`,
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Export CSV' }))
+    await waitFor(() => {
+      expect(click).toHaveBeenCalled()
+    })
+    const params = new URL(url).searchParams
+    expect(params.get('actor_id')).toBe(USER.id)
+    expect(params.get('entity_type')).toBe('lead')
+    expect(params.get('action')).toBe('lead.updated')
+    // Sofia days as UTC instants, as for the list.
+    expect(params.get('occurred_at_from')).toBe('2026-10-31T22:00:00.000Z')
+    expect(params.get('occurred_at_to')).toBe('2026-11-17T21:59:59.000Z')
+    expect(params.get('format')).toBe('csv')
+    expect(params.has('page')).toBe(false)
+    expect(created).toHaveBeenCalled()
+    click.mockRestore()
+  })
+})

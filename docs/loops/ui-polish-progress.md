@@ -349,3 +349,9 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - Tested already: `FR-I18N-01 saves the language on the profile when signed in`, `FR-I18N-01 follows the language stored on the profile`.
 - **Added:** `FN-06 signing in on another device applies the language saved on the profile` (`src/app/app.test.tsx`): a browser last used in English signs in as a user whose profile says Bulgarian; the UI and `<html lang>` switch to Bulgarian, and the device remembers it. No code change was needed.
 - **Gate:** lint, prettier, typecheck, Vitest 246/246, i18n 1196 keys; Playwright Chromium 46/46; backend pytest 1304 passed (ruff, mypy, import-linter unchanged).
+
+## FN-07 — 2026-11-18 20:40
+
+- **Found: already built (Phase 5a).** The audit log header has the shared `ExportMenu` (XLSX, CSV) calling `GET /audit-log/export` with the same `filterQuery` as the list. Since UX-10 that includes the user, record type, action and the Sofia-day date range. It had no test.
+- **Added:** `FN-07 exports the log with the current filters and without paging` (`src/features/admin/auditViewer.test.tsx`). From a filtered URL on page 3, the export request carries `actor_id`, `entity_type`, `action`, `occurred_at_from`/`to` as UTC instants of the Sofia days, and `format=csv`, and no `page`. The file is downloaded. No code change was needed.
+- **Gate:** lint, prettier, typecheck, Vitest 247/247; Playwright Chromium 46/46; backend pytest 1304 passed.
