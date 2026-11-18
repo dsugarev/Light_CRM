@@ -42,13 +42,15 @@ Mark each line ✅ accepted, ❌ not accepted (with a note), or — not checked.
 | 17 | Each of Conclusion, ERP and Billing completes its checklist in staging | FR-INT-01..12 | | |
 | 18 | The delivery log shows webhook attempts; a failed delivery can be redelivered; the banner warns about failures | FR-INT-08, 12 | | |
 
-## AI assistant (only after open question 1 is answered and credits are in place)
+## AI assistant (only after open question 1 is answered)
+
+OpenRouter credits are available since 2026-11-18: the key in `.env` is funded and calls are served by Cerebras. Switching the assistant on (`AI_ENABLED=true`) waits only for the answer to open question 1.
 
 | # | Check | Req. | Result | Note |
 |---|---|---|---|---|
 | 19 | Questions in Bulgarian and English about the team's own pipeline get correct answers with links | FR-AI-02, 06 | | |
 | 20 | On an opportunity, "Draft a follow-up email" gives a usable draft; "Save as note" stores the edited text | FR-AI-03, 04 | | |
-| 21 | The live evaluation (`docs/assistant-eval.md`) passes with the production model | FR-AI-02 | Developer run 2026-11-18: 20/20 | |
+| 21 | The live evaluation (`docs/assistant-eval.md`) passes with the production model | FR-AI-02 | ✅ 20/20 on 2026-11-18 (funded account, Cerebras) | Rerun after any prompt, tool or model change |
 
 ## Administration, privacy and operations
 
@@ -59,6 +61,21 @@ Mark each line ✅ accepted, ❌ not accepted (with a note), or — not checked.
 | 24 | Nightly backups appear in the backup directory; the restore drill is repeated on the production server | NFR-07 | | |
 | 25 | Pages respond quickly with real data volumes (lists and search under half a second) | NFR-01 | | |
 | 26 | The open items in `docs/security/asvs-l1.md` are decided | NFR-04 | | |
+
+## Open questions (requirements section 8)
+
+Updated as the owner answers them. Each answer is also recorded in `docs/01-requirements.md`.
+
+| # | Question | Status | Answer / decision | Affects |
+|---|---|---|---|---|
+| 1 | LLM data flow: DPO or security sign-off and a data-processing agreement for sending CRM content to OpenRouter and Cerebras | Open | | Checks 19–21; `AI_ENABLED` |
+| 2 | Sample copies of the current Excel trackers for the import templates | Open | | Check 16 |
+| 3 | Default pipeline stages and probabilities | Open | | Checks 11–13 |
+| 4 | Internal SMTP relay for password and reminder emails | Open | | Checks 1–2; ASVS 2.2.3, 2.5.5 |
+| 5 | Where nightly backups are stored, and who owns restore | Open | | Check 24 |
+| 6 | Record visibility: everyone sees everything (A1), or restricted | Open | | Check 5 |
+| 7 | Data flows for Conclusion, ERP and Billing (purpose, records, identifiers, webhooks, contacts) | Open | | Checks 17–18 |
+| 8 | Company policy requiring OAuth 2.0 or mutual TLS instead of API keys | Open | | Checks 17–18 |
 
 ## Sign-off
 
