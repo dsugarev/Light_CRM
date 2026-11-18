@@ -21,6 +21,8 @@ export function UnsavedChangesGuard({ when }: { when: boolean }) {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       when &&
+      // A lost session (FN-04) goes to sign-in regardless: the changes could not be saved.
+      nextLocation.pathname !== '/sign-in' &&
       (currentLocation.pathname !== nextLocation.pathname ||
         currentLocation.search !== nextLocation.search),
   )

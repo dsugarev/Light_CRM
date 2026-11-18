@@ -17,15 +17,8 @@ if (!rootElement) throw new Error('Missing #root element')
 await initI18n(detectLocale())
 
 const router = createAppRouter()
-// A 401 anywhere means the session ended: go to sign-in and come back afterwards.
-const queryClient = createQueryClient(() => {
-  const { pathname, search } = router.state.location
-  if (pathname !== '/sign-in') {
-    void router.navigate(`/sign-in?next=${encodeURIComponent(pathname + search)}`, {
-      replace: true,
-    })
-  }
-})
+// A 401 ends the session: RequireAuth sends the user to sign-in and back (FN-04).
+const queryClient = createQueryClient()
 
 createRoot(rootElement).render(
   <StrictMode>

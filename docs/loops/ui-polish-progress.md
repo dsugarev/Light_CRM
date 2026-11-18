@@ -312,3 +312,20 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   The UX-08 unlock test now confirms first.
 - **Looked at:** the confirmation and the link sheet, en/bg at 1440 and 768 px; axe on both: no violations.
 - **Gate:** lint, prettier, typecheck, Vitest 241/241, i18n 1195 keys; Playwright Chromium 45/45 + 2 screenshot specs; visual 4/4; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
+
+## FN-04 — 2026-11-18 20:15
+
+- **Found:** a 401 already cleared the user and sent them to `/sign-in?next=…` (handler in `main.tsx`), but with no message. When it raced with `RequireAuth`'s own redirect, only one of the two survived.
+- **What changed:**
+  - **Single redirect:** `createQueryClient` no longer navigates. On a 401 it records under `SESSION_EXPIRED_KEY` whether someone *was* signed in (a first visit does not count), then clears the user. `RequireAuth`, now the only redirect, builds the target with the new `signInAfterUnauthorized`: `next=` keeps the page and query, and `expired=1` is added for a lost session.
+  - **Message:** the sign-in page shows "Your session has ended. Sign in again to continue where you were." (en/bg) for `expired=1`. After signing in, the existing `next` handling returns the user to the page.
+  - **Unsaved changes:** the UX-11 guard no longer blocks navigation to `/sign-in`, since unsaved changes cannot be saved without a session.
+- **Files:** `frontend/src/app/queryClient.ts`, `src/main.tsx`, `src/test/render.tsx`, `src/features/auth/{sessionExpiry.ts,RequireAuth.tsx,SignInPage.tsx}`, `src/components/UnsavedChangesGuard.tsx`, i18n.
+- **Tests:**
+  - `src/features/auth/sessionExpiry.test.tsx`, 4 `FN-04 …` cases:
+    - a lost session goes to sign-in with the message and `next`, and signing in returns to `/leads?status=new`;
+    - a first visit gets no message;
+    - unsaved changes do not hold the redirect back;
+    - the target URL in each case.
+  - **E2E** `e2e/session.spec.ts`: a rep signs in; an Admin (another browser context) signs the rep out everywhere; the rep's next navigation shows the message at `/sign-in?next=%2Fleads&expired=1`; signing in returns to `/leads`.
+- **Gate:** lint, prettier, typecheck, Vitest 245/245, i18n 1196 keys; Playwright Chromium 46/46; visual 4/4; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.

@@ -153,6 +153,10 @@ export function SignInPage() {
           })(event)
         }}
       >
+        {params.get('expired') === '1' && !error ? (
+          // FN-04: the session ended (timeout, sign-out elsewhere, deactivation).
+          <FormMessage success={t('signIn.expired')} />
+        ) : null}
         {params.get('password') === 'set' ? (
           <FormMessage success={t('signIn.passwordSet')} />
         ) : null}
