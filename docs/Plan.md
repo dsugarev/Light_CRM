@@ -2090,6 +2090,7 @@ img: () => null,
 | `pnpm audit --prod` with `react-markdown`, `remark-gfm` | no known vulnerabilities |
 | Backend: ruff, mypy, import-linter, pytest | 1249 passed, 95.6% coverage; clean |
 | Playwright Chromium against the rebuilt stack with `docker-compose.e2e.yml` | 28/28, including the assistant journey in en and bg (real LiteLLM client, streaming through Caddy) |
+| GitHub Actions (PR #15, run 44241332019; PR #16, run 44244163565) | all four jobs green, including Playwright on Chromium and Firefox |
 
 ### Definition of done (Phase 7)
 
@@ -2097,7 +2098,7 @@ img: () => null,
 |---|---|---|
 | 1 | AC tests with requirement IDs | FR-AI-01..08 in API tests, Vitest and the E2E journey |
 | 2 | `docker compose up` works | Done; with and without `docker-compose.e2e.yml` |
-| 3 | Lint, types, suites green | Done locally; CI on the PRs |
+| 3 | Lint, types, suites green | Done locally and in CI (PR #15, PR #16) |
 | 4 | Permission checks + matrix | Done (7a) |
 | 5 | UI text en + bg | Done |
 | 6 | Additive migrations + tests | Done (0010) |

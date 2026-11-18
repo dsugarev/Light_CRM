@@ -725,6 +725,7 @@ NFR-01 measurement (milliseconds):
 | 2026-11-18 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (1,012 keys), build, `pnpm audit --prod` | 134 passed; clean |
 | 2026-11-18 | Developer Mac | ruff, mypy, import-linter, pytest | 1249 passed, 95.6% coverage; clean |
 | 2026-11-18 | Docker Desktop, stack rebuilt with `docker-compose.e2e.yml` and raised per-IP limits (as in CI) | Playwright Chromium, assistant spec, then full suite | 2/2, then 28/28 |
+| 2026-11-18 | GitHub Actions, PR #16 run 44244163565 | All four jobs | Green; Playwright on Chromium and Firefox |
 
 ### Defects found by testing and fixed
 
