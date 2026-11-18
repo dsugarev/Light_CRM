@@ -2022,3 +2022,99 @@ The record in view is inserted before the question as a `get_record` call and it
 1. The live evaluation needs OpenRouter credits (the account returns `402`). Then run `scripts/assistant_eval.py` and record the result in `docs/assistant-eval.md`.
 2. Requirements open question 1 (LLM data flow): `AI_ENABLED` stays `false` by default until the owner confirms.
 3. 7b: the chat drawer, Vitest and the Playwright journey with the demo model.
+
+## Phase 7b — AI assistant chat drawer, journeys, closing Phase 7
+
+Requirements: FR-AI-01 (drawer on every page, streaming, history, rename, delete, stop), FR-AI-02 AC2 (links to cited records), FR-AI-03 (record in view offered), FR-AI-04 (copy, save as note on an explicit click), FR-AI-06 (UI in both languages; answers follow the question), FR-AI-07 (hidden when off; provider failure in the chat), FR-AI-08 (remaining budget, refusals). Owner decision used: `react-markdown` 10.1.0 + `remark-gfm` 4.0.1.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 7b.1 | `react-markdown`, `remark-gfm` (pinned); architecture stack table | Done |
+| 7b.2 | SSE client (`fetch` + parser) and TanStack Query hooks | Done |
+| 7b.3 | Drawer: launcher in the header, chat with streaming, tool progress, stop, record context from the URL, history (open, rename, delete), copy, save as note, remaining budget, errors | Done |
+| 7b.4 | Markdown rendering without raw HTML; only in-app record links | Done |
+| 7b.5 | i18n namespace `assistant` (en, bg) and error texts | Done (1,012 keys) |
+| 7b.6 | Vitest suite; E2E journey 7 in both languages against the composed stack with the scripted provider (`docker-compose.e2e.yml`, CI) | Done |
+| 7b.7 | Backend refinements found by the journeys (below) | Done |
+| 7b.8 | Documentation, gate, PR | Done |
+
+### Frontend
+
+#### Reading the stream (`features/assistant/stream.ts`)
+
+```ts
+const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+let buffer = ''
+for (;;) {
+  const { value, done } = await reader.read()
+  if (done) break
+  buffer += value
+  const parsed = parseEvents(buffer)          // complete "event:/data:" blocks; the rest waits
+  buffer = parsed.rest
+  parsed.events.forEach(onEvent)              // message_start, tool_call, delta, record_ref, message_end, error
+}
+```
+
+A refusal before the stream (`429` budget or rate limit, `422`) is an `ApiError` like any other call; everything else uses the generated client and TanStack Query.
+
+#### The drawer (`AssistantLauncher`, `AssistantPanel`, `AssistantMessage`)
+
+- The header button appears only when `GET /assistant/status` says `enabled`; the drawer is a right-hand `complementary` region (Escape closes it), not a modal, so the page stays usable.
+- The record in view comes from the URL (`/leads/:id`, `/opportunities/:id`, `/organizations/:id`): "Ask about this opportunity" is offered and checked; it becomes the new conversation's context, or the message's context in an existing conversation.
+- While an answer streams, the stored messages are shown only up to the question (the server already holds the question and the unfinished answer), then the conversation is refetched.
+- Answers render through `react-markdown` with `remark-gfm` and `skipHtml`; images are dropped and only links matching `/(leads|opportunities|organizations|contacts)/<uuid>` become links, everything else stays text:
+
+```tsx
+a: ({ href, children }) =>
+  href && isRecordLink(href) ? <Link to={href}>{children}</Link> : <span>{children}</span>,
+img: () => null,
+```
+
+- Each finished answer has Copy and, for people who may create records, "Save as note": an editable form with the target record (the record in view or a cited one), posting `save-as-note`; the record's timeline refreshes.
+
+### Backend refinements (found by the journeys)
+
+- **Usage of a stopped answer.** An answer cut off by Stop or by the browser leaving never receives the provider's usage; its tokens were recorded as 0. The open model call is now estimated (prompt and text size, four characters per token) for stopped answers; failed calls are still not charged.
+- **Log noise.** LiteLLM's secret-redaction filter stamps every log record with `litellm_redacted`; the JSON formatter now leaves it out.
+- **Scripted provider.** `fake_server` ignores clients that stop reading; an empty `LLM_API_BASE` (compose default) means OpenRouter.
+- **End-to-end stack.** `docker-compose.e2e.yml` adds the `fake-llm` service and points the backend at it (`AI_ENABLED=true`, `LLM_API_BASE`); CI's E2E job uses it through `COMPOSE_FILE`.
+
+### Verification (2026-11-18)
+
+| Check | Result |
+|---|---|
+| ESLint, Prettier, tsc, i18n (1,012 keys), production build | clean |
+| Vitest | 134 passed (12 new) |
+| `pnpm audit --prod` with `react-markdown`, `remark-gfm` | no known vulnerabilities |
+| Backend: ruff, mypy, import-linter, pytest | 1249 passed, 95.6% coverage; clean |
+| Playwright Chromium against the rebuilt stack with `docker-compose.e2e.yml` | 28/28, including the assistant journey in en and bg (real LiteLLM client, streaming through Caddy) |
+| GitHub Actions (PR #15, run 44241332019; PR #16, run 44244163565) | all four jobs green, including Playwright on Chromium and Firefox |
+
+### Definition of done (Phase 7)
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | FR-AI-01..08 in API tests, Vitest and the E2E journey |
+| 2 | `docker compose up` works | Done; with and without `docker-compose.e2e.yml` |
+| 3 | Lint, types, suites green | Done locally and in CI (PR #15, PR #16) |
+| 4 | Permission checks + matrix | Done (7a) |
+| 5 | UI text en + bg | Done |
+| 6 | Additive migrations + tests | Done (0010) |
+| 7 | Audit | Done (7a) |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.11 |
+| Exit | Assistant answers from CRM data through read-only tools with the user's permissions, streamed, with links; switchable; limited | Done with scripted models; the live evaluation waits for OpenRouter credits |
+
+### Decisions and deviations
+
+- **The E2E stack uses a scripted provider server, not `LLM_FAKE`.** The approved plan was a fake selected by a setting refused in production; the E2E stack runs with `ENV=production`, so it reaches `app.llm.fake_server` through `LLM_API_BASE` instead, which also exercises the real LiteLLM client and streaming through Caddy (ADR 0026). `LLM_FAKE` remains for development.
+- **Bulgarian wording.** The assistant uses the application's term „потенциален клиент“ for lead (the first draft said „лийд“; the evaluation question was changed to match).
+- **Context from the URL**, not from each record page: the drawer offers the record whose page is open, so record pages needed no changes.
+
+### Open items
+
+1. Owner review of Phase 7 (PR #15 for 7a; the 7b PR).
+2. Fund the OpenRouter account, then run `scripts/assistant_eval.py` and record the results.
+3. Requirements question 1 (LLM data flow) before `AI_ENABLED=true` in production; the backend then needs outbound HTTPS to `openrouter.ai`.

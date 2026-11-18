@@ -2,6 +2,7 @@ import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
 import bgActivities from './bg/activities.json'
+import bgAssistant from './bg/assistant.json'
 import bgAdmin from './bg/admin.json'
 import bgAuth from './bg/auth.json'
 import bgCommon from './bg/common.json'
@@ -14,6 +15,7 @@ import bgParty from './bg/party.json'
 import bgProfile from './bg/profile.json'
 import bgReports from './bg/reports.json'
 import enActivities from './en/activities.json'
+import enAssistant from './en/assistant.json'
 import enAdmin from './en/admin.json'
 import enAuth from './en/auth.json'
 import enCommon from './en/common.json'
@@ -47,6 +49,7 @@ export const resources = {
     reports: enReports,
     imports: enImports,
     integrations: enIntegrations,
+    assistant: enAssistant,
   },
   bg: {
     common: bgCommon,
@@ -61,6 +64,7 @@ export const resources = {
     reports: bgReports,
     imports: bgImports,
     integrations: bgIntegrations,
+    assistant: bgAssistant,
   },
 } as const
 

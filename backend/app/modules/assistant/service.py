@@ -436,6 +436,20 @@ class _Turn:
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     status: Literal["complete", "stopped", "failed"] = "complete"
     error_code: str | None = None
+    # The model call in progress. A stopped answer (Stop button, browser gone) never
+    # receives the provider's usage, so its tokens are estimated from its size. A failed
+    # call is not charged to the user's budget.
+    open_round_chars: int | None = None
+    open_round_text: str = ""
+
+    def estimate_open_round(self) -> None:
+        if self.open_round_chars is None:
+            return
+        self.prompt_tokens += self.open_round_chars // 4 + 1
+        self.completion_tokens += (
+            _estimate_tokens(self.open_round_text) if self.open_round_text else 0
+        )
+        self.open_round_chars, self.open_round_text = None, ""
 
 
 async def stream_answer(
@@ -506,9 +520,11 @@ async def _answer(
         offer_tools = result.rounds < MAX_TOOL_ROUNDS
         calls: tuple[ToolCall, ...] = ()
         round_text = ""
+        result.open_round_chars = len(json.dumps(prompt, ensure_ascii=False, default=str))
         async for item in llm.stream(prompt, schemas if offer_tools else None):
             if isinstance(item, TextDelta):
                 round_text += item.text
+                result.open_round_text = round_text
                 result.text += item.text
                 yield _sse("delta", {"text": item.text})
                 if time.monotonic() - checked_at >= STOP_CHECK_SECONDS:
@@ -519,6 +535,7 @@ async def _answer(
             elif isinstance(item, Completed):
                 result.prompt_tokens += item.usage.prompt_tokens
                 result.completion_tokens += item.usage.completion_tokens
+                result.open_round_chars, result.open_round_text = None, ""
                 calls = item.tool_calls
         if not calls or not offer_tools:
             return
@@ -569,6 +586,8 @@ async def _save(
     refs: list[dict[str, Any]],
 ) -> int:
     """Store the answer and the usage row; returns the tokens this answer used."""
+    if result.status == "stopped":
+        result.estimate_open_round()
     tokens = result.prompt_tokens + result.completion_tokens
     async with ctx.session_factory() as session:
         message = await session.get(ChatMessage, turn.message_id)

@@ -633,6 +633,8 @@ async def test_FR_AI_07_provider_failure_is_a_chat_error_and_the_crm_keeps_worki
     detail = (await client.get(f"/api/v1/assistant/conversations/{chat['id']}")).json()
     assert detail["messages"][1]["status"] == "failed"
     assert detail["messages"][1]["error_code"] == "assistant.provider_unavailable"
+    status = (await client.get("/api/v1/assistant/status")).json()
+    assert status["used_today"] == 0  # a failed call is not charged
     assert (await client.get("/api/v1/organizations")).status_code == 200
 
 
@@ -728,6 +730,12 @@ async def test_FR_AI_01_stop_ends_the_answer_and_keeps_what_was_written(
         "Partial answer ",
         "stopped",
     )
+    # The provider's usage never arrived for the cut-off call: tokens are estimated.
+    async with test_app.sessions() as session:
+        [usage] = (await session.execute(select(AssistantUsage))).scalars()
+    assert usage.outcome == "stopped"
+    assert usage.prompt_tokens > 10
+    assert usage.completion_tokens == len("Partial answer ") // 4 + 1
 
 
 async def test_FR_AI_01_stop_endpoint_flags_a_running_answer(

@@ -28,7 +28,7 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | 13–14 Reports, exports | 5 | Built (Phase 5a) |
 | 15 Data import | 5 | Built (Phase 5b) |
 | 16 Audit log | 1, 5 | Built; `/audit-log/export` since Phase 5a |
-| 17 AI assistant | 7 | Built (Phase 7a): all nine endpoints, the eight read-only tools, streaming, limits and token accounting; off by default (`AI_ENABLED=false`) |
+| 17 AI assistant | 7 | Built: all nine endpoints, the eight read-only tools, streaming, limits and token accounting (Phase 7a); the chat drawer (Phase 7b); off by default (`AI_ENABLED=false`) |
 | 18 Rate limits | 1, 6 | Built for sign-in, password endpoints, per user and per integration client (Phase 6a); others with their features |
 | 19 Integration API | 6 | Built: API keys (19.2), scopes (19.3), external references and filters (19.4), idempotency (19.5) in Phase 6a; webhooks with the outbox, signing, retries, suspension and the delivery log (19.6, 19.7), the integration guide and collection (19.10) in Phase 6b; the initial profiles as a CLI command (19.9) |
 

@@ -94,12 +94,15 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
-        for event in events(str(body.get("model") or "demo"), items):
-            self.wfile.write(f"data: {json.dumps(event, ensure_ascii=False)}\n\n".encode())
+        try:
+            for event in events(str(body.get("model") or "demo"), items):
+                self.wfile.write(f"data: {json.dumps(event, ensure_ascii=False)}\n\n".encode())
+                self.wfile.flush()
+                time.sleep(CHUNK_DELAY_SECONDS)
+            self.wfile.write(b"data: [DONE]\n\n")
             self.wfile.flush()
-            time.sleep(CHUNK_DELAY_SECONDS)
-        self.wfile.write(b"data: [DONE]\n\n")
-        self.wfile.flush()
+        except BrokenPipeError, ConnectionResetError:
+            return  # the client stopped reading (a stopped answer); nothing to clean up
 
     def _json(self, status: int, payload: dict[str, Any]) -> None:
         data = json.dumps(payload).encode()

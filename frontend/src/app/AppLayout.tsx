@@ -6,6 +6,7 @@ import { Toaster } from 'sonner'
 
 import { api, call } from '@/api/client'
 import { Button } from '@/components/ui/button'
+import { AssistantLauncher } from '@/features/assistant/AssistantLauncher'
 import { ME_QUERY_KEY, useMe } from '@/features/auth/useMe'
 import { useWebhookHealth } from '@/features/integrations/useWebhookHealth'
 import { WebhookAlert } from '@/features/integrations/WebhookAlert'
@@ -127,6 +128,7 @@ export function AppLayout() {
         </div>
         <div className="flex items-center gap-3">
           {me ? <HeaderSearch /> : null}
+          {me ? <AssistantLauncher /> : null}
           <LanguageSwitcher />
           {me ? (
             <>

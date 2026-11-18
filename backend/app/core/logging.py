@@ -18,7 +18,10 @@ client_ip_var: ContextVar[str | None] = ContextVar("client_ip", default=None)
 
 # Attributes every LogRecord has; anything else was passed through `extra=`.
 _STANDARD_ATTRS = frozenset(
-    logging.LogRecord("", 0, "", 0, "", None, None).__dict__.keys() | {"message", "asctime"}
+    logging.LogRecord("", 0, "", 0, "", None, None).__dict__.keys()
+    | {"message", "asctime"}
+    # LiteLLM's secret-redaction filter stamps every record it has checked.
+    | {"litellm_redacted"}
 )
 
 
