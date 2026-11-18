@@ -370,7 +370,11 @@ function DisqualifyDialog({ lead }: { lead: Lead }) {
         })
       }}
     >
-      <FormField label={t('disqualify.reason')} error={missing ? 'validation.required' : undefined}>
+      <FormField
+        label={t('disqualify.reason')}
+        required
+        error={missing ? 'validation.required' : undefined}
+      >
         {(control) => (
           <NativeSelect
             {...control}

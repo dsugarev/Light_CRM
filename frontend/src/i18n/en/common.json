@@ -104,5 +104,13 @@
   "table": {
     "actions": "Actions",
     "actionsFor": "Actions for {{name}}"
+  },
+  "form": {
+    "required": "(required)",
+    "requiredNote": "Fields marked * are required.",
+    "unsavedTitle": "Leave without saving?",
+    "unsavedText": "You have changes on this page that are not saved. If you leave, they are lost.",
+    "stay": "Stay on this page",
+    "leave": "Leave without saving"
   }
 }

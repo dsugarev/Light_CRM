@@ -97,7 +97,7 @@ export function SignInPage() {
             focusOnError
             error={codeError instanceof ApiError ? codeError.code : codeError ? 'unknown' : null}
           />
-          <FormField label={t('mfa.code')}>
+          <FormField label={t('mfa.code')} required>
             {(control) => (
               <Input
                 {...control}
@@ -166,12 +166,16 @@ export function SignInPage() {
             {t('signIn.lockedRemaining', { count: lockedMinutes })}
           </p>
         ) : null}
-        <FormField label={t('signIn.email')} error={form.formState.errors.email?.message}>
+        <FormField label={t('signIn.email')} required error={form.formState.errors.email?.message}>
           {(control) => (
             <Input {...control} type="email" autoComplete="username" {...form.register('email')} />
           )}
         </FormField>
-        <FormField label={t('signIn.password')} error={form.formState.errors.password?.message}>
+        <FormField
+          label={t('signIn.password')}
+          required
+          error={form.formState.errors.password?.message}
+        >
           {(control) => (
             <PasswordInput
               {...control}

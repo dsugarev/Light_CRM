@@ -356,18 +356,22 @@ function AddStage({
           <div className="sm:col-span-5">
             <FormMessage error={errors.root?.message} />
           </div>
-          <FormField label={t('stages.nameEn')} error={errors.name_en?.message}>
+          <FormField label={t('stages.nameEn')} required error={errors.name_en?.message}>
             {(control) => <Input {...control} {...form.register('name_en')} />}
           </FormField>
-          <FormField label={t('stages.nameBg')} error={errors.name_bg?.message}>
+          <FormField label={t('stages.nameBg')} required error={errors.name_bg?.message}>
             {(control) => <Input {...control} lang="bg" {...form.register('name_bg')} />}
           </FormField>
-          <FormField label={t('stages.probability')} error={errors.default_probability?.message}>
+          <FormField
+            label={t('stages.probability')}
+            required
+            error={errors.default_probability?.message}
+          >
             {(control) => (
               <Input {...control} inputMode="numeric" {...form.register('default_probability')} />
             )}
           </FormField>
-          <FormField label={t('stages.type')} error={errors.stage_type?.message}>
+          <FormField label={t('stages.type')} required error={errors.stage_type?.message}>
             {(control) => (
               <NativeSelect {...control} {...form.register('stage_type')}>
                 {STAGE_TYPES.map((type) => (

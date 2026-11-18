@@ -38,7 +38,11 @@ export function ForgotPasswordPage() {
           }}
         >
           <FormMessage error={request.error instanceof ApiError ? request.error.code : null} />
-          <FormField label={t('forgot.email')} error={form.formState.errors.email?.message}>
+          <FormField
+            label={t('forgot.email')}
+            required
+            error={form.formState.errors.email?.message}
+          >
             {(control) => (
               <Input
                 {...control}

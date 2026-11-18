@@ -133,7 +133,7 @@ export function MfaCard({ me }: { me: Me }) {
               </code>
             </p>
             <FormMessage error={errorCode(confirm.error)} />
-            <FormField label={t('mfa.code')}>
+            <FormField label={t('mfa.code')} required>
               {(control) => (
                 <Input
                   {...control}
@@ -175,7 +175,7 @@ export function MfaCard({ me }: { me: Me }) {
           >
             <p className="text-sm text-muted-foreground">{t('mfa.disableHint')}</p>
             <FormMessage error={errorCode(disable.error)} />
-            <FormField label={t('mfa.password')}>
+            <FormField label={t('mfa.password')} required>
               {(control) => (
                 <Input
                   {...control}

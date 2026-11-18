@@ -59,13 +59,17 @@ export function UserForm({ defaultValues, submitLabel, pending, onSubmit }: User
       }}
     >
       <FormMessage error={formError} />
-      <FormField label={t('userForm.email')} error={form.formState.errors.email?.message}>
+      <FormField label={t('userForm.email')} required error={form.formState.errors.email?.message}>
         {(control) => <Input {...control} type="email" {...form.register('email')} />}
       </FormField>
-      <FormField label={t('userForm.fullName')} error={form.formState.errors.full_name?.message}>
+      <FormField
+        label={t('userForm.fullName')}
+        required
+        error={form.formState.errors.full_name?.message}
+      >
         {(control) => <Input {...control} {...form.register('full_name')} />}
       </FormField>
-      <FormField label={t('userForm.role')} error={form.formState.errors.role?.message}>
+      <FormField label={t('userForm.role')} required error={form.formState.errors.role?.message}>
         {(control) => (
           <NativeSelect {...control} {...form.register('role')}>
             {HUMAN_ROLES.map((role) => (

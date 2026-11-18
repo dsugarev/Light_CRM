@@ -185,3 +185,25 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   `admin.test.tsx` now expects the value as diff text (it still asserts no HTML is rendered).
 - **Looked at:** the list and the drawer in en/bg at 1440 and 768 px; axe on both: no violations. Fixed after looking: empty fields flagged as changed on creation, and the action hint pushing the date fields out of line.
 - **Gate:** lint, prettier, typecheck, Vitest 212/212, i18n 1184 keys; Playwright Chromium 41/41 + 2 screenshot specs; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
+
+## UX-11 — 2026-11-18 17:35
+
+- **Found:** 26 of 28 forms already used `FormField` (label, translated inline error, hint, ids). The exceptions were the assistant's "save as note" form and the GDPR type-to-confirm field, which used hand-made `<label>`s. Checkbox and radio labels and the BANT grid's labelled inputs are a different pattern and stay as they are.
+- **What changed:**
+  - **Required marker:** `FormField` gained `required`. It adds a red `*` next to the label (outside the `<label>`, so the field's name does not change; hidden from screen readers; "(required)" as a tooltip) and sets `aria-required` on the control. Spacing is consistent (baseline-aligned, so required and optional labels in one row line up).
+  - **Which fields are marked:** exactly those the schemas or the server require, in every form:
+    - record forms (organization name; contact first and last name; lead title and company; opportunity name and organization);
+    - user, sign-in, two-factor, set/forgot password, profile details and password;
+    - settings, stages, list values, imports, integrations, webhooks, external IDs;
+    - lead disqualify reason, close-lost reason, activity subject and due date.
+  - **Unsaved changes:** new `components/UnsavedChangesGuard.tsx`. `useBlocker` shows **Leave without saving?** (Stay on this page / Leave without saving) on in-app navigation, and a `beforeunload` handler makes the browser ask on close or reload. It is used in the organization, contact, lead and opportunity forms, settings, both profile forms and the activity form. The condition is `isDirty && !isSubmitting && !isSubmitSuccessful`, so saving (which navigates) never asks.
+- **Files:** `frontend/src/components/{FormField,UnsavedChangesGuard}.tsx`, 20 feature forms, `src/i18n/{en,bg}/common.json` (`form.*`).
+- **Tests:** `src/components/formConventions.test.tsx`, 8 `UX-11 ...` cases:
+  - required marking (aria-required and aria-invalid, translated error as the description, marker hidden), optional fields unmarked;
+  - a scan that no feature imports the bare `Label`;
+  - a record form marks only its required fields;
+  - leaving a changed form: stay keeps the text; leave goes; an untouched form does not ask; `beforeunload` is cancelled.
+
+  The existing create-organization test (submit, then save anyway) shows saving does not trigger the guard.
+- **Looked at:** the new-lead form with markers and the leave dialog, en/bg at 1440 and 768 px; axe with the dialog open: no violations. Fixed after looking: required labels sat 3 px lower than the optional label beside them.
+- **Gate:** lint, prettier, typecheck, Vitest 220/220, i18n 1190 keys; Playwright Chromium 41/41 + 2 screenshot specs. After the final CSS-only alignment fix, one full run had 3 timeouts (reports exports and a sign-in) while the Docker VM was at 100% CPU and the load average reached 78; those specs passed alone (4/4). Backend ruff, mypy, import-linter 14/14, pytest 1304 passed.

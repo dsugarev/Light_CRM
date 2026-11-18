@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, ApiError, call, type Schemas } from '@/api/client'
+import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -77,16 +78,18 @@ export function PersonalData({ contact }: { contact: Schemas['ContactOut'] }) {
             }}
           >
             <p className="text-sm text-muted-foreground">{t('contact.gdpr.anonymizeHint')}</p>
-            <label className="flex flex-col gap-1 text-sm">
-              {t('contact.gdpr.typeToConfirm', { word: CONFIRM_WORD })}
-              <Input
-                value={typed}
-                autoComplete="off"
-                onChange={(event) => {
-                  setTyped(event.target.value)
-                }}
-              />
-            </label>
+            <FormField label={t('contact.gdpr.typeToConfirm', { word: CONFIRM_WORD })} required>
+              {(control) => (
+                <Input
+                  {...control}
+                  value={typed}
+                  autoComplete="off"
+                  onChange={(event) => {
+                    setTyped(event.target.value)
+                  }}
+                />
+              )}
+            </FormField>
             <Button
               type="submit"
               variant="destructive"

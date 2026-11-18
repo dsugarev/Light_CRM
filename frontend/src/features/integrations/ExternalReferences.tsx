@@ -122,7 +122,7 @@ export function ExternalReferences({ resource, id }: { resource: Resource; id: s
               save.mutate()
             }}
           >
-            <FormField label={t('references.system')}>
+            <FormField label={t('references.system')} required>
               {(control) => (
                 <NativeSelect
                   {...control}
@@ -142,6 +142,7 @@ export function ExternalReferences({ resource, id }: { resource: Resource; id: s
             </FormField>
             <FormField
               label={t('references.externalId')}
+              required
               error={saveError?.errors.find((e) => e.field === 'external_id')?.code}
             >
               {(control) => (

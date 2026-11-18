@@ -257,7 +257,12 @@ function NewSubscription({
       }}
     >
       <FormMessage error={error?.errors.length === 0 ? error.code : null} />
-      <FormField label={t('webhooks.url')} hint={t('webhooks.urlHint')} error={fieldError('url')}>
+      <FormField
+        label={t('webhooks.url')}
+        required
+        hint={t('webhooks.urlHint')}
+        error={fieldError('url')}
+      >
         {(control) => (
           <Input
             {...control}

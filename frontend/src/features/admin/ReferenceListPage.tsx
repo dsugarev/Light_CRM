@@ -263,15 +263,16 @@ function AddValue({
           </div>
           <FormField
             label={t('reference.code')}
+            required
             error={errors.code?.message}
             hint={t('reference.codeHint')}
           >
             {(control) => <Input {...control} {...form.register('code')} />}
           </FormField>
-          <FormField label={t('reference.nameEn')} error={errors.name_en?.message}>
+          <FormField label={t('reference.nameEn')} required error={errors.name_en?.message}>
             {(control) => <Input {...control} {...form.register('name_en')} />}
           </FormField>
-          <FormField label={t('reference.nameBg')} error={errors.name_bg?.message}>
+          <FormField label={t('reference.nameBg')} required error={errors.name_bg?.message}>
             {(control) => <Input {...control} lang="bg" {...form.register('name_bg')} />}
           </FormField>
           <Button type="submit" className="mt-6" disabled={add.isPending}>

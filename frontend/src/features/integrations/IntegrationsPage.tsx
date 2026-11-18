@@ -169,7 +169,7 @@ function NewClient() {
             }
           />
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={t('fields.name')} error={fieldError('name')}>
+            <FormField label={t('fields.name')} required error={fieldError('name')}>
               {(control) => (
                 <Input
                   {...control}
@@ -181,7 +181,7 @@ function NewClient() {
                 />
               )}
             </FormField>
-            <FormField label={t('fields.system')} error={fieldError('system')}>
+            <FormField label={t('fields.system')} required error={fieldError('system')}>
               {(control) => (
                 <NativeSelect
                   {...control}

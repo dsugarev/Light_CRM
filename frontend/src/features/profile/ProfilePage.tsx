@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard'
 import {
   Table,
   TableBody,
@@ -108,7 +109,11 @@ function DetailsCard({ me }: { me: Me }) {
             <dt className="text-muted-foreground">{t('details.role')}</dt>
             <dd>{tc(`roles.${me.role}`)}</dd>
           </dl>
-          <FormField label={t('details.fullName')} error={form.formState.errors.full_name?.message}>
+          <FormField
+            label={t('details.fullName')}
+            required
+            error={form.formState.errors.full_name?.message}
+          >
             {(control) => (
               <Input {...control} autoComplete="name" {...form.register('full_name')} />
             )}
@@ -127,6 +132,13 @@ function DetailsCard({ me }: { me: Me }) {
           <Button type="submit" className="self-start" disabled={save.isPending}>
             {save.isPending ? tc('actions.saving') : tc('actions.save')}
           </Button>
+          <UnsavedChangesGuard
+            when={
+              form.formState.isDirty &&
+              !form.formState.isSubmitting &&
+              !form.formState.isSubmitSuccessful
+            }
+          />
         </form>
       </CardContent>
     </Card>
@@ -190,6 +202,7 @@ function PasswordCard() {
           <FormMessage error={formError} success={change.isSuccess ? t('password.done') : null} />
           <FormField
             label={t('password.current')}
+            required
             error={form.formState.errors.current_password?.message}
           >
             {(control) => (
@@ -201,7 +214,11 @@ function PasswordCard() {
               />
             )}
           </FormField>
-          <FormField label={t('password.new')} error={form.formState.errors.new_password?.message}>
+          <FormField
+            label={t('password.new')}
+            required
+            error={form.formState.errors.new_password?.message}
+          >
             {(control) => (
               <Input
                 {...control}
@@ -211,7 +228,11 @@ function PasswordCard() {
               />
             )}
           </FormField>
-          <FormField label={t('password.confirm')} error={form.formState.errors.confirm?.message}>
+          <FormField
+            label={t('password.confirm')}
+            required
+            error={form.formState.errors.confirm?.message}
+          >
             {(control) => (
               <Input
                 {...control}
@@ -224,6 +245,13 @@ function PasswordCard() {
           <Button type="submit" className="self-start" disabled={change.isPending}>
             {t('password.submit')}
           </Button>
+          <UnsavedChangesGuard
+            when={
+              form.formState.isDirty &&
+              !form.formState.isSubmitting &&
+              !form.formState.isSubmitSuccessful
+            }
+          />
         </form>
       </CardContent>
     </Card>

@@ -62,6 +62,7 @@ export function CloseForm({ opportunity, outcome, onDone }: CloseFormProps) {
       {outcome === 'lost' ? (
         <FormField
           label={t('close.reason')}
+          required
           error={missing ? 'opportunity.loss_reason_required' : undefined}
         >
           {(control) => (

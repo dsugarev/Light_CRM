@@ -10,6 +10,7 @@ import { NativeSelect } from '@/components/NativeSelect'
 import { Textarea } from '@/components/Textarea'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard'
 import { OrganizationPicker } from '@/features/organizations/OrganizationPicker'
 import { applyServerErrors } from '@/lib/errors'
 
@@ -27,6 +28,9 @@ interface OpportunityFormProps {
   pending: boolean
   onSubmit: (values: OpportunityValues) => Promise<unknown>
 }
+
+// UX-11: the fields the schema requires, marked in the form.
+const REQUIRED = new Set<keyof OpportunityValues>(['name'])
 
 /** FR-OPP-01: name and organization are required; stage and probability follow the pipeline. */
 export function OpportunityForm({
@@ -60,7 +64,12 @@ export function OpportunityForm({
     extra: Record<string, unknown> = {},
     hint?: string,
   ) => (
-    <FormField label={label} error={errors[field]?.message} hint={hint}>
+    <FormField
+      label={label}
+      error={errors[field]?.message}
+      hint={hint}
+      required={REQUIRED.has(field)}
+    >
       {(control) => <Input {...control} {...extra} {...form.register(field)} />}
     </FormField>
   )
@@ -82,7 +91,7 @@ export function OpportunityForm({
     >
       <FormMessage error={errors.root?.message} />
       {text('name', t('fields.name'))}
-      <FormField label={t('fields.organization')} error={errors.organization?.message}>
+      <FormField label={t('fields.organization')} required error={errors.organization?.message}>
         {(control) =>
           organizationFixed ? (
             <span id={control.id} className="text-sm font-medium">
@@ -138,6 +147,13 @@ export function OpportunityForm({
       <Button type="submit" className="self-start" disabled={pending}>
         {pending ? tc('actions.saving') : submitLabel}
       </Button>
+      <UnsavedChangesGuard
+        when={
+          form.formState.isDirty &&
+          !form.formState.isSubmitting &&
+          !form.formState.isSubmitSuccessful
+        }
+      />
     </form>
   )
 }

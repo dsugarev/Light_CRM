@@ -142,7 +142,7 @@ function NewImport() {
         >
           <FormMessage error={start.error instanceof ApiError ? start.error.code : null} />
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={t('new.type')}>
+            <FormField label={t('new.type')} required>
               {(control) => (
                 <NativeSelect
                   {...control}
@@ -159,7 +159,7 @@ function NewImport() {
                 </NativeSelect>
               )}
             </FormField>
-            <FormField label={t('new.file')} hint={t('new.fileHint')}>
+            <FormField label={t('new.file')} required hint={t('new.fileHint')}>
               {(control) => (
                 <Input
                   {...control}

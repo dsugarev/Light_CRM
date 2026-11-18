@@ -102,6 +102,7 @@ export function SetPasswordPage() {
         </p>
         <FormField
           label={t('setPassword.password')}
+          required
           error={form.formState.errors.password?.message}
         >
           {(control) => (
@@ -112,7 +113,11 @@ export function SetPasswordPage() {
             />
           )}
         </FormField>
-        <FormField label={t('setPassword.confirm')} error={form.formState.errors.confirm?.message}>
+        <FormField
+          label={t('setPassword.confirm')}
+          required
+          error={form.formState.errors.confirm?.message}
+        >
           {(control) => (
             <PasswordInput {...control} autoComplete="new-password" {...form.register('confirm')} />
           )}

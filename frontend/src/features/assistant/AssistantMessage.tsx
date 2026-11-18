@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 import { ApiError } from '@/api/client'
 import { NativeSelect } from '@/components/NativeSelect'
 import { Textarea } from '@/components/Textarea'
+import { FormField } from '@/components/FormField'
 import { Button } from '@/components/ui/button'
 import { useErrorText } from '@/lib/errors'
 import { useCan } from '@/lib/permissions'
@@ -220,34 +221,38 @@ function NoteForm({
         )
       }}
     >
-      <label className="block text-xs">
-        {t('noteTarget')}
-        <NativeSelect
-          value={target}
-          onChange={(event) => {
-            setTarget(event.target.value)
-          }}
-        >
-          {targets.map((option) => (
-            <option key={option.entity_id} value={option.entity_id}>
-              {option.label === null
-                ? t('contextRecord', { type: typeName(option.entity_type) })
-                : `${typeName(option.entity_type)}: ${option.label}`}
-            </option>
-          ))}
-        </NativeSelect>
-      </label>
-      <label className="block text-xs">
-        {t('noteContent')}
-        <Textarea
-          value={text}
-          maxLength={10000}
-          rows={6}
-          onChange={(event) => {
-            setText(event.target.value)
-          }}
-        />
-      </label>
+      <FormField label={t('noteTarget')} required>
+        {(control) => (
+          <NativeSelect
+            {...control}
+            value={target}
+            onChange={(event) => {
+              setTarget(event.target.value)
+            }}
+          >
+            {targets.map((option) => (
+              <option key={option.entity_id} value={option.entity_id}>
+                {option.label === null
+                  ? t('contextRecord', { type: typeName(option.entity_type) })
+                  : `${typeName(option.entity_type)}: ${option.label}`}
+              </option>
+            ))}
+          </NativeSelect>
+        )}
+      </FormField>
+      <FormField label={t('noteContent')} required>
+        {(control) => (
+          <Textarea
+            {...control}
+            value={text}
+            maxLength={10000}
+            rows={6}
+            onChange={(event) => {
+              setText(event.target.value)
+            }}
+          />
+        )}
+      </FormField>
       {failure ? (
         <p role="alert" className="text-sm text-destructive">
           {errorText(failure)}

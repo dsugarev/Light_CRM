@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard'
 import { applyServerErrors } from '@/lib/errors'
 
 const minutes = (min: number, max: number) =>
@@ -94,6 +95,7 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
           <FormMessage success={save.isSuccess ? tc('states.saved') : null} />
           <FormField
             label={t('settings.idle')}
+            required
             error={errors.session_idle_timeout_minutes?.message}
             hint={t('settings.idleHint')}
           >
@@ -107,6 +109,7 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
           </FormField>
           <FormField
             label={t('settings.absolute')}
+            required
             error={errors.session_absolute_timeout_minutes?.message}
             hint={t('settings.absoluteHint')}
           >
@@ -121,6 +124,7 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
           <h3 className="pt-2 font-medium">{t('settings.opportunities')}</h3>
           <FormField
             label={t('settings.staleDays')}
+            required
             error={errors.stale_opportunity_days?.message}
             hint={t('settings.staleDaysHint')}
           >
@@ -143,6 +147,13 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
           <Button type="submit" className="self-start" disabled={save.isPending}>
             {save.isPending ? tc('actions.saving') : tc('actions.save')}
           </Button>
+          <UnsavedChangesGuard
+            when={
+              form.formState.isDirty &&
+              !form.formState.isSubmitting &&
+              !form.formState.isSubmitSuccessful
+            }
+          />
         </form>
       </CardContent>
     </Card>
