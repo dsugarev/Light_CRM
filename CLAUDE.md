@@ -94,7 +94,8 @@ pnpm test
 pnpm check:i18n
 pnpm generate:api [file|url]  # regenerate src/api/schema.d.ts from the backend OpenAPI document
 pnpm e2e                      # Playwright against https://localhost (E2E_BASE_URL to override);
-                              # needs E2E_ADMIN_EMAIL_EN/_BG + E2E_ADMIN_PASSWORD (e2e/support.ts)
+                              # needs E2E_ADMIN_EMAIL_EN/_BG + E2E_ADMIN_PASSWORD (e2e/support.ts);
+                              # stack with the scripted model: COMPOSE_FILE=docker-compose.yml:docker-compose.e2e.yml
 ```
 
 Documentation is part of done (owner instruction): before a phase closes and before the next starts, update `docs/Plan.md`, `docs/05-api-specification.md` (payloads, rules, status table), `docs/api/openapi.json`, `docs/Test_strategy.md` (strategy, cases, runs; regenerate the inventory with `python3 scripts/test_inventory.py`), README and ADRs.

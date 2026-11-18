@@ -33,6 +33,7 @@ Use the current stable (LTS where one exists) version of each item at implementa
 | Forms and validation | React Hook Form + Zod | Typed validation matching backend rules |
 | Drag and drop | dnd-kit | Accessible, keyboard-capable Kanban |
 | Charts | Recharts | Sufficient for dashboard charts |
+| Markdown (assistant answers) | react-markdown + remark-gfm | Tables and lists in answers; raw HTML skipped, only in-app record links (Phase 7, owner decision) |
 | i18n | i18next + react-i18next | English and Bulgarian, namespace per feature |
 | Backend language | Python | LiteLLM is a Python library; mature web and data ecosystem |
 | Backend framework | FastAPI with Pydantic v2 | Async, generates OpenAPI automatically, strong validation |

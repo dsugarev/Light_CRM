@@ -2,7 +2,7 @@
 
 A light B2B CRM for the Commercial team: lead and opportunity management, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, Docker Compose.
 
-Status: **Phase 7 (AI assistant), backend done**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records, and receive signed webhooks with a delivery log; see the [integration guide](docs/integration-guide.md). The AI assistant's API (read-only tools over CRM data, streamed answers, limits) is built and off by default; its chat drawer follows in Phase 7b. See [`docs/Plan.md`](docs/Plan.md) for what is built.
+Status: **Phase 7 (AI assistant)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records, and receive signed webhooks with a delivery log; see the [integration guide](docs/integration-guide.md). An AI assistant (a chat drawer on every page that answers from CRM data through read-only tools, with record context, history and drafts saved as notes on request) is built and off by default. See [`docs/Plan.md`](docs/Plan.md) for what is built.
 
 ## Documentation
 
@@ -92,6 +92,12 @@ pnpm check:i18n
 pnpm generate:api [openapi.json]   # regenerate src/api/schema.d.ts (default: running backend)
 pnpm e2e                           # Playwright against https://localhost (E2E_BASE_URL to override);
                                    # needs E2E_ADMIN_EMAIL_EN/_BG and E2E_ADMIN_PASSWORD (see e2e/support.ts)
+```
+
+The assistant journeys need the stack with the scripted model provider (no network, production settings otherwise):
+
+```bash
+COMPOSE_FILE=docker-compose.yml:docker-compose.e2e.yml docker compose up --build -d
 ```
 
 ## Layout

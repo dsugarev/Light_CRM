@@ -48,7 +48,7 @@ Each case checks the tools called, facts that must or must not appear, and that 
 | tasks-en | What tasks do I have? | my_tasks | SD-WAN | — |
 | tasks-bg | Какви задачи имам? | my_tasks | SD-WAN | — |
 | new-leads-en | Show me the new leads. | search_leads | IoT | — |
-| leads-org-bg | Какви лийдове имаме от Балкан Логистик? | search_leads | IoT | — |
+| leads-org-bg | Какви потенциални клиенти имаме от Балкан Логистик? | search_leads | IoT | — |
 | forecast-en | What is the weighted forecast for the next 3 months? | forecast_summary | — | — |
 | owner-en | Who owns the Колокация Варна opportunity? | search_opportunities | Петър | — |
 | won-en | Which opportunities have we won? | search_opportunities | Fibre backup | — |
