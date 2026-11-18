@@ -150,6 +150,17 @@ Events = Annotated[EventBus, Depends(get_event_bus)]
 Now = Annotated[Clock, Depends(get_clock)]
 
 
+async def find_item(session: AsyncSession, ref: ReferenceList, text: str) -> UUID | None:
+    """An active value of the list by code, English or Bulgarian name (case-insensitive),
+    for imports (FR-IMP-01)."""
+    wanted = text.strip().casefold()
+    for item in await _items(session, ref, include_inactive=False):
+        if wanted in (item.code.casefold(), item.name_en.casefold(), item.name_bg.casefold()):
+            found: UUID = item.id
+            return found
+    return None
+
+
 @router.get(
     "/{list}",
     summary="List values; include_inactive=true for administration",

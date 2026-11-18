@@ -2,7 +2,7 @@
 
 A light B2B CRM for the Commercial team: lead and opportunity management, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, Docker Compose.
 
-Status: **Phase 4 (opportunities, pipeline and activities)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. Reports, exports and import follow in Phase 5. See [`docs/Plan.md`](docs/Plan.md) for what is built.
+Status: **Phase 5 (dashboard, export and import)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. The integration API for Conclusion, ERP and Billing follows in Phase 6. See [`docs/Plan.md`](docs/Plan.md) for what is built.
 
 ## Documentation
 

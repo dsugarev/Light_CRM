@@ -8,8 +8,10 @@ What has been built, phase by phase, with the key code. The specifications in `d
 | 1 — Identity, access and audit | Done, merged (PR #2), CI green | `phase-1-identity` |
 | 2 — Organizations and contacts | Done, merged (PR #4) | `phase-2-party` |
 | 3 — Leads | Done, merged (PR #5) | `phase-3-leads` |
-| 4a — Pipelines, opportunities and board | Built; PR #6 open, CI green; owner review with 4b | `phase-4a-opportunities` |
-| 4b — Activities, timelines and lead conversion | Built; PR #7 (stacked on 4a), CI green; awaiting owner review | `phase-4b-activities` |
+| 4a — Pipelines, opportunities and board | Done, merged (PR #6) | `phase-4a-opportunities` |
+| 4b — Activities, timelines and lead conversion | Done, reviewed in PR #7; reaches `main` with PR #8 | `phase-4b-activities` |
+| 5a — Reports, dashboard and exports | Built; PR #9 (stacked on #8), CI green | `phase-5a-reports` |
+| 5b — Import, seed data and performance | Built; PR #10 (stacked on #9), CI green; awaiting owner review of Phase 5 | `phase-5b-import` |
 
 ---
 
@@ -1309,5 +1311,291 @@ mutationCache: new MutationCache({
 
 ### Open items
 
-1. Owner review of Phase 4 (PR #6 for 4a and the 4b PR, stacked on it).
+1. ~~Owner review of Phase 4~~: approved. PR #7 was merged into the 4a branch after #6 had reached `main`, so PR #8 carries the same commits to `main`.
+
+---
+
+## Phase 5a — Reports, dashboard and exports
+
+Requirements: FR-REP-01, FR-REP-02, FR-REP-03 and the audit-log export (FR-ADM-03). Phase 5 is delivered in two pull requests (owner approval, 2026-11-17): **5a** reports, dashboard and exports; **5b** import, seed data and the performance check, then owner review. Owner decisions used here: default period = the current calendar year; conversion rate = converted ÷ created in the period; win rate = won ÷ (won + lost) closed in the period.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 5a.1 | Export machinery in core: columns, XLSX/CSV, cap, formula-injection guard, audit event | Done (`app/core/export.py`) |
+| 5a.2 | Exports of organizations, contacts, leads, opportunities, activities and the audit log | Done |
+| 5a.3 | Batched embedded summaries (organizations, contacts, lead titles) for large exports | Done |
+| 5a.4 | Report queries in sales; reporting module with scope, dashboard, report exports | Done (ADR 0021) |
+| 5a.5 | Backend tests, including the forecast against an independent calculation (FR-REP-01 AC1) | Done (825 total) |
+| 5a.6 | Dashboard (Recharts), win/loss page, Export buttons on lists | Done, en + bg |
+| 5a.7 | E2E: dashboard, CSV download, win/loss | Done (en, bg) |
+| 5a.8 | Documentation (spec v0.7, ADR 0021, snapshot, this log, test record), gate, PR | Done |
+
+### Endpoints built (12)
+
+`GET /reports/dashboard`, `/reports/pipeline-by-stage`, `/reports/forecast`, `/reports/lead-conversion`, `/reports/win-loss`, `/reports/{report}/export`; `GET /organizations/export`, `/contacts/export`, `/leads/export`, `/opportunities/export`, `/activities/export` (added to spec section 11, where it was missing from the table), `/audit-log/export`. 103 routes in the authorization matrix.
+
+### Backend
+
+#### Export machinery (`app/core/export.py`)
+
+```python
+def neutralize(value: str) -> str:
+    """Prefix text a spreadsheet would run as a formula with an apostrophe."""
+    return f"'{value}" if value.startswith(_FORMULA_PREFIXES) else value   # = + - @ \t \r
+
+async def build_export(session, statement, query, sort_columns, id_column, outs, row,
+                       available, options, locale, *, name, day) -> tuple[ExportFile, int]:
+    columns = select_columns(available, options.columns)          # 400 export.unknown_column
+    total = (await session.execute(select(func.count()).select_from(
+        statement.order_by(None).subquery()))).scalar_one()
+    check_row_count(total)                                          # 422 export.too_many_rows
+    records = list((await session.execute(statement.order_by(*order, id_column))).unique().scalars())
+    for start in range(0, len(records), _CHUNK):                    # the module's own outputs
+        rows.extend(row(item, locale) for item in await outs(records[start : start + _CHUNK]))
+    content = render(columns, rows, options.format, locale, sheet=name)
+```
+
+Each module declares its columns with both headers and a row builder, e.g. leads:
+
+```python
+LEAD_EXPORT = (ExportColumn("title", "Title", "Заглавие"), ExportColumn("status", "Status", "Състояние"), ...)
+
+def _lead_row(lead: LeadOut, locale: ExportLocale) -> dict[str, Any]:
+    en, bg = LEAD_STATUS_NAMES[lead.status]
+    return {**lead.model_dump(include={c.key for c in LEAD_EXPORT}),
+            "source": reference_name(lead.source, locale), "status": bg if locale == "bg" else en, ...}
+```
+
+The export publishes `exported_event("lead", principal, now, rows=..., options=..., filters=...)` (audit) and commits. Export routes are declared before `/{id}` routes and accept the list's filters plus `format`, `columns`, `locale` (`EXPORT_PARAMS`).
+
+#### Reports (`sales/service/reports.py`, `reporting/service.py`)
+
+```python
+async def forecast(session, owner_ids, today, months) -> ForecastReport:
+    """FR-REP-01 AC1: per month from the current one, Σ amount × probability / 100 over open,
+    non-archived opportunities expected to close in that month."""
+    first = today.replace(day=1)
+    found = {month: (count, total, weighted) for month, count, total, weighted in
+             await repository.forecast_rows(session, owner_ids, first, _add_months(first, months))}
+    ...
+
+# repository: to_char, not date_trunc (date_trunc yields a timestamp in the session time zone)
+month = func.to_char(Opportunity.expected_close_date, "YYYY-MM").label("month")
+```
+
+Lead conversion and win/loss use `count(*) FILTER (WHERE …)` per status or stage type, grouped by source/owner or loss reason/owner/month. The reporting module resolves the scope (`owner_id` `me`/ID, `from`/`to` defaulting to the Sofia calendar year), composes the dashboard (including the caller's open and overdue tasks from `activity`) and exports reports with a total row.
+
+#### Batched summaries
+
+`party.organization_summaries(session, ids)`, `party.contact_links(session, ids)` and `sales.repository.lead_titles(session, ids)` replace per-record lookups in lead, opportunity and activity outputs.
+
+### Frontend
+
+- `features/reports`: `Dashboard` on the home page (KPIs for open pipeline, conversion rate, win rate and my tasks; Recharts bar charts for pipeline by stage and the 6-month weighted forecast, each with a screen-reader table of the same figures; owner and year filters kept in the URL), `WinLossPage` (`/reports/win-loss`, group by loss reason, owner or month, total row, export), `ExportMenu` (Export XLSX / Export CSV) and `download()`:
+
+```ts
+export async function download(path: string, query: string): Promise<void> {
+  const response = await globalThis.fetch(`${globalThis.location.origin}${path}?${query}`, {
+    credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+  if (!response.ok) throw new ApiError(response.status, await response.json().catch(() => ({})))
+  ...  // Blob → object URL → <a download> with the server's file name
+}
+```
+
+- Export buttons on the organization, contact, lead, opportunity and audit-log lists send the list's current filters and sort (paging dropped); errors such as `export.too_many_rows` become translated toasts.
+- "Reports" in the navigation; `recharts` 3.10.1 pinned (a release older than two weeks; 3.11.0 was published the same day).
+- 719 translation keys (en = bg); 96 Vitest tests (5 new).
+
+### Verification (2026-11-17)
+
+| Gate | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| pytest (scratch PostgreSQL 18.7) | 825 passed, 97% coverage |
+| pip-audit | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n (719 keys) | clean |
+| Vitest | 96 passed |
+| pnpm audit (production) | no known vulnerabilities |
+| OpenAPI snapshot and generated types | up to date |
+| Playwright Chromium vs. rebuilt stack | 20/20 in two consecutive runs |
+| GitHub Actions (PR #9) | run 44158425076 failed only in the frontend dependency audit (new dev-only advisory, ADR 0022); after the owner's decision run 44159185613: all four jobs green |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | Done for FR-REP-01 (AC1 independently computed), FR-REP-02, FR-REP-03 |
+| 2 | `docker compose up` works | Done |
+| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 4 | Permission checks + matrix | Done for all 103 routes; exports and reports for every role, audit export Admin only |
+| 5 | UI text en + bg | Done (headers of exported files too) |
+| 6 | Additive migrations + tests | No migration in 5a |
+| 7 | Audit | Every export audited (`*.exported`) |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.7 |
+
+### Decisions and deviations
+
+- **Reports are computed by the module that owns the data** (sales, activity); reporting composes them (ADR 0021).
+- `/activities/export` was named in spec section 14 but missing from the section 11 table; the table row was added.
+- The dashboard is not exportable (it is a composition); `/reports/{report}/export` accepts the four reports.
+- New field codes `export.unknown_column` (400) and `validation.period` (400).
+- `types-openpyxl` added as a dev dependency so mypy strict covers the export code.
+
+### Open items
+
+1. ~~Phase 5b~~: done, see below. Owner review of 5a + 5b.
+2. Remove the ignored advisory GHSA-fc5q-39xc-vjpf from `frontend/pnpm-workspace.yaml` once picomatch ships a fix (ADR 0022). The first CI run of PR #9 (44158425076) failed on it in the frontend dependency audit; everything else was green.
+
+---
+
+## Phase 5b — Import, seed data and performance
+
+Requirements: FR-IMP-01 (AC1–AC4) and the NFR-01 volume and performance check. Owner decisions used here (2026-11-17): `python-multipart` added; organizations found by EIK, then by name in either script, stages by English or Bulgarian name, owners by email; CSV encoding and delimiter detected; 10 MB and 20,000 rows per file; uploaded rows kept in the database for at most 7 days, with previous values for rollback; the performance check runs locally, not in CI.
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 5b.1 | Schema: `import_batch`, `import_row`, `import_batch_id` on organization, contact, lead, opportunity | Done: migration `0007` |
+| 5b.2 | Parsing (XLSX/CSV, encoding, delimiter, limits), field definitions, templates (en/bg) | Done |
+| 5b.3 | Import service: state machine, mapping, validation, commit, rollback, discard, expiry | Done (ADR 0023) |
+| 5b.4 | Owning-module entry points for imports (create with batch tag, update/restore, lookups, stamps) | Done |
+| 5b.5 | Backend tests | Done (878 total) |
+| 5b.6 | Import wizard (list, upload, templates, mapping, preview, commit, discard, rollback) | Done, en + bg |
+| 5b.7 | `seed-demo` command and `scripts/perf_check.py`; measured run | Done (results below) |
+| 5b.8 | E2E: import journey | Done (en, bg) |
+| 5b.9 | Documentation (spec v0.8, ADR 0023, snapshot, this log, test record, README, CLAUDE.md), gate, PR | Done |
+
+### Endpoints built (10)
+
+`GET /imports/templates/{entity_type}`, `POST|GET /imports`, `GET|DELETE /imports/{batch_id}`, `PUT /imports/{batch_id}/mapping`, `POST /imports/{batch_id}/validate`, `GET /imports/{batch_id}/rows`, `POST /imports/{batch_id}/commit`, `POST /imports/{batch_id}/rollback`. 113 routes in the authorization matrix; the route catalog has no pending entries left for Phases 0–5.
+
+### Backend
+
+#### Adapters call the owning modules (`dataimport/adapters.py`)
+
+```python
+class Opportunities(Adapter):
+    record = "opportunity"
+    schema = OpportunityCreate
+    lookups: ClassVar[Mapping[str, str]] = {"organization": "organization_id", "stage": "stage_id",
+                                             "owner": "owner_id"}
+    decimals = frozenset({"amount"})
+    dates = frozenset({"expected_close_date"})
+
+    async def create(self, ctx, principal, payload, batch_id) -> UUID:
+        opportunity = await sales.opportunities.create_opportunity(
+            ctx.sales(), principal, payload, commit=False, import_batch_id=batch_id)
+        return opportunity.id
+```
+
+`Adapter.prepare` turns the mapped text into the create schema: plain fields (decimal comma and `DD.MM.YYYY` normalized), looked-up fields (cached per batch), then `schema.model_validate`; Pydantic errors become `validation.<type>` on the import field names.
+
+#### Commit in one transaction, rollback by stamp (`dataimport/service.py`)
+
+```python
+for row in rows:
+    if row.outcome == "invalid" or (row.outcome == "duplicate" and batch.duplicate_mode != "update"):
+        row.action = "skipped"; continue
+    prepared = await adapter.prepare(ctx, lookups, _values(batch, row))
+    if prepared.payload is None:                  # changed since validation -> nothing is written
+        raise AppError(ErrorCode.IMPORT_HAS_ERRORS, HTTPStatus.CONFLICT, extra={"row_number": row.row_number, ...})
+    if row.outcome == "duplicate" and row.match_id is not None:
+        row.before = await adapter.update(ctx, principal, row.match_id, prepared.payload)
+        ...
+    else:
+        row.record_id = await adapter.create(ctx, principal, prepared.payload, batch.id)
+await ctx.session.flush()
+stamps = await adapter.stamps(ctx.session, {r.record_id for r in rows if r.record_id})
+...
+# rollback: a record whose updated_at differs from its stamp was changed since -> kept
+if current.get(row.record_id) != row.stamp:
+    row.rollback_result = "changed_since_import"
+```
+
+#### Parsing (`dataimport/parsing.py`)
+
+`openpyxl` in read-only mode with cached values (formulas are not evaluated); CSV decoded as UTF-8 (with or without BOM) or Windows-1251, delimiter sniffed among comma, semicolon and tab; repeated headers get the column number; blank lines are dropped; 10 MB and 20,000 rows.
+
+#### Seed and performance check
+
+`python -m app.cli seed-demo [--organizations N --contacts N --leads N --opportunities N --seed S]` bulk-inserts fictional records (owners: the active Admins, Sales Managers and Sales Reps), refuses `ENV=production` and writes no audit entries. `backend/scripts/perf_check.py` signs in, warms up and calls 15 list, search, board and dashboard requests 40 times each, printing p50/p95/max and failing when a p95 exceeds 500 ms. The compose file now passes `RATE_LIMIT_USER_PER_MINUTE` through (default 600) so the check can run without throttling.
+
+### Performance (NFR-01), 2026-11-17
+
+Docker Desktop on the developer Mac, composed production-like stack behind Caddy (HTTPS), after `docker compose exec -T -e ENV=test backend python -m app.cli seed-demo` (10,000 organizations, 10,000 contacts, 20,000 leads, 5,000 opportunities; seeded in 6.7 s) plus the existing test data; per-user rate limit raised for the run only.
+
+| Endpoint | p50 ms | p95 ms | max ms |
+|---|---|---|---|
+| `/api/v1/organizations` | 5 | 11 | 15 |
+| `/api/v1/organizations?q=alfa%20mrezhi&sort=name` | 5 | 6 | 6 |
+| `/api/v1/organizations?city=Варна&sort=-created_at&page=20` | 10 | 15 | 15 |
+| `/api/v1/contacts?q=иванова` | 10 | 34 | 34 |
+| `/api/v1/leads` | 21 | 23 | 24 |
+| `/api/v1/leads?q=fibre&status=new&sort=-estimated_value` | 7 | 11 | 12 |
+| `/api/v1/leads?page=400` | 55 | 64 | 83 |
+| `/api/v1/opportunities` | 10 | 13 | 13 |
+| `/api/v1/opportunities?q=cloud&stage_type=open&sort=amount` | 8 | 16 | 18 |
+| `/api/v1/opportunities?is_stale=true` | 8 | 9 | 10 |
+| `/api/v1/opportunities/board` | 34 | 92 | 108 |
+| `/api/v1/activities` | 5 | 7 | 8 |
+| `/api/v1/search?q=vega` | 15 | 17 | 18 |
+| `/api/v1/search?q=Сириус` | 21 | 28 | 56 |
+| `/api/v1/reports/dashboard` | 17 | 20 | 22 |
+
+All p95 values are far below the 500 ms target. Bulk operations on the same stack: export of 20,000 leads 2.3 s (XLSX, 1.1 MB) and 1.1 s (CSV); import of 5,000 organizations: upload 0.3 s, validation 2.4 s, commit 6.9 s.
+
+### Frontend
+
+- `features/imports`: `ImportsPage` (`/admin/imports`, Manager+: batch list, new upload with record type and file, template downloads in English and Bulgarian) and `ImportBatchPage` (counts; mapping table with a field per column and the duplicate choice for organizations and contacts; "Save and check"; preview filtered by outcome with each row's translated reasons and matches; "Import all" (disabled while rows are invalid) or "Import, skipping invalid rows"; discard; rollback for Admins with per-row results). Uploads go through `uploadImport()` (multipart via `fetch`).
+- "Import" in the navigation for users with `data.import`.
+- The preview remounts per batch status, so the checking filter (invalid rows) does not hide the imported rows (found by the journey).
+- 814 translation keys (en = bg); 101 Vitest tests (6 new).
+
+### Verification (2026-11-17)
+
+| Gate | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| Migration 0007 up → down → up; `alembic check` | OK, no drift |
+| pytest (scratch PostgreSQL 18.7) | 878 passed, 96% coverage (import 95–97%) |
+| pip-audit | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n (814 keys) | clean |
+| Vitest | 101 passed |
+| `pnpm audit --audit-level high` | passes (one advisory ignored, ADR 0022); `--prod` clean |
+| OpenAPI snapshot and generated types | up to date |
+| Playwright Chromium vs. rebuilt stack | 22/22 in two consecutive runs |
+| GitHub Actions (PR #10, run 44164230647) | all four jobs green, including Playwright on Chromium and Firefox |
+| NFR-01 performance check | all p95 under 500 ms (table above) |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | Done for FR-IMP-01 AC1–AC4, NFR-01 |
+| 2 | `docker compose up` works | Done |
+| 3 | Lint, types, suites green | Done locally and in CI (PR #10) |
+| 4 | Permission checks + matrix | Done for all 113 routes; rollback Admin only |
+| 5 | UI text en + bg | Done (templates too) |
+| 6 | Additive migrations + tests | Done (0007) |
+| 7 | Audit | `import.*` events plus the usual audit of every created or updated record |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.8 |
+| Exit | Forecast verified independently; exports and import working; NFR-01 volumes and target | Done (5a forecast test; this phase's performance table) |
+
+### Decisions and deviations
+
+- `import_batch_id` is on organization and contact too (architecture lists lead and opportunity); AC4 requires every imported record to be tagged (ADR 0023).
+- Duplicate rules apply to organizations (registration number or name key) and contacts (email); leads and opportunities have none, as FR-PARTY-01 defines duplicates for parties only.
+- An update of a duplicate leaves its identifying fields alone (organizations: name, registration number, owner; contacts: name, email).
+- The seed tool bypasses the services (bulk inserts, no audit) and is refused in production.
+- The stack's per-user rate limit is now configurable through compose (`RATE_LIMIT_USER_PER_MINUTE`, default unchanged).
+
+### Open items
+
+1. Owner review of Phase 5 (PR #9 for 5a and the 5b PR stacked on it; PR #8 brings 4b to `main` first).
+2. Remove the ignored advisory (ADR 0022) when picomatch ships a fix.
 

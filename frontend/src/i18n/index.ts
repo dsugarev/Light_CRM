@@ -6,19 +6,23 @@ import bgAdmin from './bg/admin.json'
 import bgAuth from './bg/auth.json'
 import bgCommon from './bg/common.json'
 import bgErrors from './bg/errors.json'
+import bgImports from './bg/imports.json'
 import bgLeads from './bg/leads.json'
 import bgOpportunities from './bg/opportunities.json'
 import bgParty from './bg/party.json'
 import bgProfile from './bg/profile.json'
+import bgReports from './bg/reports.json'
 import enActivities from './en/activities.json'
 import enAdmin from './en/admin.json'
 import enAuth from './en/auth.json'
 import enCommon from './en/common.json'
 import enErrors from './en/errors.json'
+import enImports from './en/imports.json'
 import enLeads from './en/leads.json'
 import enOpportunities from './en/opportunities.json'
 import enParty from './en/party.json'
 import enProfile from './en/profile.json'
+import enReports from './en/reports.json'
 
 export const SUPPORTED_LOCALES = ['en', 'bg'] as const
 export type Locale = (typeof SUPPORTED_LOCALES)[number]
@@ -38,6 +42,8 @@ export const resources = {
     leads: enLeads,
     opportunities: enOpportunities,
     activities: enActivities,
+    reports: enReports,
+    imports: enImports,
   },
   bg: {
     common: bgCommon,
@@ -49,6 +55,8 @@ export const resources = {
     leads: bgLeads,
     opportunities: bgOpportunities,
     activities: bgActivities,
+    reports: bgReports,
+    imports: bgImports,
   },
 } as const
 

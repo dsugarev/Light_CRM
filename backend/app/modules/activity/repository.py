@@ -141,3 +141,15 @@ async def timeline_page(
         .limit(page_size)
     )
     return [(kind, item_id) for kind, item_id in rows.all()], total
+
+
+async def open_task_counts(session: AsyncSession, user_id: UUID, now: datetime) -> tuple[int, int]:
+    """(open, overdue) tasks assigned to the user."""
+    statement = select(func.count(), func.count().filter(Activity.due_at < now)).where(
+        Activity.type == "task",
+        Activity.assignee_id == user_id,
+        Activity.done_at.is_(None),
+        Activity.archived_at.is_(None),
+    )
+    open_count, overdue = (await session.execute(statement)).one()
+    return open_count, overdue

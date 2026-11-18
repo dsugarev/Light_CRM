@@ -6,6 +6,7 @@ uses them to validate links, build merged timelines and keep
 """
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,3 +82,25 @@ async def lead_names(session: AsyncSession, ids: set[UUID]) -> dict[UUID, str]:
 
 async def opportunity_names(session: AsyncSession, ids: set[UUID]) -> dict[UUID, str]:
     return await repository.opportunity_names(session, ids)
+
+
+async def find_open_stage(session: AsyncSession, text: str) -> UUID | None:
+    """An active open stage of the default pipeline by its English or Bulgarian name
+    (case-insensitive), for imports."""
+    pipeline = await repository.get_default_pipeline(session)
+    wanted = text.strip().casefold()
+    for stage in pipeline.stages if pipeline else []:
+        if (
+            stage.is_active
+            and stage.stage_type == "open"
+            and wanted in (stage.name_en.casefold(), stage.name_bg.casefold())
+        ):
+            return stage.id
+    return None
+
+
+async def record_stamps(
+    session: AsyncSession, kind: Literal["lead", "opportunity"], ids: set[UUID]
+) -> dict[UUID, datetime]:
+    """updated_at of many leads or opportunities (import rollback detects later changes)."""
+    return await repository.updated_at_of(session, kind, ids)

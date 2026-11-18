@@ -406,3 +406,85 @@ class ConversionPreview(BaseModel):
     organization: OrganizationChoice
     contact: ContactChoice
     opportunity: SuggestedOpportunity
+
+
+# --- Reports (FR-REP-01, FR-REP-03; API spec section 13) -------------------------------------
+
+Rate = Annotated[float, Field(ge=0, le=1, description="Share between 0 and 1")]
+
+
+class StageFigures(BaseModel):
+    stage: StageSummary
+    count: int
+    total_amount: Money
+    weighted_amount: Money
+
+
+class PipelineReport(BaseModel):
+    currency: Literal["EUR"] = "EUR"
+    stages: list[StageFigures]
+    count: int
+    total_amount: Money
+    weighted_amount: Money
+
+
+class ForecastMonth(BaseModel):
+    month: str = Field(description="YYYY-MM")
+    count: int
+    total_amount: Money
+    weighted_amount: Money
+
+
+class ForecastReport(BaseModel):
+    currency: Literal["EUR"] = "EUR"
+    months: list[ForecastMonth]
+    weighted_amount: Money
+
+
+class GroupKey(BaseModel):
+    """What a report row is grouped by: a source, owner, loss reason or month."""
+
+    key: str = Field(description="ID, YYYY-MM, or `none`")
+    name_en: str | None
+    name_bg: str | None
+
+
+class ConversionFigures(BaseModel):
+    created: int
+    qualified: int = Field(description="Leads that reached qualified (including converted)")
+    converted: int
+    disqualified: int
+    conversion_rate: Rate | None = Field(description="converted / created; null without leads")
+
+
+class ConversionGroup(ConversionFigures):
+    group: GroupKey
+
+
+class LeadConversionReport(BaseModel):
+    from_date: date
+    to_date: date
+    group_by: Literal["source", "owner"] | None
+    totals: ConversionFigures
+    groups: list[ConversionGroup]
+
+
+class WinLossFigures(BaseModel):
+    won_count: int
+    won_amount: Money
+    lost_count: int
+    lost_amount: Money
+    win_rate: Rate | None = Field(description="won / (won + lost); null without closed deals")
+
+
+class WinLossGroup(WinLossFigures):
+    group: GroupKey
+
+
+class WinLossReport(BaseModel):
+    currency: Literal["EUR"] = "EUR"
+    from_date: date
+    to_date: date
+    group_by: Literal["loss_reason", "owner", "month"] | None
+    totals: WinLossFigures
+    groups: list[WinLossGroup]

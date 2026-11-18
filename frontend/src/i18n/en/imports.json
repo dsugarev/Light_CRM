@@ -1,0 +1,107 @@
+{
+  "title": "Import",
+  "entity": {
+    "organizations": "Organizations",
+    "contacts": "Contacts",
+    "leads": "Leads",
+    "opportunities": "Opportunities"
+  },
+  "status": {
+    "uploaded": "Uploaded",
+    "mapped": "Mapped",
+    "validated": "Checked",
+    "committed": "Imported",
+    "rolled_back": "Rolled back"
+  },
+  "list": {
+    "title": "Imports",
+    "file": "File",
+    "type": "Records",
+    "status": "Status",
+    "rows": "Rows",
+    "created": "Uploaded",
+    "none": "No imports yet."
+  },
+  "new": {
+    "title": "New import",
+    "type": "Records to import",
+    "file": "File",
+    "fileHint": "XLSX or CSV, at most 10 MB and 20,000 rows",
+    "upload": "Upload",
+    "templates": "Templates:",
+    "template": {
+      "en": "Template (English)",
+      "bg": "Template (Bulgarian)"
+    }
+  },
+  "counts": {
+    "rows": "Rows",
+    "valid": "Valid",
+    "invalid": "Invalid",
+    "duplicate": "Duplicates",
+    "created": "Created",
+    "updated": "Updated",
+    "skipped": "Skipped"
+  },
+  "mapping": {
+    "title": "Columns",
+    "help": "Choose the field for each column of the file. Fields marked * are required.",
+    "column": "Column in the file",
+    "field": "Field",
+    "fieldFor": "Field for {{column}}",
+    "ignore": "Do not import",
+    "duplicates": "Duplicates",
+    "skip": "Skip duplicates",
+    "update": "Update the existing records",
+    "validate": "Save and check"
+  },
+  "commit": {
+    "title": "Import",
+    "allValid": "Every row is valid.",
+    "hasInvalid_one": "{{count}} row is invalid.",
+    "hasInvalid_other": "{{count}} rows are invalid.",
+    "strict": "Import all",
+    "skipInvalid": "Import, skipping invalid rows",
+    "discard": "Discard",
+    "confirmDiscard": "Discard this upload? Nothing has been imported."
+  },
+  "preview": {
+    "title": "Preview",
+    "filter": "Show",
+    "all": "All rows",
+    "row": "Row",
+    "outcome": "Result",
+    "details": "Details",
+    "matches": "Matches {{name}}"
+  },
+  "outcome": {
+    "valid": "Valid",
+    "invalid": "Invalid",
+    "duplicate": "Duplicate"
+  },
+  "action": {
+    "created": "Created",
+    "updated": "Updated",
+    "skipped": "Skipped"
+  },
+  "rollback": {
+    "title": "Roll back",
+    "help": "Archives the records this import created and restores the records it updated. Records changed since the import are kept.",
+    "button": "Roll back import",
+    "confirm_one": "Roll back {{count}} record?",
+    "confirm_other": "Roll back {{count}} records?",
+    "done": "{{archived}} archived, {{reverted}} restored, {{kept}} kept.",
+    "result": {
+      "archived": "Archived",
+      "reverted": "Restored",
+      "changed_since_import": "Kept: changed since the import",
+      "blocked": "Kept: could not be archived"
+    }
+  },
+  "toasts": {
+    "validated": "Rows checked.",
+    "committed": "Import finished.",
+    "discarded": "Upload discarded.",
+    "rolledBack": "Import rolled back."
+  }
+}

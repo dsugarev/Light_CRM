@@ -1,6 +1,6 @@
 # 05 — API Specification (Release 1)
 
-Status: Draft v0.6 (updated after Phase 4b, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+Status: Draft v0.8 (updated after Phase 5b, 2026-11-17) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
 
 This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
 
@@ -19,14 +19,15 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | 6.1 Application settings | 1, 4 | Built with session timeouts (Phase 1) and the stale-opportunity threshold (Phase 4); further settings added by their phases |
 | 6.2 Reference lists | 2–4 | Built; `industries`, `lead-sources`, `disqualification-reasons`, `loss-reasons` registered; `external-systems` (Phase 6) follows |
 | 6.3 Pipelines and stages | 4 | Built (Phase 4a) |
-| 7 Organizations | 2–4 | Built, except `/export` (Phase 5); `/leads` and the open-lead count added in Phase 3; `/opportunities`, open-opportunity figures and the archive guard in Phase 4a; `/timeline` in Phase 4b |
-| 8 Contacts | 2, 4 | Built, except GDPR `personal-data`/`anonymize` (Phase 8) and `/export` (Phase 5); `/timeline` since Phase 4b |
-| 9 Leads | 3, 4 | Built, except `/export` (Phase 5); `conversion-preview`, `convert` and `/timeline` since Phase 4b |
-| 10 Opportunities and pipeline board | 4 | Built, except `/export` (Phase 5) |
-| 11 Activities and tasks | 4 | Built (Phase 4b) |
+| 7 Organizations | 2–5 | Built; `/export` since Phase 5a; `/leads` and the open-lead count added in Phase 3; `/opportunities`, open-opportunity figures and the archive guard in Phase 4a; `/timeline` in Phase 4b |
+| 8 Contacts | 2, 4, 5 | Built, except GDPR `personal-data`/`anonymize` (Phase 8); `/timeline` since Phase 4b; `/export` since Phase 5a |
+| 9 Leads | 3–5 | Built; `conversion-preview`, `convert` and `/timeline` since Phase 4b; `/export` since Phase 5a |
+| 10 Opportunities and pipeline board | 4, 5 | Built; `/export` since Phase 5a |
+| 11 Activities and tasks | 4, 5 | Built (Phase 4b); `/export` since Phase 5a |
 | 12 Search | 2–4 | Built for organizations, contacts, leads and opportunities |
-| 13–15 Reports, exports, import | 5 | Pending |
-| 16 Audit log | 1 | Built, except `/audit-log/export` (Phase 5) |
+| 13–14 Reports, exports | 5 | Built (Phase 5a) |
+| 15 Data import | 5 | Built (Phase 5b) |
+| 16 Audit log | 1, 5 | Built; `/audit-log/export` since Phase 5a |
 | 17 AI assistant | 7 | Pending |
 | 18 Rate limits | 1 | Built for sign-in, password endpoints and per user; others with their features |
 | 19 Integration API | 6 | Pending (policy already scope-aware) |
@@ -202,7 +203,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `owner.required` | 422 | Integration-created record has no `owner_id` and the client has no default owner |
 | `webhook.url_not_allowed` | 422 | Webhook URL not HTTPS or host not in the allowlist |
 
-**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, `contact.not_found`, `contact.organization_mismatch`, `lead.bant_unknown`, `stage.not_open` (stage must be an active open stage), `stage.order_incomplete`, `activity.link_required` (field `links`), `activity.due_required`, `activity.task_only`, `assignee.invalid`, `lead.not_found`, `lead.archived`, `opportunity.not_found`, `opportunity.archived`, `validation.use_action_endpoint`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`). Field names are the request body or query field names.
+**Field error codes** (in `errors[].code`, translated by the frontend): Pydantic validation types as `validation.<type>` (for example `validation.missing`, `validation.string_too_short`, `validation.extra_forbidden`, `validation.int_parsing`, `validation.literal_error`, `validation.value_error`), `validation.json_invalid` (body is not JSON, status 400), `validation.exceeds_absolute` (settings), `password.too_short`, `password.too_long`, `password.too_common`, `password.current_incorrect`, `user.email_taken`, `user.inactive`, `owner.invalid`, `organization.not_found`, `organization.archived`, `organization.registration_checksum` (warning only), `reference.invalid`, `reference.code_taken`, `reference.order_incomplete`, `contact.not_found`, `contact.organization_mismatch`, `lead.bant_unknown`, `stage.not_open` (stage must be an active open stage), `stage.order_incomplete`, `export.unknown_column` (field `columns`, status 400), import mapping and row codes `import.unknown_column`, `import.unknown_field`, `import.field_mapped_twice` (field `mapping.<column>`), `import.required_field` (field `field.<key>`), `import.duplicate_in_file` (field `row`), `organization.ambiguous`, `validation.period` (field `from`, status 400: `from` after `to`), `activity.link_required` (field `links`), `activity.due_required`, `activity.task_only`, `assignee.invalid`, `lead.not_found`, `lead.archived`, `opportunity.not_found`, `opportunity.archived`, `validation.use_action_endpoint`, list errors from section 1.3 (`validation.unknown_filter`, `validation.unknown_sort`, `validation.invalid_cursor`, `validation.cursor_requires_updated_since`, `validation.uuid_parsing`). Field names are the request body or query field names.
 
 ### 1.7 Access levels used in the tables
 
@@ -650,6 +651,7 @@ Rules (as built, Phase 4a):
 | DELETE | `/api/v1/activities/{activity_id}` | Archive | Owner+ | FR-ACT-01 |
 | POST | `/api/v1/activities/{activity_id}/complete` | Mark a task done | Owner+ or assignee | FR-ACT-02 |
 | POST | `/api/v1/activities/{activity_id}/reopen` | Mark a task not done | Owner+ or assignee | FR-ACT-02 |
+| GET | `/api/v1/activities/export` | Export the filtered list (section 14) | Signed-in | FR-REP-02 |
 
 Timeline items (returned by every `/timeline` endpoint) share one shape so the UI renders them uniformly:
 
@@ -700,6 +702,16 @@ All report endpoints accept `owner_id` (`me`, a user ID, or omitted for all) and
 
 Forecast definition (tested against independently computed values): for each month, the sum of `amount × probability / 100` over open, non-archived opportunities whose `expected_close_date` falls in that month.
 
+Rules (as built, Phase 5a):
+
+- **Scope**: `owner_id` is `me`, a user ID or omitted (everyone); `from`/`to` are calendar dates, default the current calendar year in Europe/Sofia; `from` after `to` returns `400`, field `from` / `validation.period`. Archived records are excluded everywhere. `/pipeline-by-stage` and `/forecast` ignore the period (they describe the open pipeline now; the forecast starts with the current month).
+- **`/pipeline-by-stage`**: `{ currency, stages: [{ stage, count, total_amount, weighted_amount }], count, total_amount, weighted_amount }` for the active open stages of the default pipeline (plus inactive open stages that still hold opportunities).
+- **`/forecast`** (`months` 1–12, default 6): `{ currency, months: [{ month: "YYYY-MM", count, total_amount, weighted_amount }], weighted_amount }`, one entry per month, zeros included. Opportunities without an amount are counted but add nothing.
+- **`/lead-conversion`** (`group_by` `source` | `owner`): leads **created** in the period and their current status: `totals: { created, qualified (qualified or converted), converted, disqualified, conversion_rate }` with `conversion_rate = converted / created` (0–1, `null` when no leads), and `groups` with the same figures plus `group: { key, name_en, name_bg }` (`key` `none` for leads without a source).
+- **`/win-loss`** (`group_by` `loss_reason` | `owner` | `month`): opportunities **closed** (won or lost) with `actual_close_date` in the period: `totals: { won_count, won_amount, lost_count, lost_amount, win_rate }` with `win_rate = won / (won + lost)` (`null` when nothing closed). Grouped by loss reason, won deals fall under `key: "none"`; by month, `key` is `YYYY-MM`.
+- **`/dashboard`**: `{ from_date, to_date, pipeline, forecast (6 months), lead_conversion (totals), win_loss (totals), my_tasks: { open, overdue } }`; `my_tasks` always counts the caller's own open tasks.
+- **`/{report}/export`**: `report` is `pipeline-by-stage`, `forecast`, `lead-conversion` or `win-loss` (`dashboard` is not exportable; other names `422`); the report's parameters plus `format`, `columns`, `locale` (section 14). Rows follow the report; grouped reports and the pipeline end with a total row. Audited as `report.exported`.
+
 ## 14. Exports
 
 Every list endpoint has an `/export` sibling (`/organizations/export`, `/contacts/export`, `/leads/export`, `/opportunities/export`, `/activities/export`) that accepts the same filters and sort as the list, plus:
@@ -711,6 +723,15 @@ Every list endpoint has an `/export` sibling (`/organizations/export`, `/contact
 | `locale` | `en` or `bg` for column headers and reference value names; default the user's locale |
 
 Responses are file downloads with `Content-Disposition: attachment`. Exports are synchronous, capped at 50,000 rows (`422 export.too_many_rows` above the cap), audited, and protected against spreadsheet formula injection (architecture section 7).
+
+Rules (as built, Phase 5a):
+
+- Endpoints: `/organizations/export`, `/contacts/export`, `/leads/export`, `/opportunities/export`, `/activities/export` (Signed-in) and `/audit-log/export` (Admin), each with the list's filters, `q`, `include_archived` and `sort`; paging parameters are ignored. Not available to integration clients.
+- File name `<list>-<YYYY-MM-DD>.<format>` (Sofia date). XLSX has one sheet with a header row; numbers, amounts and dates stay typed (timestamps in Europe/Sofia local time); CSV is UTF-8 with BOM, comma-separated, CRLF line ends, timestamps as `YYYY-MM-DD HH:MM:SS` Sofia time.
+- `columns` takes column keys in the wanted order; an unknown key returns `400`, field `columns` / `export.unknown_column`. Column keys: organizations `name, registration_number, vat_number, industry, size_band, website, address_line, postal_code, city, country, owner, created_at, archived_at, id`; contacts `first_name, last_name, job_title, email, phone, organization, owner, created_at, archived_at, id`; leads `title, company_name, contact_name, email, phone, source, status, score, fits_target_profile, estimated_value, organization, owner, created_at, converted_at, archived_at, id`; opportunities `name, organization, primary_contact, stage, amount, probability, weighted_amount, expected_close_date, actual_close_date, owner, next_step, loss_reason, competitor, is_stale, source_lead, created_at, archived_at, id`; activities `type, subject, occurred_at, due_at, is_done, owner, assignee, lead, opportunity, organization, contact, body, id`; audit log `occurred_at, actor, actor_type, action, entity_type, entity_id, ip, id`.
+- `locale` (default: the user's language) sets the headers, reference names (stage, source, industry, loss reason), statuses, activity types and Yes/No values.
+- Text starting with `=`, `+`, `-`, `@`, tab or carriage return is prefixed with `'` (numbers stay numbers).
+- Audited as `<entity>.exported` (`organization`, `contact`, `lead`, `opportunity`, `activity`, `audit_log`, `report`) with `details: { format, rows, columns, filters }`; a refused export (over the cap) is not audited.
 
 ## 15. Data import
 
@@ -730,6 +751,23 @@ Import is a step-by-step flow over an import batch resource. Allowed `entity_typ
 | DELETE | `/api/v1/imports/{batch_id}` | Discard a batch that was not committed, including its uploaded data | Manager+ | FR-IMP-01 |
 
 Batch states: `uploaded → mapped → validated → committed → rolled_back`; steps out of order return `409 import.invalid_state`. Uploaded file contents are stored only until commit or discard, and at most 7 days.
+
+Rules (as built, Phase 5b):
+
+- **Files**: `.xlsx` (first sheet) or `.csv`, at most 10 MB (`413 import.too_large` with `max_bytes`) and 20,000 data rows (`413 import.too_large` with `max_rows`); anything else or unreadable returns `415 import.invalid_file`. Row 1 holds the headers; blank lines are ignored; XLSX formulas are not evaluated (their stored value is read). CSV encoding (UTF-8 with or without BOM, else Windows-1251) and delimiter (comma, semicolon or tab) are detected. Row numbers in the preview are the file's line numbers (data starts at 2).
+- **Fields** (column headers of the templates, in English and Bulgarian; `*` required):
+  - organizations: `name*`, `registration_number`, `vat_number`, `industry` (code or name of an active industry), `size_band`, `website`, `address_line`, `postal_code`, `city`, `country`, `owner` (email), `notes`;
+  - contacts: `first_name*`, `last_name*`, `job_title`, `email`, `phone`, `organization` (EIK or exact name of an existing organization, either script), `notes`;
+  - leads: `title*`, `company_name*`, `contact_name`, `email`, `phone`, `source` (code or name), `estimated_value`, `description`, `owner`, `organization`;
+  - opportunities: `name*`, `organization*`, `stage` (English or Bulgarian name of an active open stage; empty: the first), `amount`, `probability`, `expected_close_date` (`YYYY-MM-DD` or `DD.MM.YYYY`), `next_step`, `competitor`, `description`, `owner`.
+  Amounts accept a decimal comma and spaces. `owner` is an active user's email (`owner.invalid` otherwise; empty: the importer).
+- **Upload** (`multipart/form-data`): returns `201` with the batch and `Location`. Batch resource: `{ id, entity_type, file_name, status, columns, mapping, duplicate_mode, fields: [{ key, name_en, name_bg, required }], counts: { rows, valid, invalid, duplicate, created, updated, skipped }, created_by, created_at, committed_at, rolled_back_at, expires_at }`. On upload `mapping` holds the suggestion: a column whose header equals a field key or its English or Bulgarian header (case-insensitive) is mapped, each field at most once.
+- **Mapping** (`PUT …/mapping`, from `uploaded`, `mapped` or `validated`): `{ mapping: { "<column>": "<field>" | null }, duplicates: "skip" | "update" }`; unknown columns or fields, a field chosen twice, or a required field without a column return `422` with one error per problem. Setting the mapping clears earlier validation results.
+- **Validation**: each row is checked with the same schemas and lookups as creating the record directly, plus duplicates by the FR-PARTY-01 rules (organizations: registration number or name in either script; contacts: email) against existing records (`duplicate`, with `match`) and against earlier rows of the same file (`invalid`, `import.duplicate_in_file`). Leads and opportunities have no duplicate rule. Row resource: `{ row_number, outcome, values (by field key), errors: [{ field, code }], match: { id, name } | null, action, record_id, rollback_result }`.
+- **Commit** (`{ mode }`, from `validated`): `strict` refuses while any row is invalid (`409 import.has_errors` with `invalid`); `skip_invalid` skips them. Duplicates are skipped, or with `duplicates: "update"` the existing organization or contact gets the file's non-empty values (organizations: not the name, registration number or owner; contacts: not the name or email). Everything is one transaction: a row that fails at commit time (for example a list value retired since validation) returns `409 import.has_errors` with `row_number` and nothing is written. Created records carry `import_batch_id`; each creation and update is audited as usual. The uploaded values are deleted at commit.
+- **Rollback** (Admin, from `committed`): created records are archived, updated ones get their previous values back; a record changed since the import (its `updated_at` differs from the value recorded at commit) is kept (`changed_since_import`), as is one that cannot be archived (`blocked:<code>`, e.g. an organization with open opportunities). Response `{ batch, archived, reverted, kept: [rows] }`.
+- **Discard** (`DELETE`, before commit) deletes the batch and its rows; uncommitted batches are deleted by the worker after 7 days.
+- Audited as `import.uploaded`, `import.mapped`, `import.validated`, `import.committed`, `import.rolled_back`, `import.discarded` (entity type `import_batch`). Not available to integration clients.
 
 ## 16. Audit log
 

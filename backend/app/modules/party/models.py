@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db import Base, BusinessTableMixin, IdMixin, TimestampMixin
+from app.core.db import Base, BusinessTableMixin, IdMixin, ImportedMixin, TimestampMixin
 from app.core.reference import ReferenceItemMixin
 
 SIZE_BANDS = ("1-9", "10-49", "50-249", "250+")
@@ -18,7 +18,7 @@ class Industry(IdMixin, TimestampMixin, ReferenceItemMixin, Base):
     __tablename__ = "industry"
 
 
-class Organization(BusinessTableMixin, Base):
+class Organization(BusinessTableMixin, ImportedMixin, Base):
     """TM Forum party: an organisation the business deals with (FR-PARTY-01)."""
 
     __tablename__ = "organization"
@@ -67,7 +67,7 @@ class Organization(BusinessTableMixin, Base):
     industry: Mapped[Industry | None] = relationship(lazy="joined")
 
 
-class Contact(BusinessTableMixin, Base):
+class Contact(BusinessTableMixin, ImportedMixin, Base):
     """TM Forum individual (FR-PARTY-02). Ownership follows the organisation;
     without one, the creator owns the contact (API spec section 8)."""
 

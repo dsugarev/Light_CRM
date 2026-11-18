@@ -6,10 +6,10 @@ commits here. Permission rules: Contributors create; Owner+ edit and archive
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.events import DomainEvent, EventBus
+from app.core.export import (
+    SOFIA,
+    ExportColumn,
+    ExportFile,
+    ExportOptions,
+    build_export,
+    exported_event,
+    reference_name,
+)
+from app.core.export import Locale as ExportLocale
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
 from app.core.policy import MANAGER_ROLES, check_owner
 from app.core.principal import Principal
@@ -604,6 +614,126 @@ async def list_contacts(
     )
 
 
+# --- Exports (FR-REP-02, API spec 14) ---------------------------------------------------------
+
+ORGANIZATION_EXPORT = (
+    ExportColumn("name", "Name", "Име"),
+    ExportColumn("registration_number", "Registration number (EIK)", "ЕИК"),
+    ExportColumn("vat_number", "VAT number", "ДДС номер"),
+    ExportColumn("industry", "Industry", "Отрасъл"),
+    ExportColumn("size_band", "Size", "Размер"),
+    ExportColumn("website", "Website", "Уебсайт"),
+    ExportColumn("address_line", "Address", "Адрес"),
+    ExportColumn("postal_code", "Postal code", "Пощенски код"),
+    ExportColumn("city", "City", "Град"),
+    ExportColumn("country", "Country", "Държава"),
+    ExportColumn("owner", "Owner", "Отговорник"),
+    ExportColumn("created_at", "Created", "Създадена"),
+    ExportColumn("archived_at", "Archived", "Архивирана"),
+    ExportColumn("id", "ID", "ID"),
+)
+CONTACT_EXPORT = (
+    ExportColumn("first_name", "First name", "Име"),
+    ExportColumn("last_name", "Last name", "Фамилия"),
+    ExportColumn("job_title", "Job title", "Длъжност"),
+    ExportColumn("email", "Email", "Имейл"),
+    ExportColumn("phone", "Phone", "Телефон"),
+    ExportColumn("organization", "Organization", "Организация"),
+    ExportColumn("owner", "Owner", "Отговорник"),
+    ExportColumn("created_at", "Created", "Създаден"),
+    ExportColumn("archived_at", "Archived", "Архивиран"),
+    ExportColumn("id", "ID", "ID"),
+)
+
+
+def _organization_row(org: OrganizationOut, locale: ExportLocale) -> dict[str, Any]:
+    return {
+        **org.model_dump(include={c.key for c in ORGANIZATION_EXPORT}),
+        "industry": reference_name(org.industry, locale),
+        "owner": org.owner.full_name,
+    }
+
+
+def _contact_row(contact: ContactOut, locale: ExportLocale) -> dict[str, Any]:
+    return {
+        **contact.model_dump(include={c.key for c in CONTACT_EXPORT}),
+        "organization": contact.organization.name if contact.organization else None,
+        "owner": contact.owner.full_name,
+    }
+
+
+async def _finish_export(
+    ctx: Context,
+    principal: Principal,
+    entity_type: str,
+    rows: int,
+    options: ExportOptions,
+    filters: Mapping[str, Any],
+) -> None:
+    await ctx.events.publish(
+        ctx.session,
+        exported_event(
+            entity_type, principal, ctx.now, rows=rows, options=options, filters=filters
+        ),
+    )
+    await ctx.session.commit()
+
+
+async def export_organizations(
+    ctx: Context,
+    principal: Principal,
+    query: ListQuery,
+    filters: OrganizationFilters,
+    options: ExportOptions,
+) -> ExportFile:
+    """FR-REP-02: the filtered organization list as XLSX or CSV."""
+    statement = repository.organizations_statement(
+        search=search_terms(query.q) if query.q else None,
+        include_archived=query.include_archived,
+        owner_ids=filters.owner_ids,
+        industry_ids=filters.industry_ids,
+        cities=filters.cities,
+        countries=filters.countries,
+        size_bands=filters.size_bands,
+    )
+    locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
+    file, rows = await build_export(
+        ctx.session, statement, query, ORGANIZATION_SORT, Organization.id,
+        lambda batch: _orgs_out(ctx, batch), _organization_row, ORGANIZATION_EXPORT, options,
+        locale, name="organizations", day=ctx.now.astimezone(SOFIA).date(),
+    )  # fmt: skip
+    await _finish_export(
+        ctx, principal, "organization", rows, options, {**asdict(filters), "q": query.q}
+    )
+    return file
+
+
+async def export_contacts(
+    ctx: Context,
+    principal: Principal,
+    query: ListQuery,
+    filters: ContactFilters,
+    options: ExportOptions,
+) -> ExportFile:
+    """FR-REP-02: the filtered contact list as XLSX or CSV."""
+    statement = repository.contacts_statement(
+        search=search_terms(query.q) if query.q else None,
+        include_archived=query.include_archived,
+        organization_ids=filters.organization_ids,
+        owner_ids=filters.owner_ids,
+    )
+    locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
+    file, rows = await build_export(
+        ctx.session, statement, query, CONTACT_SORT, Contact.id,
+        lambda batch: _contacts_out(ctx, batch), _contact_row, CONTACT_EXPORT, options,
+        locale, name="contacts", day=ctx.now.astimezone(SOFIA).date(),
+    )  # fmt: skip
+    await _finish_export(
+        ctx, principal, "contact", rows, options, {**asdict(filters), "q": query.q}
+    )
+    return file
+
+
 async def organization_contacts(
     ctx: Context, org_id: UUID, query: ListQuery
 ) -> Page[ContactOut] | SyncPage[ContactOut]:
@@ -727,6 +857,16 @@ async def organization_summary(session: AsyncSession, org_id: UUID) -> Organizat
     return OrganizationSummary(id=org.id, name=org.name) if org else None
 
 
+async def organization_summaries(
+    session: AsyncSession, org_ids: set[UUID]
+) -> dict[UUID, OrganizationSummary]:
+    """Names of many organisations in one query (embedded summaries, exports)."""
+    return {
+        org.id: OrganizationSummary(id=org.id, name=org.name)
+        for org in await repository.get_organizations(session, org_ids)
+    }
+
+
 async def check_organization_link(session: AsyncSession, org_id: UUID) -> str | None:
     """Field code when an organisation cannot be linked to a new record, else None."""
     org = await repository.get_organization(session, org_id)
@@ -767,3 +907,202 @@ async def contact_email_matches(ctx: Context, email: str) -> list[Match]:
 async def organization_contact_ids(session: AsyncSession, org_id: UUID) -> list[UUID]:
     """IDs of the organisation's contacts, archived included (merged timelines, FR-ACT-03)."""
     return await repository.contact_ids_of_organization(session, org_id)
+
+
+async def contact_links(session: AsyncSession, contact_ids: set[UUID]) -> dict[UUID, ContactLink]:
+    """Many contacts in one query, archived included (for showing existing links)."""
+    return {
+        c.id: ContactLink(
+            id=c.id, full_name=f"{c.first_name} {c.last_name}", organization_id=c.organization_id
+        )
+        for c in await repository.get_contacts(session, contact_ids)
+    }
+
+
+# --- Import support (FR-IMP-01; used by the dataimport module) --------------------------------
+
+ImportKind = Literal["organization", "contact"]
+# Fields an import may update on an existing record (duplicates in "update" mode). The name,
+# registration number and owner identify the record and are left alone.
+IMPORT_UPDATABLE: dict[ImportKind, frozenset[str]] = {
+    "organization": frozenset(
+        {"vat_number", "industry_id", "size_band", "website", "address_line", "postal_code",
+         "city", "country", "notes"}
+    ),
+    "contact": frozenset(
+        {"job_title", "phone", "preferred_locale", "organization_id", "notes"}
+    ),
+}  # fmt: skip
+
+
+async def import_create_organization(
+    ctx: Context, principal: Principal, data: OrganizationCreate, batch_id: UUID
+) -> UUID:
+    """Create inside the import's transaction; duplicates were decided during validation."""
+    owner_id = data.owner_id or principal.user_id
+    await _check_owner_choice(ctx, principal, owner_id)
+    await _check_industry(ctx, data.industry_id)
+    org = Organization(
+        **data.model_dump(exclude={"confirm_duplicate", "owner_id"}),
+        owner_id=owner_id,
+        name_normalized=normalize_company_name(data.name),
+        import_batch_id=batch_id,
+        created_by=principal.user_id,
+        updated_by=principal.user_id,
+    )
+    org.search_text = _org_search_text(org)
+    ctx.session.add(org)
+    await ctx.session.flush()
+    await _publish(
+        ctx, "organization.created", "organization", org.id, principal, after=_org_view(org)
+    )
+    return org.id
+
+
+async def import_create_contact(
+    ctx: Context, principal: Principal, data: ContactCreate, batch_id: UUID
+) -> UUID:
+    await _check_contact_organization(ctx, data.organization_id)
+    contact = Contact(
+        **data.model_dump(exclude={"confirm_duplicate"}),
+        import_batch_id=batch_id,
+        created_by=principal.user_id,
+        updated_by=principal.user_id,
+    )
+    contact.search_text = _contact_search_text(contact)
+    ctx.session.add(contact)
+    await ctx.session.flush()
+    await _publish(
+        ctx, "contact.created", "contact", contact.id, principal, after=_contact_view(contact)
+    )
+    return contact.id
+
+
+async def find_organization(session: AsyncSession, text: str) -> tuple[UUID | None, str | None]:
+    """An existing organisation by registration number (digits) or by name in either script.
+    Returns (id, None) or (None, field code)."""
+    digits = "".join(text.split())
+    if digits.isdigit() and len(digits) in (9, 13):
+        found = await repository.organization_duplicates(
+            session, name_normalized=None, registration_number=digits, exclude_id=None,
+            similar=False,
+        )  # fmt: skip
+    else:
+        found = await repository.organization_duplicates(
+            session, name_normalized=normalize_company_name(text), registration_number=None,
+            exclude_id=None, similar=False,
+        )  # fmt: skip
+    active = [org for org, _ in found if org.archived_at is None]
+    if not active:
+        return None, "organization.not_found"
+    if len(active) > 1:
+        return None, "organization.ambiguous"
+    return active[0].id, None
+
+
+async def duplicate_organization(
+    session: AsyncSession, name: str, registration_number: str | None
+) -> tuple[UUID, str] | None:
+    """The existing organisation an imported one duplicates (FR-PARTY-01 rules), if any."""
+    found = await repository.organization_duplicates(
+        session, name_normalized=normalize_company_name(name),
+        registration_number=registration_number, exclude_id=None, similar=False,
+    )  # fmt: skip
+    return (found[0][0].id, found[0][0].name) if found else None
+
+
+async def duplicate_contact(session: AsyncSession, email: str) -> tuple[UUID, str] | None:
+    """The existing contact with this email (FR-PARTY-02 duplicate rule), if any."""
+    found = await repository.contacts_with_email(session, email.lower(), exclude_id=None)
+    return (found[0].id, f"{found[0].first_name} {found[0].last_name}") if found else None
+
+
+def _json_value(value: Any) -> Any:
+    return str(value) if isinstance(value, UUID) else value
+
+
+def _db_value(key: str, value: Any) -> Any:
+    return UUID(value) if key.endswith("_id") and isinstance(value, str) else value
+
+
+async def _import_record(ctx: Context, kind: ImportKind, record_id: UUID) -> Organization | Contact:
+    record: Organization | Contact | None = (
+        await repository.get_organization(ctx.session, record_id, for_update=True)
+        if kind == "organization"
+        else await repository.get_contact(ctx.session, record_id, for_update=True)
+    )
+    if record is None:
+        raise _not_found()
+    return record
+
+
+async def _publish_import_change(
+    ctx: Context, principal: Principal, kind: ImportKind, record: Organization | Contact,
+    before: Mapping[str, Any],
+) -> None:  # fmt: skip
+    if isinstance(record, Organization):
+        record.search_text = _org_search_text(record)
+        after = _org_view(record)
+    else:
+        record.search_text = _contact_search_text(record)
+        after = _contact_view(record)
+    if after != before:
+        record.updated_by = principal.user_id
+        await _publish(
+            ctx, f"{kind}.updated", kind, record.id, principal, before=before, after=after
+        )
+
+
+def _view_of(record: Organization | Contact) -> dict[str, Any]:
+    return _org_view(record) if isinstance(record, Organization) else _contact_view(record)
+
+
+async def import_update(
+    ctx: Context,
+    principal: Principal,
+    kind: ImportKind,
+    record_id: UUID,
+    changes: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Apply the import's non-empty values to an existing record; returns the previous
+    values of the fields it changed (stored for rollback)."""
+    record = await _import_record(ctx, kind, record_id)
+    if kind == "organization" and changes.get("industry_id") is not None:
+        await _check_industry(ctx, changes["industry_id"])
+    view = _view_of(record)
+    previous: dict[str, Any] = {}
+    for key, value in changes.items():
+        if key in IMPORT_UPDATABLE[kind] and value is not None and getattr(record, key) != value:
+            previous[key] = _json_value(getattr(record, key))
+            setattr(record, key, value)
+    await _publish_import_change(ctx, principal, kind, record, view)
+    await ctx.session.flush()
+    return previous
+
+
+async def import_restore(
+    ctx: Context,
+    principal: Principal,
+    kind: ImportKind,
+    record_id: UUID,
+    previous: Mapping[str, Any],
+) -> None:
+    """Rollback of an import update: put back the stored previous values."""
+    record = await _import_record(ctx, kind, record_id)
+    view = _view_of(record)
+    for key, value in previous.items():
+        setattr(record, key, _db_value(key, value))
+    await _publish_import_change(ctx, principal, kind, record, view)
+    await ctx.session.flush()
+
+
+async def record_stamps(
+    session: AsyncSession, kind: ImportKind, ids: set[UUID]
+) -> dict[UUID, datetime]:
+    """updated_at of many records (import rollback detects later changes with it)."""
+    records: list[Organization] | list[Contact] = (
+        await repository.get_organizations(session, ids)
+        if kind == "organization"
+        else await repository.get_contacts(session, ids)
+    )
+    return {r.id: r.updated_at for r in records}

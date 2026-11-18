@@ -1,0 +1,8 @@
+# pnpm settings for this project (not a multi-package workspace).
+auditConfig:
+  # picomatch ReDoS (GHSA-fc5q-39xc-vjpf, high, 2026-11-17): no patched version exists yet.
+  # It reaches development tooling only (shadcn CLI, Vite/ESLint/Vitest globbing);
+  # `pnpm audit --prod` is clean. Owner decision 2026-11-17: ignore this advisory
+  # only, until picomatch ships a fix (ADR 0022). Remove this entry then.
+  ignoreGhsas:
+    - GHSA-fc5q-39xc-vjpf

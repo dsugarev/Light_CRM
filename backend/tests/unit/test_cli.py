@@ -4,8 +4,10 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import PostgresDsn
 
 from app import cli
+from app.core.config import Environment, Settings
 
 
 def test_FR_INT_10_export_openapi_writes_document(tmp_path: Path) -> None:
@@ -24,3 +26,18 @@ def test_export_openapi_defaults_to_stdout(capsys: pytest.CaptureFixture[str]) -
 def test_command_is_required() -> None:
     with pytest.raises(SystemExit):
         cli.main([])
+
+
+def test_NFR_01_seed_demo_is_refused_in_production(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    production = Settings(
+        env=Environment.PRODUCTION,
+        database_url=PostgresDsn("postgresql+asyncpg://crm_app:s3cr3t@db:5432/crm"),
+        app_secret_key="x" * 48,
+    )
+    monkeypatch.setattr(cli, "get_settings", lambda: production)
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(["seed-demo", "--organizations", "1"])
+    assert stopped.value.code == 1
+    assert "not available in production" in capsys.readouterr().err

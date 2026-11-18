@@ -13,6 +13,7 @@ from app.core.auth import CurrentPrincipal, endpoint
 from app.core.clock import Clock
 from app.core.db import DbSession
 from app.core.errors import AppError, ErrorCode, FieldError
+from app.core.export import EXPORT_PARAMS, EXPORT_RESPONSES, ExportOptions, export_options
 from app.core.listing import ListQuery, Page, SyncPage, list_query
 from app.core.principal import Principal
 from app.modules.sales import service
@@ -130,6 +131,53 @@ async def create_lead(
     created = await service.create_lead(ctx, principal, body)
     response.headers["Location"] = f"/api/v1/leads/{created.id}"
     return created
+
+
+LeadExportList = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            "leads-export",
+            sortable=tuple(service.LEAD_SORT),
+            default_sort="-created_at",
+            filters=(
+                "status", "owner_id", "source_id", "created_at_from", "created_at_to",
+                "fits_target_profile", *EXPORT_PARAMS,
+            ),
+        )
+    ),
+]  # fmt: skip
+
+
+@leads_router.get(
+    "/export",
+    summary="Export the filtered list as XLSX or CSV",
+    response_class=Response,
+    responses=EXPORT_RESPONSES,
+    **endpoint(AccessLevel.SIGNED_IN),
+)
+async def export_leads(
+    ctx: Ctx,
+    principal: CurrentPrincipal,
+    query: LeadExportList,
+    options: Annotated[ExportOptions, Depends(export_options)],
+    lead_status: Annotated[list[LeadStatus] | None, Query(alias="status")] = None,
+    owner_id: Annotated[list[str] | None, Query(max_length=50)] = None,
+    source_id: Annotated[list[UUID] | None, Query()] = None,
+    created_at_from: datetime | None = None,
+    created_at_to: datetime | None = None,
+    fits_target_profile: bool | None = None,
+) -> Response:
+    filters = service.LeadFilters(
+        statuses=tuple(lead_status or ()),
+        owner_ids=_owner_ids(owner_id, principal),
+        source_ids=tuple(source_id or ()),
+        created_from=created_at_from,
+        created_to=created_at_to,
+        fits_target_profile=fits_target_profile,
+    )
+    file = await service.export_leads(ctx, principal, query, filters, options)
+    return file.response()
 
 
 @leads_router.get(
@@ -398,6 +446,60 @@ async def create_opportunity(
     created = await opps.create(ctx, principal, body)
     response.headers["Location"] = f"/api/v1/opportunities/{created.id}"
     return created
+
+
+OpportunityExportList = Annotated[
+    ListQuery,
+    Depends(
+        list_query(
+            "opportunities-export",
+            sortable=tuple(service.OPPORTUNITY_SORT),
+            default_sort="-updated_at",
+            filters=(
+                "stage_id", "stage_type", "owner_id", "organization_id",
+                "expected_close_date_from", "expected_close_date_to", "amount_from", "amount_to",
+                "is_stale", *EXPORT_PARAMS,
+            ),
+        )
+    ),
+]  # fmt: skip
+
+
+@opportunities_router.get(
+    "/export",
+    summary="Export the filtered list as XLSX or CSV",
+    response_class=Response,
+    responses=EXPORT_RESPONSES,
+    **endpoint(AccessLevel.SIGNED_IN),
+)
+async def export_opportunities(
+    ctx: Ctx,
+    principal: CurrentPrincipal,
+    query: OpportunityExportList,
+    options: Annotated[ExportOptions, Depends(export_options)],
+    stage_id: Annotated[list[UUID] | None, Query()] = None,
+    stage_type: Annotated[list[StageType] | None, Query()] = None,
+    owner_id: Annotated[list[str] | None, Query(max_length=50)] = None,
+    organization_id: Annotated[list[UUID] | None, Query()] = None,
+    expected_close_date_from: date | None = None,
+    expected_close_date_to: date | None = None,
+    amount_from: Decimal | None = None,
+    amount_to: Decimal | None = None,
+    is_stale: bool | None = None,
+) -> Response:
+    filters = service.OpportunityFilters(
+        stage_ids=tuple(stage_id or ()),
+        stage_types=tuple(stage_type or ()),
+        owner_ids=_owner_ids(owner_id, principal),
+        organization_ids=tuple(organization_id or ()),
+        close_from=expected_close_date_from,
+        close_to=expected_close_date_to,
+        amount_from=amount_from,
+        amount_to=amount_to,
+        is_stale=is_stale,
+    )
+    file = await opps.export_opportunities(ctx, principal, query, filters, options)
+    return file.response()
 
 
 @opportunities_router.get(

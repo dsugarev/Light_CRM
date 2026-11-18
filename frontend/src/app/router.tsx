@@ -26,6 +26,9 @@ import { OrganizationsPage } from '@/features/organizations/OrganizationsPage'
 import { ProfilePage } from '@/features/profile/ProfilePage'
 import { SearchPage } from '@/features/search/SearchPage'
 import { MyTasksPage } from '@/features/activities/MyTasksPage'
+import { ImportBatchPage } from '@/features/imports/ImportBatchPage'
+import { ImportsPage } from '@/features/imports/ImportsPage'
+import { WinLossPage } from '@/features/reports/WinLossPage'
 import { ConvertPage } from '@/features/leads/ConvertPage'
 import { LeadPage } from '@/features/leads/LeadPage'
 import { LeadEditPage, LeadNewPage, LeadsPage } from '@/features/leads/LeadPages'
@@ -67,6 +70,7 @@ export const routes: RouteObject[] = [
               { path: 'leads', element: <LeadsPage /> },
               { path: 'leads/:leadId', element: <LeadPage /> },
               { path: 'tasks', element: <MyTasksPage /> },
+              { path: 'reports/win-loss', element: <WinLossPage /> },
               { path: 'opportunities', element: <OpportunitiesPage /> },
               { path: 'opportunities/board', element: <BoardPage /> },
               { path: 'opportunities/:opportunityId', element: <OpportunityPage /> },
@@ -98,6 +102,13 @@ export const routes: RouteObject[] = [
                       { path: 'users', element: <UsersPage /> },
                       { path: 'users/new', element: <UserNewPage /> },
                       { path: 'users/:userId', element: <UserDetailPage /> },
+                    ],
+                  },
+                  {
+                    element: <RequirePermission permission="data.import" />,
+                    children: [
+                      { path: 'imports', element: <ImportsPage /> },
+                      { path: 'imports/:batchId', element: <ImportBatchPage /> },
                     ],
                   },
                   {

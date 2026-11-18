@@ -74,6 +74,8 @@ uv run python -m app.cli export-openapi --output ../docs/api/openapi.json  # API
 uv run python -m app.cli create-admin --email … --full-name …  # first Admin; prints a one-time link
                                                               # (--password-stdin for automation)
 uv run python -m app.cli create-integration-client            # Phase 6
+uv run python -m app.cli seed-demo                            # fictional NFR-01 volumes (not in production)
+PERF_EMAIL=… PERF_PASSWORD=… uv run python scripts/perf_check.py https://localhost  # NFR-01 p95 check
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run lint-imports

@@ -3,9 +3,10 @@
 from collections.abc import Sequence
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, Select, and_, func, or_, select, update
+from sqlalchemy import ColumnElement, Select, and_, func, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.listing import search_condition
@@ -295,3 +296,128 @@ async def lead_titles(session: AsyncSession, ids: set[UUID]) -> dict[UUID, str]:
         return {}
     rows = await session.execute(select(Lead.id, Lead.title).where(Lead.id.in_(ids)))
     return {row_id: name for row_id, name in rows.all()}  # noqa: C416 - Row to tuple
+
+
+# --- Reports (FR-REP-01, FR-REP-03) -------------------------------------------------------------
+
+
+def _owned(statement: Select[Any], column: Any, owner_ids: Sequence[UUID]) -> Select[Any]:
+    return statement.where(column.in_(owner_ids)) if owner_ids else statement
+
+
+async def forecast_rows(
+    session: AsyncSession, owner_ids: Sequence[UUID], first: date, end: date
+) -> list[tuple[str, int, Decimal, Decimal]]:
+    """Open, non-archived opportunities by expected close month in [first, end)."""
+    # to_char, not date_trunc: date_trunc yields a timestamp in the session time zone.
+    month = func.to_char(Opportunity.expected_close_date, "YYYY-MM").label("month")
+    statement = _owned(
+        select(
+            month,
+            func.count(),
+            func.coalesce(func.sum(Opportunity.amount), 0),
+            func.coalesce(func.sum(Opportunity.amount * Opportunity.probability / 100), 0),
+        )
+        .select_from(Opportunity)
+        .join(Opportunity.stage)
+        .where(
+            Opportunity.archived_at.is_(None),
+            PipelineStage.stage_type == "open",
+            Opportunity.expected_close_date >= first,
+            Opportunity.expected_close_date < end,
+        ),
+        Opportunity.owner_id,
+        owner_ids,
+    ).group_by(month)
+    rows = await session.execute(statement)
+    return [(m, c, Decimal(t), Decimal(w)) for m, c, t, w in rows.all()]
+
+
+async def lead_conversion_rows(
+    session: AsyncSession,
+    owner_ids: Sequence[UUID],
+    start: datetime,
+    end: datetime,
+    group_by: str | None,
+) -> list[tuple[UUID | None, int, int, int, int]]:
+    """(group key, created, qualified or later, converted, disqualified) for leads created in
+    [start, end), archived excluded."""
+    key: Any = {"source": Lead.source_id, "owner": Lead.owner_id}.get(group_by or "")
+
+    def status_count(statuses: tuple[str, ...]) -> Any:
+        return func.count().filter(Lead.status.in_(statuses))
+
+    statement = _owned(
+        select(
+            key if key is not None else literal(None),
+            func.count(),
+            status_count(("qualified", "converted")),
+            status_count(("converted",)),
+            status_count(("disqualified",)),
+        )
+        .select_from(Lead)
+        .where(Lead.archived_at.is_(None), Lead.created_at >= start, Lead.created_at < end),
+        Lead.owner_id,
+        owner_ids,
+    )
+    if key is not None:
+        statement = statement.group_by(key)
+    rows = await session.execute(statement)
+    return [(k, c, q, v, d) for k, c, q, v, d in rows.all()]
+
+
+async def win_loss_rows(
+    session: AsyncSession,
+    owner_ids: Sequence[UUID],
+    first: date,
+    last: date,
+    group_by: str | None,
+) -> list[tuple[Any, int, Decimal, int, Decimal]]:
+    """(group key, won count, won amount, lost count, lost amount) for opportunities closed
+    between first and last (inclusive), archived excluded."""
+    keys: dict[str, Any] = {
+        "loss_reason": Opportunity.loss_reason_id,
+        "owner": Opportunity.owner_id,
+        "month": func.to_char(Opportunity.actual_close_date, "YYYY-MM"),
+    }
+    key = keys.get(group_by or "")
+    won = PipelineStage.stage_type == "won"
+    lost = PipelineStage.stage_type == "lost"
+    statement = _owned(
+        select(
+            key if key is not None else literal(None),
+            func.count().filter(won),
+            func.coalesce(func.sum(Opportunity.amount).filter(won), 0),
+            func.count().filter(lost),
+            func.coalesce(func.sum(Opportunity.amount).filter(lost), 0),
+        )
+        .select_from(Opportunity)
+        .join(Opportunity.stage)
+        .where(
+            Opportunity.archived_at.is_(None),
+            PipelineStage.stage_type.in_(("won", "lost")),
+            Opportunity.actual_close_date >= first,
+            Opportunity.actual_close_date <= last,
+        ),
+        Opportunity.owner_id,
+        owner_ids,
+    )
+    if key is not None:
+        statement = statement.group_by(key)
+    rows = await session.execute(statement)
+    return [(k, w, Decimal(wa), lc, Decimal(la)) for k, w, wa, lc, la in rows.all()]
+
+
+async def get_reference_items[R](session: AsyncSession, model: type[R], ids: set[UUID]) -> list[R]:
+    if not ids:
+        return []
+    statement = select(model).where(model.id.in_(ids))  # type: ignore[attr-defined]
+    return list((await session.execute(statement)).scalars())
+
+
+async def updated_at_of(session: AsyncSession, kind: str, ids: set[UUID]) -> dict[UUID, datetime]:
+    if not ids:
+        return {}
+    model: type[Lead] | type[Opportunity] = Lead if kind == "lead" else Opportunity
+    rows = await session.execute(select(model.id, model.updated_at).where(model.id.in_(ids)))
+    return {row_id: stamp for row_id, stamp in rows.all()}  # noqa: C416 - Row to tuple

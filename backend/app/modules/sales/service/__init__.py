@@ -3,7 +3,7 @@
 Other modules and the router import only from here.
 """
 
-from app.modules.sales.service import links, opportunities
+from app.modules.sales.service import links, opportunities, reports
 from app.modules.sales.service.common import Context
 from app.modules.sales.service.leads import (
     LEAD_SORT,
@@ -14,7 +14,9 @@ from app.modules.sales.service.leads import (
     convert,
     create_lead,
     disqualify,
+    export_leads,
     get_lead,
+    import_create_lead,
     list_leads,
     mark_contacted,
     organization_lead_stats,
@@ -63,8 +65,10 @@ __all__ = [
     "create_lead",
     "delete_stage",
     "disqualify",
+    "export_leads",
     "get_lead",
     "get_pipeline",
+    "import_create_lead",
     "links",
     "list_leads",
     "list_pipelines",
@@ -73,6 +77,7 @@ __all__ = [
     "qualify",
     "reopen",
     "reorder_stages",
+    "reports",
     "restore_lead",
     "update_lead",
     "update_stage",
