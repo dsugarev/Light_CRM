@@ -20,6 +20,7 @@ A light B2B CRM for a telecom Commercial team (about 20 internal users, on-premi
 | `docs/Test_strategy.md` | Test record: per phase, the test strategy applied, test cases added, runs performed with results, defects found; generated inventory (`python3 scripts/test_inventory.py`) |
 | `docs/api/` | OpenAPI snapshot (`openapi.json`, checked by CI) and how to view the API documentation |
 | `docs/integration-guide.md`, `docs/integration/` | Guide and Postman collection for the Conclusion, ERP and Billing teams; tests run its Python sample and check the collection against the routes |
+| `docs/assistant-eval.md` | Live evaluation of the AI assistant (cases, results); rerun when the prompt, tools or model change |
 
 These documents are the source of truth. If code and documents disagree, raise it; do not silently pick one.
 
@@ -78,6 +79,8 @@ uv run python -m app.cli create-integration-client [--system erp|billing|conclus
                                                               # 19.9 profiles, inactive, no keys
 uv run python -m app.cli seed-demo                            # fictional NFR-01 volumes (not in production)
 PERF_EMAIL=… PERF_PASSWORD=… uv run python scripts/perf_check.py https://localhost  # NFR-01 p95 check
+OPENROUTER_API_KEY=… EVAL_DATABASE_URL=… EVAL_APP_DATABASE_URL=… uv run python scripts/assistant_eval.py
+                                                              # live assistant evaluation (--fake: dry run)
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run lint-imports
