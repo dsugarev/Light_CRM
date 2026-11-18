@@ -39,7 +39,8 @@
     "imports": "Import",
     "integrations": "Integrations",
     "failingDeliveries_one": "{{count}} webhook problem",
-    "failingDeliveries_other": "{{count}} webhook problems"
+    "failingDeliveries_other": "{{count}} webhook problems",
+    "skipToContent": "Skip to main content"
   },
   "roles": {
     "admin": "Admin",

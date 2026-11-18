@@ -49,6 +49,13 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
+      {/* WCAG 2.4.1: keyboard users skip the navigation. Visible when focused. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow"
+      >
+        {t('nav.skipToContent')}
+      </a>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b px-6 py-3">
         <div className="flex items-center gap-6">
           <NavLink to="/" className="font-semibold">
@@ -149,7 +156,7 @@ export function AppLayout() {
           ) : null}
         </div>
       </header>
-      <main className="flex-1 px-6 py-6">
+      <main id="main" tabIndex={-1} className="flex-1 px-6 py-6 outline-none">
         {show.users && inAdminArea ? <WebhookAlert {...webhookHealth} /> : null}
         <Outlet />
       </main>
