@@ -9297,6 +9297,7 @@ export interface operations {
                 q?: string | null;
                 role?: components["schemas"]["RoleCode"] | null;
                 is_active?: boolean | null;
+                sort?: "name" | "-name" | "email" | "-email" | "role" | "-role" | "last_login_at" | "-last_login_at";
                 page?: number;
                 page_size?: number;
             };

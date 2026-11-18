@@ -135,3 +135,16 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   `setPassword.test.tsx` now expects the invalid-link page instead of an alert.
 - **Looked at:** the set page with a half-typed repeat, and the expired-link page, in en/bg at 1440 and 768 px; axe: no violations. I shortened the invalid-link text because it repeated the next-step advice.
 - **Gate:** lint (no warnings), prettier, typecheck, Vitest 186/186, i18n 1093 keys; Playwright Chromium 41/41 (plus the 2 screenshot specs); backend ruff, mypy, import-linter 14/14, pytest 1303 passed.
+
+## UX-08 — 2026-11-18 17:20
+
+- **API (additive):** `GET /api/v1/users` gained an optional `sort`: `name`, `email`, `role`, `last_login_at`, each with `-` for descending. Users who never signed in come last either way; ties go by name. The default is still name, and any other value returns 422. I updated the API spec (section 5) first, then exported `docs/api/openapi.json` and regenerated `src/api/schema.d.ts`. Router → service → repository (`_user_order`); no other endpoint changed. The full list machinery was not used because it rejects unknown parameters with 400, which would tighten the endpoint.
+- **Frontend:**
+  - `DataTable` is documented for reuse: TSDoc with a usage example (URL state via `useListParams`, `Pagination`, sort keys must be API sort fields). It gained optional per-row action menus (`rowActions`, `rowLabel`) through the new `components/RowActions.tsx` (base-ui Menu; link or callback items; labelled "Actions for <name>").
+  - New `components/RelativeTime.tsx` and `formatRelative` (Intl.RelativeTimeFormat, en/bg): "3 hours ago" with the exact Sofia time in `title` and for screen readers.
+  - The users page now runs on `DataTable` + `useListParams`: debounced search, role and status filters, sort and page all in the URL. Name, email, role and last sign-in are sortable. Status badges show active, deactivated or locked; last sign-in is relative. The row menu has Open, plus Unlock for locked users (with a toast). Errors use `ErrorState` with retry. The email column is hidden below 1024 px so the table fits at 768 px.
+- **Tests:**
+  - Backend: `test_FR_ADM_01_UX_08_list_sorts_by_column` (each field, both directions, never-signed-in last, 422 on an unknown value).
+  - Frontend: `src/features/admin/usersTable.test.tsx`, 11 `UX-08 ...` cases (sort to URL and API with `aria-sort`, a shared URL with q/role/status/sort, an unknown sort falls back, relative time with exact title, badges, row menu unlock and open, `formatRelative` en/bg).
+- **Looked at:** the users list and the row menu in en/bg at 1440 and 768 px; axe: no violations.
+- **Gate:** lint, prettier, typecheck, Vitest 197/197, i18n 1096 keys, API types regenerated from the new snapshot; Playwright Chromium 41/41 (+ screenshot specs). One full run had the assistant spec time out on a "not stable" Save note button while the load average hit 17; it passed 3/3 alone and in the next full run (logged as C-08). Backend ruff, mypy, import-linter 14/14, pytest 1304 passed (95.57%).

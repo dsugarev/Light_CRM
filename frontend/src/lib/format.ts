@@ -44,3 +44,28 @@ export function formatPercent(share: number, locale: Locale): string {
     share,
   )
 }
+
+const RELATIVE_STEPS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['second', 60],
+  ['minute', 60],
+  ['hour', 24],
+  ['day', 7],
+  ['week', 4.35],
+  ['month', 12],
+  ['year', Number.POSITIVE_INFINITY],
+]
+
+/** How long ago (or until) `iso` is from `now`, in words: "3 hours ago", "преди 2 дни". */
+export function formatRelative(iso: string, now: number, locale: Locale): string {
+  let value = (new Date(iso).getTime() - now) / 1000
+  for (const [unit, size] of RELATIVE_STEPS) {
+    if (Math.abs(value) < size) {
+      return new Intl.RelativeTimeFormat(TAGS[locale], { numeric: 'auto' }).format(
+        Math.round(value),
+        unit,
+      )
+    }
+    value /= size
+  }
+  return formatDateTime(iso, locale)
+}

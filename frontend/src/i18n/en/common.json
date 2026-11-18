@@ -97,5 +97,9 @@
     "match": "Both entries match",
     "met": "(done)",
     "notMet": "(not yet)"
+  },
+  "table": {
+    "actions": "Actions",
+    "actionsFor": "Actions for {{name}}"
   }
 }

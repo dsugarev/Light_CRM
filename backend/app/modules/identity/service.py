@@ -49,6 +49,7 @@ from app.modules.identity.schemas import (
     UserLookupPage,
     UserOut,
     UserPage,
+    UserSort,
     UserUpdate,
 )
 from app.modules.identity.tokens import hash_token, new_token
@@ -710,12 +711,14 @@ async def list_users(
     is_active: bool | None,
     page: int,
     page_size: int,
+    sort: UserSort = "name",
 ) -> UserPage:
     users, total = await repository.list_users(
         ctx.session,
         q=q,
         role_code=role.value if role else None,
         is_active=is_active,
+        sort=sort,
         include_service=False,
         offset=(page - 1) * page_size,
         limit=page_size,

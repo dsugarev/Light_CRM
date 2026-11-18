@@ -40,6 +40,7 @@ from app.modules.identity.schemas import (
     UserLookupPage,
     UserOut,
     UserPage,
+    UserSort,
     UserUpdate,
 )
 
@@ -336,11 +337,12 @@ async def list_users(
     q: Annotated[str | None, Query(max_length=200)] = None,
     role: RoleCode | None = None,
     is_active: bool | None = None,
+    sort: UserSort = "name",
     page: PageNumber = 1,
     page_size: PageSize = 25,
 ) -> UserPage:
     return await service.list_users(
-        ctx, q=q, role=role, is_active=is_active, page=page, page_size=page_size
+        ctx, q=q, role=role, is_active=is_active, sort=sort, page=page, page_size=page_size
     )
 
 

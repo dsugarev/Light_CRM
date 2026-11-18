@@ -116,6 +116,12 @@ class UserLookupPage(BaseModel):
     page_size: int
 
 
+# UX-08: sortable columns of the user list (API spec section 5); `-` means descending.
+UserSort = Literal[
+    "name", "-name", "email", "-email", "role", "-role", "last_login_at", "-last_login_at"
+]
+
+
 class UserOut(BaseModel):
     id: UUID
     email: str

@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { EmptyState } from '@/components/EmptyState'
+import { RowActions, type RowAction } from '@/components/RowActions'
 import {
   Table,
   TableBody,
@@ -23,10 +25,16 @@ interface DataTableProps<T> {
   columns: Column<T>[]
   rows: T[]
   rowKey: (row: T) => string
+  /** Current sort, as in the URL and the API: `field` or `-field` (descending). */
   sort: string
   onSort: (sort: string) => void
+  /** Shown instead of rows when there are none; a string becomes the EmptyState message. */
   empty?: ReactNode
+  /** Screen-reader name of the table. */
   caption?: string
+  /** UX-08: a "…" menu at the end of each row; `rowLabel` names the row in its label. */
+  rowActions?: ((row: T) => RowAction[]) | undefined
+  rowLabel?: ((row: T) => string) | undefined
 }
 
 function sortState(active: boolean, descending: boolean): 'ascending' | 'descending' | 'none' {
@@ -34,7 +42,32 @@ function sortState(active: boolean, descending: boolean): 'ascending' | 'descend
   return descending ? 'descending' : 'ascending'
 }
 
-/** Table with keyboard-accessible sortable headers (aria-sort) and an empty state. */
+/**
+ * The shared list table (UX-08): keyboard-accessible sortable headers (`aria-sort`), an
+ * empty state, and optional per-row action menus. It holds no state: keep page, sort and
+ * filters in the URL with `useListParams` and pass them in, so views can be shared.
+ *
+ * ```tsx
+ * const list = useListParams({ sort: 'name', filters: ['status'] as const })
+ * const columns: Column<Thing>[] = [
+ *   { key: 'name', header: t('name'), sortKey: 'name', cell: (row) => row.name },
+ *   { key: 'status', header: t('status'), cell: (row) => <StatusBadge status={row.status} /> },
+ * ]
+ * <DataTable
+ *   caption={t('title')}
+ *   columns={columns}
+ *   rows={data.items}
+ *   rowKey={(row) => row.id}
+ *   sort={list.sort}
+ *   onSort={(sort) => { list.update({ sort }) }}
+ *   rowLabel={(row) => row.name}
+ *   rowActions={(row) => [{ label: t('open'), to: `/things/${row.id}` }]}
+ * />
+ * <Pagination page={list.page} pageSize={25} total={data.total} onPageChange={...} />
+ * ```
+ *
+ * `sortKey` must be a sort field the list endpoint accepts (API spec 1.3).
+ */
 export function DataTable<T>({
   columns,
   rows,
@@ -43,7 +76,11 @@ export function DataTable<T>({
   onSort,
   empty,
   caption,
+  rowActions,
+  rowLabel,
 }: DataTableProps<T>) {
+  const { t } = useTranslation()
+  const span = columns.length + (rowActions ? 1 : 0)
   const descending = sort.startsWith('-')
   const active = sort.replace(/^-/, '')
   return (
@@ -80,12 +117,17 @@ export function DataTable<T>({
               </TableHead>
             )
           })}
+          {rowActions ? (
+            <TableHead className="w-12">
+              <span className="sr-only">{t('table.actions')}</span>
+            </TableHead>
+          ) : null}
         </TableRow>
       </TableHeader>
       <TableBody>
         {rows.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={columns.length}>
+            <TableCell colSpan={span}>
               {typeof empty === 'string' || empty === undefined ? (
                 <EmptyState message={empty} />
               ) : (
@@ -101,6 +143,11 @@ export function DataTable<T>({
                   {column.cell(row)}
                 </TableCell>
               ))}
+              {rowActions ? (
+                <TableCell className="w-12 text-right">
+                  <RowActions name={rowLabel?.(row) ?? rowKey(row)} actions={rowActions(row)} />
+                </TableCell>
+              ) : null}
             </TableRow>
           ))
         )}

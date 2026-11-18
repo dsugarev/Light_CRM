@@ -19,7 +19,8 @@
       "lastLogin": "Последен вход"
     },
     "never": "Никога",
-    "statusFilter": "Статус"
+    "statusFilter": "Статус",
+    "open": "Отвори"
   },
   "userForm": {
     "createTitle": "Нов потребител",

@@ -19,7 +19,8 @@
       "lastLogin": "Last sign-in"
     },
     "never": "Never",
-    "statusFilter": "Status"
+    "statusFilter": "Status",
+    "open": "Open"
   },
   "userForm": {
     "createTitle": "New user",

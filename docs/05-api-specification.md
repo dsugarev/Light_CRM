@@ -340,7 +340,7 @@ Payloads:
 ```
 
 - Emails are unique case-insensitively and stored in lower case; a duplicate returns `409 conflict.duplicate` with field `email` / code `user.email_taken` and `matches`.
-- `GET /users` filters: `q` (name or email), `role`, `is_active`, `page`, `page_size`; ordered by name. Service users are never listed.
+- `GET /users` filters: `q` (name or email), `role`, `is_active`, `page`, `page_size`; ordered by name unless `sort` is given: one of `name`, `email`, `role`, `last_login_at`, with a leading `-` for descending (users who never signed in come last either way; ties by name). Any other `sort` value returns `422`. Service users are never listed.
 - `POST /users/{id}/password-reset` returns `{ "url", "expires_at", "emailed" }` (a set link if the user never had a password); for a deactivated user it returns `422` with field `user_id` / code `user.inactive`.
 - `PATCH /users/{id}` with a changed role is audited as `user.role_changed`, other changes as `user.updated`, both with before and after values.
 - `GET /roles` returns `[{ "code", "name", "permissions": [...] }]` for the four human roles.
