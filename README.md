@@ -2,7 +2,7 @@
 
 A light B2B CRM for the Commercial team: lead and opportunity management, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, Docker Compose.
 
-Status: **Phase 6 (integration API with webhooks)**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records, and receive signed webhooks with a delivery log; see the [integration guide](docs/integration-guide.md). See [`docs/Plan.md`](docs/Plan.md) for what is built.
+Status: **Phase 7 (AI assistant), backend done**. Users sign in; Admins manage users, lists, pipeline stages and the audit log; everyone works with organizations, contacts and leads (BANT qualification, lifecycle, assignment, conversion), opportunities on a Kanban pipeline board, activities and tasks with record timelines, with search in Cyrillic and Latin. A dashboard, a win/loss report, XLSX/CSV export of every list and Excel/CSV import with preview and rollback are available. Conclusion, ERP and Billing can be registered as integration clients with scoped API keys and use the same API, with IDs in those systems recorded on records, and receive signed webhooks with a delivery log; see the [integration guide](docs/integration-guide.md). The AI assistant's API (read-only tools over CRM data, streamed answers, limits) is built and off by default; its chat drawer follows in Phase 7b. See [`docs/Plan.md`](docs/Plan.md) for what is built.
 
 ## Documentation
 
@@ -18,6 +18,7 @@ Status: **Phase 6 (integration API with webhooks)**. Users sign in; Admins manag
 | [`docs/Plan.md`](docs/Plan.md) | Implementation log: what was built, with code excerpts |
 | [`docs/Test_strategy.md`](docs/Test_strategy.md) | Test record: strategy per phase, test cases performed and results |
 | [`docs/api/`](docs/api/README.md) | OpenAPI snapshot and how to open the interactive API docs |
+| [`docs/assistant-eval.md`](docs/assistant-eval.md) | Live evaluation of the AI assistant: cases, how to run, results |
 
 ## Run it
 
@@ -51,6 +52,8 @@ docker compose exec backend python -m app.cli create-integration-client   # --sy
 
 Webhooks are sent by the `worker` service only to hosts listed in `WEBHOOK_ALLOWED_HOSTS` (`.env`, comma-separated, exact names or `*.suffix`); the worker needs outbound HTTPS to them. Webhook signing secrets are encrypted with `APP_ENCRYPTION_KEY`, which the start script generates: keep it with the database backups, because without it stored secrets must be rotated.
 
+The AI assistant is off (`AI_ENABLED=false`) until the owner confirms the data flow: questions and the CRM data the assistant looks up are sent to OpenRouter and Cerebras. To switch it on, set `AI_ENABLED=true` and `OPENROUTER_API_KEY` (a funded OpenRouter account) in `.env`; the backend then needs outbound HTTPS to `openrouter.ai`.
+
 ## Develop
 
 Development stack (backend with hot reload on http://localhost:8000, interactive API docs at http://localhost:8000/api/docs, PostgreSQL on localhost:5432 with a `crm_test` database):
@@ -71,6 +74,7 @@ uv run python -m app.cli export-openapi --output openapi.json
 uv run python -m app.cli create-admin --email admin@example.test --full-name "Admin"
 uv run python -m app.cli create-integration-client [--system erp|billing|conclusion|all]
 uv run python -m app.cli seed-demo   # fictional NFR-01 volumes; refused in production
+uv run python scripts/assistant_eval.py   # live assistant evaluation (docs/assistant-eval.md)
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 uv run lint-imports

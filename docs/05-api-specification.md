@@ -1,6 +1,6 @@
 # 05 — API Specification (Release 1)
 
-Status: Draft v0.10 (updated after Phase 6b, 2026-11-18) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+Status: Draft v0.11 (updated after Phase 7a, 2026-11-18) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
 
 This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
 
@@ -28,7 +28,7 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | 13–14 Reports, exports | 5 | Built (Phase 5a) |
 | 15 Data import | 5 | Built (Phase 5b) |
 | 16 Audit log | 1, 5 | Built; `/audit-log/export` since Phase 5a |
-| 17 AI assistant | 7 | Pending |
+| 17 AI assistant | 7 | Built (Phase 7a): all nine endpoints, the eight read-only tools, streaming, limits and token accounting; off by default (`AI_ENABLED=false`) |
 | 18 Rate limits | 1, 6 | Built for sign-in, password endpoints, per user and per integration client (Phase 6a); others with their features |
 | 19 Integration API | 6 | Built: API keys (19.2), scopes (19.3), external references and filters (19.4), idempotency (19.5) in Phase 6a; webhooks with the outbox, signing, retries, suspension and the delivery log (19.6, 19.7), the integration guide and collection (19.10) in Phase 6b; the initial profiles as a CLI command (19.9) |
 
@@ -189,7 +189,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `rate_limit.exceeded` | 429 | Too many requests |
 | `assistant.disabled` | 503 | `AI_ENABLED` is false |
 | `assistant.budget_exceeded` | 429 | Daily token budget used up |
-| `assistant.provider_unavailable` | 503 | LLM provider error or timeout |
+| `assistant.provider_unavailable` | 503 | LLM provider error or timeout (in the stream, as an `error` event) |
 | `auth.api_key_invalid` | 401 | API key missing, unknown, revoked or expired |
 | `auth.client_inactive` | 401 | Integration client deactivated |
 | `auth.ip_not_allowed` | 403 | Caller IP outside the client's allowlist |
@@ -212,6 +212,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 |---|---|
 | Public | No session required |
 | Signed-in | Any active user: Admin, Sales Manager, Sales Rep, Viewer |
+| Signed-in (own only) | Any active user, for their own data only; another user's returns `404 resource.not_found` (assistant conversations) |
 | Contributor | Admin, Sales Manager, Sales Rep |
 | Owner+ | Admin, Sales Manager, or the Sales Rep who owns the record |
 | Owner+ (owner = activity owner; assignee may update a task) | Admin, Sales Manager, the Sales Rep who owns the activity, or the assignee of a task |
@@ -803,7 +804,7 @@ The list returns the same fields without `before`, `after`, `details` and `reque
 
 ## 17. AI assistant
 
-All assistant endpoints return `503 assistant.disabled` when `AI_ENABLED` is false, except `status`.
+All assistant endpoints return `503 assistant.disabled` when `AI_ENABLED` is false, except `status`. `GET /system/info` reports the same switch as `features.ai_enabled`. Integration clients never reach these endpoints (`403 permission.not_for_integrations`).
 
 | Method | Path | Purpose | Access | Req. |
 |---|---|---|---|---|
@@ -819,6 +820,18 @@ All assistant endpoints return `503 assistant.disabled` when `AI_ENABLED` is fal
 
 Another user's conversation returns `404`, not `403`.
 
+**Payloads (as built, Phase 7a).**
+
+- `status` → `{ "enabled", "daily_token_budget", "used_today", "remaining_budget" }`. The budget is per user per day; the day starts at midnight Europe/Sofia.
+- Conversation → `{ "id", "title", "context": { "entity_type", "entity_id" } | null, "created_at", "updated_at" }`. `context.entity_type` is `lead`, `opportunity` or `organization`; a missing record is `422` with field `context.entity_id` and code `<type>.not_found`. Without a title, the first question (up to 80 characters) becomes the title. The list is paginated with the common envelope (`page`, `page_size`; `sort` is `updated_at`, default `-updated_at`).
+- Conversation detail adds `messages`: `{ "id", "role": "user" | "assistant", "content", "status": "streaming" | "complete" | "stopped" | "failed", "error_code", "tools_used": ["search_opportunities", ...], "record_refs": [{ "entity_type", "entity_id", "label" }], "prompt_tokens", "completion_tokens", "created_at" }`. Tool arguments and results are never returned; tool results are not stored at all (ADR 0026).
+- `PATCH` body `{ "title" }` (1–200 characters); no `version`: a conversation has a single owner.
+- `stop` → `204`. It flags a running answer; the stream ends at its next check (within about a second) with `message_end` and `"status": "stopped"`, keeping the text written so far. Stopping an answer that already ended changes nothing.
+- `save-as-note` → `201` with the created activity (section 11). The note's subject is the draft's first line without Markdown markers, its body the content. `entity_type` is `lead`, `opportunity`, `organization` or `contact`; the record checks of `POST /activities` apply (`422` with field `<type>_id` and code `<type>.not_found` or `<type>.archived`). Only the caller's own assistant messages can be saved (`404` otherwise). This is the only way a draft reaches the CRM, and it is an explicit user action (FR-AI-05).
+- Conversation create, rename and delete write audit entries (`chat_conversation.created`, `.renamed`, `.deleted`) without titles or content.
+
+**Before the stream starts**, `POST .../messages` answers with an ordinary problem response when: the assistant is off (`503 assistant.disabled`), the conversation is not the caller's (`404`), the body is invalid (`422`), the caller sent more than 20 messages in the current 10-minute window (`429 rate_limit.exceeded` with `Retry-After`), or the caller's daily token budget is used up (`429 assistant.budget_exceeded`). Once the stream has started, the status is `200` and failures arrive as `error` events.
+
 Stream format (`Content-Type: text/event-stream`):
 
 | Event | Data | Meaning |
@@ -827,10 +840,25 @@ Stream format (`Content-Type: text/event-stream`):
 | `tool_call` | `{ "tool": "search_opportunities", "status": "running" \| "done" }` | Progress indicator; no arguments or results are sent to the browser |
 | `delta` | `{ "text": "..." }` | Next piece of the answer (Markdown) |
 | `record_ref` | `{ "entity_type", "entity_id", "label" }` | A record cited in the answer, for linking |
-| `message_end` | `{ "prompt_tokens", "completion_tokens", "remaining_budget" }` | Answer complete and stored |
-| `error` | `{ "code" }` | `assistant.provider_unavailable`, `assistant.budget_exceeded`, `rate_limit.exceeded`; the stream then closes |
+| `message_end` | `{ "prompt_tokens", "completion_tokens", "remaining_budget", "status": "complete" \| "stopped" }` | Answer complete and stored |
+| `error` | `{ "code" }` | `assistant.provider_unavailable`, or `server.internal_error` for an unexpected failure; the stream then closes. (`assistant.budget_exceeded` and `rate_limit.exceeded` are returned before the stream starts, above.) |
 
 The internal tools the model may call (`search_leads`, `search_opportunities`, `search_organizations`, `get_record`, `list_activities`, `pipeline_summary`, `forecast_summary`, `my_tasks`) are **not** HTTP endpoints. They call the same service functions as the endpoints above with the caller's permissions (architecture section 8.3).
+
+**Tools (as built).** Each has a strict JSON schema (unknown arguments refused), returns at most 25 rows, leaves out archived records, and gives every record its `type`, `id` and in-app `url` (for example `/opportunities/<id>`) so answers can link to it. Contact email addresses and phone numbers are never included.
+
+| Tool | Arguments | Returns |
+|---|---|---|
+| `search_leads` | `query`, `status[]`, `owner` (`me` \| `anyone`), `limit` | Leads: title, company, contact name, status, source, estimated value, owner, qualification score |
+| `search_opportunities` | `query`, `stage_type` (`open` \| `won` \| `lost`), `owner`, `organization_id`, `close_from`, `close_to`, `is_stale`, `sort`, `limit` | Opportunities: name, organization, owner, stage, amount, probability, weighted amount, expected close date, next step, staleness |
+| `search_organizations` | `query`, `owner`, `limit` | Organizations: name, industry, size, city, country, owner |
+| `get_record` | `entity_type` (`lead` \| `opportunity` \| `organization` \| `contact`), `id` | One record with its detail fields (descriptions, BANT notes, counts, links) |
+| `list_activities` | `lead_id`, `opportunity_id`, `organization_id`, `contact_id`, `types[]`, `limit` | Activities, newest first: type, subject, body (shortened), dates, owner, linked records |
+| `pipeline_summary` | `owner` | Open pipeline per stage: count, total and weighted value (section 13) |
+| `forecast_summary` | `owner`, `months` (1–12) | Weighted forecast by expected close month (section 13) |
+| `my_tasks` | `include_done`, `limit` | The caller's own tasks, overdue first |
+
+A tool call with invalid arguments, an unknown tool name or a missing record gives the model a short error (`invalid_arguments`, `unknown_tool`, the error code), never data. The model may use at most 5 rounds of tools per answer; then it must answer without tools.
 
 ## 18. Rate limits
 
@@ -840,7 +868,7 @@ Defaults, configurable through settings or environment; exceeded limits return `
 |---|---|
 | `POST /auth/login`, `/auth/login/mfa` | 10 per minute per IP; account lockout after 5 failures (FR-AUTH-01) |
 | `POST /auth/password/*` | 5 per 15 minutes per IP |
-| Assistant messages | 20 per 10 minutes per user, plus the daily token budget |
+| Assistant messages | 20 per 10 minutes per user (`RATE_LIMIT_ASSISTANT_PER_10_MINUTES`), plus the daily token budget (`AI_DAILY_TOKEN_BUDGET`, default 200,000 tokens per user) |
 | Exports | 10 per minute per user |
 | Imports (upload) | 10 per hour per user |
 | All other authenticated endpoints | 600 per minute per user |

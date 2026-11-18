@@ -84,7 +84,8 @@ Frontend and backend are fully separate projects. Neither imports code from the 
 │   │   │   ├── integration/      # integration clients, API keys, scopes, external references,
 │   │   │   │                     # webhook subscriptions, outbox, deliveries
 │   │   │   └── assistant/        # chat, tools, conversations
-│   │   └── llm/                  # the ONLY place that calls LiteLLM
+│   │   └── llm/                  # the ONLY place that calls LiteLLM: types (protocol),
+│   │                             # client (LiteLLM), factory, fake (scripted model)
 │   └── tests/                    # unit/, api/, migrations/
 └── frontend/
     ├── package.json, pnpm-lock.yaml, Dockerfile
@@ -157,8 +158,9 @@ Each backend module has the same internal structure: `router.py` (HTTP only), `s
 | activity | `activity` | type (note / call / meeting / email / task), subject, body, occurred_at, due_at, done_at, owner_id, assignee_id, and nullable links: lead_id, opportunity_id, organization_id, contact_id (at least one required by a check constraint) |
 | audit | `audit_log` | occurred_at, actor_id, action, entity_type, entity_id, before (JSONB), after (JSONB), ip, request_id. Append-only: the application database role has INSERT and SELECT only on this table |
 | dataimport | `import_batch` | entity_type, file_name, status, row counts, created_by, rolled_back_at |
-| assistant | `chat_conversation` | user_id, title, context_entity_type, context_entity_id |
-| assistant | `chat_message` | conversation_id, role (user / assistant / tool), content, tool_calls (JSONB), prompt_tokens, completion_tokens |
+| assistant | `chat_conversation` | user_id, title, context_entity_type, context_entity_id. Index on (user_id, updated_at) |
+| assistant | `chat_message` | conversation_id, role (user / assistant), content, status (streaming / complete / stopped / failed), tool_calls (JSONB: tools called and their arguments), record_refs (JSONB), error_code, stop_requested, prompt_tokens, completion_tokens. Tool results are not stored (ADR 0026) |
+| assistant | `assistant_usage` | user_id, occurred_at, prompt_tokens, completion_tokens, tool_rounds, outcome: one row per answer, kept when a conversation is deleted; the daily budget sums it (FR-AI-08, ADR 0026) |
 
 ### 4.4 How later releases attach (do not build now; do not block)
 
@@ -242,7 +244,9 @@ async def chat(messages, tools=None, stream=True):
     )
 ```
 
-Configuration comes from environment variables: `OPENROUTER_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, `LLM_TIMEOUT_SECONDS`, `AI_ENABLED`, `AI_DAILY_TOKEN_BUDGET`. Nothing else in the codebase imports `litellm`; an import-linter rule enforces this, which also makes the model swappable and the tests mockable.
+Configuration comes from environment variables: `OPENROUTER_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, `LLM_TIMEOUT_SECONDS`, `AI_ENABLED`, `AI_DAILY_TOKEN_BUDGET`, plus `AI_HISTORY_TOKENS`, `RATE_LIMIT_ASSISTANT_PER_10_MINUTES`, `LLM_API_BASE` (an OpenAI-compatible endpoint instead of OpenRouter's; the end-to-end stack points it at the scripted server `app.llm.fake_server`) and `LLM_FAKE` (an in-process scripted model for development, refused in production). Nothing else in the codebase imports `litellm`; an import-linter rule enforces this, which also makes the model swappable and the tests mockable.
+
+As built (Phase 7a, ADR 0026): the rest of the backend depends only on the `LLM` protocol in `app/llm/types.py`; `app/llm/factory.py` loads the LiteLLM client only when `AI_ENABLED` is on. The client sets `LITELLM_MODE=PRODUCTION` before importing LiteLLM, which otherwise loads the nearest `.env` file into the environment, and `LITELLM_LOCAL_MODEL_COST_MAP=True`, which otherwise downloads a price list.
 
 ### 8.2 Flow
 

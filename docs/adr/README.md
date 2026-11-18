@@ -27,3 +27,4 @@ One file per decision: `NNNN-title.md` with context, decision and consequences. 
 - [0023 Import through the owning modules' services, with rows kept for preview and rollback](0023-import-through-owning-services.md)
 - [0024 Integration clients with bearer API keys, route-declared scopes and middleware idempotency](0024-integration-keys-scopes-and-idempotency.md)
 - [0025 Webhooks through a PostgreSQL outbox, delivered by the worker with a pinned, allowlisted connection](0025-webhook-outbox-and-delivery.md)
+- [0026 Assistant tool loop over the services, SSE streaming, and usage kept apart from chats](0026-assistant-tool-loop-streaming-and-usage.md)

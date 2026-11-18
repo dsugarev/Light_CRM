@@ -633,12 +633,60 @@ NFR-01 measurement (milliseconds):
 - `contact.anonymized` can be subscribed to but is only produced once GDPR anonymization exists (Phase 8).
 - The C# and Java samples are not executed (owner decision).
 
+## 13. Phase 7a — AI assistant backend
+
+### Strategy
+
+- **A scripted model, never the provider.** API tests replace `app.state.llm` with `ScriptedLLM`, which plays queued steps (text deltas, tool calls with usage, or an exception) one per model call and records the messages and tool definitions it was sent. Assertions look at both sides: the SSE events the browser receives and the prompt the model received (system instructions, history, the record in view, tool results).
+- **Tools tested through the loop.** Each tool runs for real against PostgreSQL through the owning services; tests check what the model was given: only non-archived records, the caller's own records for `owner: "me"`, compact fields with in-app URLs, no contact email or phone, report figures matching the reports, the caller's own tasks. Invalid arguments, unknown tools and missing records come back as errors.
+- **Safety** (test strategy 7): a record whose description holds injected instructions is read by a tool; the scripted model then asks for `delete_opportunity` and `update_opportunity`, which do not exist; the record's version and archive state stay unchanged and the audit log gains only the conversation. The set of tools is asserted to be exactly the eight read-only ones, each schema closed to unknown fields. The 5-round limit, the provider timeout, the daily budget (including the next Sofia day and per-user separation) and the message rate limit each have a test.
+- **Privacy:** chat text never appears in log records captured during a message; audit entries for conversations carry no content; unexpected errors reach the browser as a code only; the API key never appears in the settings' representation; LiteLLM must not load `.env` files on import.
+- **The real client offline.** A scripted OpenAI-compatible server (`app.llm.fake_server`, also used by the E2E stack) serves the real LiteLLM client a tool call, then a streamed answer, then a 503. LiteLLM's own `mock_response` drives the real streaming path to check routing (model, Cerebras only, no fallbacks, timeout, key); hand-built LiteLLM stream chunks check that tool-call fragments are assembled with usage; provider errors and a slow provider become `LLMUnavailableError` without details.
+- **Authorization:** the matrix covers the 9 routes with the new level "Signed-in (own only)" (all people pass the route check; another user's conversation is `404`, tested separately for every own-only route) and `save-as-note` as Contributor; integration clients are refused all of them.
+- **Live evaluation** (manual): `scripts/assistant_eval.py` with 20 cases in English and Bulgarian (`docs/assistant-eval.md`). Not part of CI.
+
+### Test cases added (summary)
+
+| Area | Cases | Files |
+|---|---|---|
+| Assistant API: switch, status, conversations, ownership, validation, streaming with tools and links, tools as the user, compact results, reports/tasks/activities tools, tool errors, round limit, record context, read-only and injection, language and history, history trimming, provider failure, unexpected failure, budget, rate limit, stop (stream and endpoint), save as note, viewers, logging, integration clients, no writes on read | 29 | `backend/tests/api/test_assistant.py` |
+| LLM client: routing, streaming, tool-call assembly, errors, timeout, no `.env` loading, logging off, factory, settings checks, demo model, the real client with tools against the scripted provider server | 10 | `backend/tests/unit/test_llm_client.py` |
+| Authorization matrix and integration scope matrix: 9 new routes | +18 | `backend/tests/api/test_authorization_matrix.py` |
+| Route catalog: new routes | +18 | `backend/tests/api/test_route_catalog.py` |
+
+### Runs performed
+
+| Date | Where | What | Result |
+|---|---|---|---|
+| 2026-11-18 | Developer Mac, PostgreSQL 18 | Migration 0010 up/down/up; `alembic check` | OK, no drift |
+| 2026-11-18 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 1247 passed, 95.7% coverage (assistant service 95%, tools 89%, LLM client 85%); clean. After the MCP fix: 1248 passed, 95.6% |
+| 2026-11-18 | Developer Mac | `assistant_eval.py --fake` (harness dry run against a disposable database) | Seeding, streaming and report work; demo answers not scored |
+| 2026-11-18 | Developer Mac | `assistant_eval.py` against the live model | Not run: OpenRouter `402 Insufficient credits` |
+
+### Defects found by testing and fixed
+
+| Found by | Defect | Fix |
+|---|---|---|
+| Real client against the scripted provider server | Every model call with tools failed: LiteLLM 1.108 imports its MCP gateway, which needs the optional `mcp` package (the first live smoke call had failed the same way) | `_skip_mcp_handler=True`; the test keeps running the real client with tools |
+| Same test (warnings as errors) | A pydantic deprecation raised from LiteLLM's code ended the stream | Filtered in the test configuration for `litellm` modules only |
+| Settings test | Importing LiteLLM loaded the repository's `.env` into the process (its default `DEV` mode), so an unset key looked set and `ENV` became `production` | `LITELLM_MODE=PRODUCTION` before the import (client and test configuration); guard test |
+| Client test (warnings as errors) | A pydantic `ReadOnly` notice from LiteLLM's own types was raised inside the call and reported as a provider failure | Filtered in the test configuration (harmless at runtime) |
+| import-linter | The assistant reached `litellm` through `app.llm.client` | Types split into `app.llm.types`; the client loaded on demand by `app.llm.factory`; the contract forbids direct imports |
+| Budget test (test defect) | Moving the clock a day expired the test session | The test signs in again |
+| Evaluation dry run | Emptying the database with `TRUNCATE … CASCADE` also removed the settings row and seeded lists | The script rebuilds the database through the migrations |
+
+### Gaps and deferred
+
+- The live model has not been evaluated yet (no OpenRouter credits).
+- A browser disconnecting mid-answer is handled (the partial answer is kept as stopped) but not tested: the test client reads whole responses.
+- The streamed response through Caddy is checked by the 7b Playwright journey.
+
 ## Appendix — test case inventory
 
 <!-- inventory:start -->
 _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 
-### Backend (pytest: unit, API, authorization matrix, migrations) — 1171 test cases
+### Backend (pytest: unit, API, authorization matrix, migrations) — 1248 test cases
 
 **`backend/tests/api/test_activities.py`** (13)
 
@@ -657,6 +705,40 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Organization timeline includes its records | FR-ACT-03 | 1 |
 | Task edit rules | FR-ACT-02 | 1 |
 | Activity date filters and sync mode | — | 1 |
+
+**`backend/tests/api/test_assistant.py`** (29)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Switched off every endpoint but status is 503 | FR-AI-07 | 1 |
+| Default settings keep the assistant off | FR-AI-07 | 1 |
+| Feature flag follows the switch | FR-AI-07 | 1 |
+| Status reports the daily budget | FR-AI-08 | 1 |
+| Conversations are saved renamed and deleted | FR-AI-01 | 1 |
+| Another users conversation is not found | FR-AI-01 | 1 |
+| Message length and context are validated | FR-AI-01 | 1 |
+| Answer streams with tool progress and record links | FR-AI-02 | 1 |
+| Tools run as the user and skip archived records | FR-AI-02 AC1 | 1 |
+| Tools return compact records without contact details | FR-AI-02 | 1 |
+| Reports tasks and activities tools | FR-AI-02 | 1 |
+| Bad tool calls come back to the model as errors | FR-AI-02 AC3 | 1 |
+| Tool loop stops after five rounds | — | 1 |
+| Record in view reaches the model as a tool result | FR-AI-03 | 1 |
+| Only read only tools exist | FR-AI-05 | 1 |
+| Injected instructions cannot change data | FR-AI-05 | 1 |
+| Prompt asks for the users language and keeps history | FR-AI-06 | 1 |
+| History is trimmed to the token limit | — | 1 |
+| Provider failure is a chat error and the crm keeps working | FR-AI-07 | 1 |
+| Unexpected failure is reported without details | FR-AI-07 | 1 |
+| Daily token budget | FR-AI-08 | 1 |
+| Message rate limit | FR-AI-08 | 1 |
+| Stop ends the answer and keeps what was written | FR-AI-01 | 1 |
+| Stop endpoint flags a running answer | FR-AI-01 | 1 |
+| Draft is saved as a note only on request | FR-AI-04 | 1 |
+| Viewers cannot save notes | FR-AI-04 | 1 |
+| Chat content is never logged | — | 1 |
+| Integration clients never reach the assistant | — | 1 |
+| Opportunity table untouched by reads | — | 1 |
 
 **`backend/tests/api/test_auth.py`** (27)
 
@@ -690,13 +772,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Login is rate limited per ip | — | 1 |
 | Rate limit response has retry after | — | 1 |
 
-**`backend/tests/api/test_authorization_matrix.py`** (271)
+**`backend/tests/api/test_authorization_matrix.py`** (289)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| Route role matrix | FR-AUTH-05 | 135 |
+| Route role matrix | FR-AUTH-05 | 144 |
 | Matrix covers every api route | — | 1 |
-| Integration scope matrix | FR-INT-03 | 135 |
+| Integration scope matrix | FR-INT-03 | 144 |
 
 **`backend/tests/api/test_contacts_reference_search.py`** (12)
 
@@ -923,13 +1005,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Report export with total row | FR-REP-02 | 1 |
 | Forecast conversion and win loss exports | FR-REP-02 | 1 |
 
-**`backend/tests/api/test_route_catalog.py`** (433)
+**`backend/tests/api/test_route_catalog.py`** (451)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Catalog is parsed | — | 1 |
-| Every route is in the catalog | — | 139 |
-| Every api route declares the catalog access level | — | 137 |
+| Every route is in the catalog | — | 148 |
+| Every api route declares the catalog access level | — | 146 |
 | Every catalog entry is built or pending | — | 154 |
 | Pending list only names catalog entries | — | 1 |
 | No route is hidden from the openapi document | — | 1 |
@@ -1078,6 +1160,21 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Score | FR-LEAD-03 AC2 | 7 |
 | Unknown items are listed | FR-LEAD-03 AC1 | 1 |
 
+**`backend/tests/unit/test_llm_client.py`** (10)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Routes to the configured model through cerebras only | — | 1 |
+| Tool call fragments are assembled | — | 1 |
+| Provider errors become unavailable without details | FR-AI-07 | 1 |
+| Slow provider times out | FR-AI-07 | 1 |
+| Importing litellm does not load dotenv files | — | 1 |
+| Message logging is off | — | 1 |
+| Factory picks the model from settings | — | 1 |
+| Settings refuse an assistant without a model | FR-AI-07 | 1 |
+| Demo model answers from the tool result in the users language | — | 1 |
+| Real client against the scripted provider server | — | 1 |
+
 **`backend/tests/unit/test_logging.py`** (4)
 
 | Test | Requirement | Cases |
@@ -1098,13 +1195,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Stored only as argon2id hash | FR-AUTH-03 | 1 |
 | Garbage hash never verifies | — | 1 |
 
-**`backend/tests/unit/test_policy.py`** (88)
+**`backend/tests/unit/test_policy.py`** (90)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Role matrix | FR-AUTH-05 | 52 |
-| Public is open to everyone | — | 14 |
-| Anonymous callers get 401 | FR-AUTH-05 | 13 |
+| Public is open to everyone | — | 15 |
+| Anonymous callers get 401 | FR-AUTH-05 | 14 |
 | Integrations are denied routes without a scope | FR-INT-03 | 1 |
 | Missing scope names the required scope | FR-INT-03 AC1 | 1 |
 | Scope opens the route | FR-INT-03 | 1 |
@@ -1182,19 +1279,17 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-ACT-03 timeline freshness › reloads the timeline after a change to the record | FR-ACT-03 | 1 |
 | FR-ACT-02 my tasks › shows overdue tasks and marks them done | FR-ACT-02 | 1 |
 
-**`frontend/src/features/admin/admin.test.tsx`** (9)
+**`frontend/src/features/contacts/contacts.test.tsx`** (7)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-ADM-01 user administration › lists users with translated roles and keeps filters in the URL | FR-ADM-01 | 1 |
-| FR-ADM-01 user administration › FR-AUTH-02 creates a user and shows the one-time link to hand over | FR-ADM-01, FR-AUTH-02 | 1 |
-| FR-ADM-01 user administration › validates the form and shows server field errors | FR-ADM-01 | 1 |
-| FR-ADM-01 user administration › deactivates a user after confirmation and explains the last-admin rule | FR-ADM-01 | 1 |
-| FR-ADM-01 user administration › creates a password reset link for a user | FR-ADM-01 | 1 |
-| FR-ADM-03 audit log › shows translated actions and filters by action | FR-ADM-03 | 1 |
-| FR-ADM-03 audit log › shows before and after values as text | FR-ADM-03 | 1 |
-| FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
-| FR-AUTH-04 settings › FR-OPP-06 saves the stale-opportunity threshold | FR-AUTH-04, FR-OPP-06 | 1 |
+| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
+| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
+| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
 
 **`frontend/src/features/imports/imports.test.tsx`** (6)
 
@@ -1206,25 +1301,6 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-IMP-01 import wizard › FR-IMP-01 AC4 only an Admin can roll back | FR-IMP-01, FR-IMP-01 AC4 | 1 |
 | FR-IMP-01 import wizard › shows all rows once imported (the checking filter does not carry over) | FR-IMP-01 | 1 |
 | FR-IMP-01 import wizard › is hidden from Sales Reps | FR-IMP-01 | 1 |
-
-**`frontend/src/features/leads/leads.test.tsx`** (14)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-LEAD-05 lead list › shows status, score and value, with filters in the URL | FR-LEAD-05 | 1 |
-| FR-LEAD-01 capture › saves with only a title and company name | FR-LEAD-01 | 1 |
-| FR-LEAD-01 capture › validates the amount on the client | FR-LEAD-01 | 1 |
-| FR-LEAD-02, 03 lead detail › FR-LEAD-03 shows BANT, recomputes the score live and saves with the version | FR-LEAD-02, FR-LEAD-03 | 1 |
-| FR-LEAD-02, 03 lead detail › FR-LEAD-03 AC1 disables Qualify while a BANT item is unknown | FR-LEAD-02, FR-LEAD-03 AC1 | 1 |
-| FR-LEAD-02, 03 lead detail › FR-LEAD-02 AC1 disqualifying needs a reason | FR-LEAD-02, FR-LEAD-02 AC1 | 1 |
-| FR-LEAD-02, 03 lead detail › FR-LEAD-02 AC2 shows Reopen to managers only | FR-LEAD-02, FR-LEAD-02 AC2 | 1 |
-| FR-LEAD-02, 03 lead detail › shows the latest version after a conflict | FR-LEAD-02 | 1 |
-| FR-LEAD-02, 03 lead detail › FR-LEAD-06 lets a rep take over another rep's lead | FR-LEAD-02, FR-LEAD-06 | 1 |
-| FR-ADM-02 lead lists administration › switches between the three lists | FR-ADM-02 | 1 |
-| FR-LEAD-04 conversion › offers Convert on a qualified lead | FR-LEAD-04 | 1 |
-| FR-LEAD-04 conversion › shows the opportunity a converted lead became | FR-LEAD-04 | 1 |
-| FR-LEAD-04 conversion › suggests the matching organization and converts in one request | FR-LEAD-04 | 1 |
-| FR-LEAD-04 conversion › asks before creating a duplicate organization | FR-LEAD-04 | 1 |
 
 **`frontend/src/features/integrations/integrations.test.tsx`** (20)
 
@@ -1251,28 +1327,38 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-INT-08 failing-delivery alert › shows a badge on the navigation and a banner in the admin area | FR-INT-08 | 1 |
 | FR-INT-08 failing-delivery alert › is not shown without problems | FR-INT-08 | 1 |
 
-**`frontend/src/features/auth/setPassword.test.tsx`** (6)
+**`frontend/src/features/leads/leads.test.tsx`** (14)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-AUTH-02 set password from a one-time link › checks the token from the URL fragment and sets the password | FR-AUTH-02 | 1 |
-| FR-AUTH-02 set password from a one-time link › explains an invalid or used link | FR-AUTH-02 | 1 |
-| FR-AUTH-02 set password from a one-time link › shows the policy error returned by the server | FR-AUTH-02 | 1 |
-| forgot password › always confirms without revealing whether the account exists | — | 1 |
-| safeNext | — | 1 |
-| set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
+| FR-LEAD-05 lead list › shows status, score and value, with filters in the URL | FR-LEAD-05 | 1 |
+| FR-LEAD-01 capture › saves with only a title and company name | FR-LEAD-01 | 1 |
+| FR-LEAD-01 capture › validates the amount on the client | FR-LEAD-01 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-03 shows BANT, recomputes the score live and saves with the version | FR-LEAD-02, FR-LEAD-03 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-03 AC1 disables Qualify while a BANT item is unknown | FR-LEAD-02, FR-LEAD-03 AC1 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-02 AC1 disqualifying needs a reason | FR-LEAD-02, FR-LEAD-02 AC1 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-02 AC2 shows Reopen to managers only | FR-LEAD-02, FR-LEAD-02 AC2 | 1 |
+| FR-LEAD-02, 03 lead detail › shows the latest version after a conflict | FR-LEAD-02 | 1 |
+| FR-LEAD-02, 03 lead detail › FR-LEAD-06 lets a rep take over another rep's lead | FR-LEAD-02, FR-LEAD-06 | 1 |
+| FR-ADM-02 lead lists administration › switches between the three lists | FR-ADM-02 | 1 |
+| FR-LEAD-04 conversion › offers Convert on a qualified lead | FR-LEAD-04 | 1 |
+| FR-LEAD-04 conversion › shows the opportunity a converted lead became | FR-LEAD-04 | 1 |
+| FR-LEAD-04 conversion › suggests the matching organization and converts in one request | FR-LEAD-04 | 1 |
+| FR-LEAD-04 conversion › asks before creating a duplicate organization | FR-LEAD-04 | 1 |
 
-**`frontend/src/features/contacts/contacts.test.tsx`** (7)
+**`frontend/src/features/admin/admin.test.tsx`** (9)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
-| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
-| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
+| FR-ADM-01 user administration › lists users with translated roles and keeps filters in the URL | FR-ADM-01 | 1 |
+| FR-ADM-01 user administration › FR-AUTH-02 creates a user and shows the one-time link to hand over | FR-ADM-01, FR-AUTH-02 | 1 |
+| FR-ADM-01 user administration › validates the form and shows server field errors | FR-ADM-01 | 1 |
+| FR-ADM-01 user administration › deactivates a user after confirmation and explains the last-admin rule | FR-ADM-01 | 1 |
+| FR-ADM-01 user administration › creates a password reset link for a user | FR-ADM-01 | 1 |
+| FR-ADM-03 audit log › shows translated actions and filters by action | FR-ADM-03 | 1 |
+| FR-ADM-03 audit log › shows before and after values as text | FR-ADM-03 | 1 |
+| FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
+| FR-AUTH-04 settings › FR-OPP-06 saves the stale-opportunity threshold | FR-AUTH-04, FR-OPP-06 | 1 |
 
 **`frontend/src/features/profile/profile.test.tsx`** (3)
 
@@ -1281,6 +1367,20 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
 | profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
 | profile › shows the server error for a wrong current password | — | 1 |
+
+**`frontend/src/features/organizations/organizations.test.tsx`** (9)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-PARTY-04 organization list › shows organizations with translated industry and keeps sort and filters in the URL | FR-PARTY-04 | 1 |
+| FR-PARTY-04 organization list › searches after typing pauses | FR-PARTY-04 | 1 |
+| FR-PARTY-01 create organization › AC1 warns about possible duplicates before saving, with a link | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › AC1 offers \"Create anyway\" after a 409 and resends with confirm_duplicate | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › validates EIK, VAT, website and country on the client | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › shows the owner picker only to users who may reassign | FR-PARTY-01 | 1 |
+| FR-PARTY-03 organization 360 › shows details, counts, contacts and empty later-phase sections | FR-PARTY-03 | 1 |
+| FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
+| FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
 
 **`frontend/src/features/opportunities/opportunities.test.tsx`** (12)
 
@@ -1299,19 +1399,16 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-OPP-03 pipeline board › FR-I18N-01 shows Bulgarian stage names | FR-OPP-03, FR-I18N-01 | 1 |
 | FR-OPP-02 / FR-ADM-02 stage administration › deactivates a stage and explains why a used stage cannot be deleted | FR-OPP-02, FR-ADM-02 | 1 |
 
-**`frontend/src/features/organizations/organizations.test.tsx`** (9)
+**`frontend/src/features/auth/setPassword.test.tsx`** (6)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| FR-PARTY-04 organization list › shows organizations with translated industry and keeps sort and filters in the URL | FR-PARTY-04 | 1 |
-| FR-PARTY-04 organization list › searches after typing pauses | FR-PARTY-04 | 1 |
-| FR-PARTY-01 create organization › AC1 warns about possible duplicates before saving, with a link | FR-PARTY-01 | 1 |
-| FR-PARTY-01 create organization › AC1 offers \"Create anyway\" after a 409 and resends with confirm_duplicate | FR-PARTY-01 | 1 |
-| FR-PARTY-01 create organization › validates EIK, VAT, website and country on the client | FR-PARTY-01 | 1 |
-| FR-PARTY-01 create organization › shows the owner picker only to users who may reassign | FR-PARTY-01 | 1 |
-| FR-PARTY-03 organization 360 › shows details, counts, contacts and empty later-phase sections | FR-PARTY-03 | 1 |
-| FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
-| FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
+| FR-AUTH-02 set password from a one-time link › checks the token from the URL fragment and sets the password | FR-AUTH-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › explains an invalid or used link | FR-AUTH-02 | 1 |
+| FR-AUTH-02 set password from a one-time link › shows the policy error returned by the server | FR-AUTH-02 | 1 |
+| forgot password › always confirms without revealing whether the account exists | — | 1 |
+| safeNext | — | 1 |
+| set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
 
 **`frontend/src/features/reports/reports.test.tsx`** (5)
 

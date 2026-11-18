@@ -17,8 +17,11 @@ from app.core.events import EventBus
 from app.core.logging import configure_logging
 from app.core.mailer import Mailer, create_mailer
 from app.core.middleware import RequestContextMiddleware
+from app.llm.factory import create_llm
+from app.llm.types import LLM
 from app.modules.activity import router as activity_router
 from app.modules.activity import service as activity_service
+from app.modules.assistant import router as assistant_router
 from app.modules.audit import router as audit_router
 from app.modules.audit import service as audit_service
 from app.modules.dataimport import router as dataimport_router
@@ -52,6 +55,7 @@ def create_app(
     *,
     clock: Clock | None = None,
     mailer: Mailer | None = None,
+    llm: LLM | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
@@ -81,6 +85,8 @@ def create_app(
     app.state.settings = settings
     app.state.clock = clock or SystemClock()
     app.state.mailer = mailer or create_mailer(settings)
+    # The AI assistant's model (architecture 8.1); None while AI_ENABLED is false.
+    app.state.llm = llm if llm is not None else create_llm(settings)
     app.state.event_bus = create_event_bus()
     app.state.authenticator = combined_authenticator(
         identity_service.authenticate_request, integration_service.authenticate_bearer
@@ -127,6 +133,7 @@ def create_app(
     for router in integration_router.routers:
         api_v1.include_router(router)
     api_v1.include_router(audit_router.router)
+    api_v1.include_router(assistant_router.router)
     app.include_router(api_v1)
 
     if not publish_docs:

@@ -1885,3 +1885,140 @@ Standard library only: `verify_signature` (constant-time, 5-minute window, any `
 1. Owner review of Phase 6 (PR #12 for 6a, the 6b PR stacked on it; PR #11 brings Phase 5 to `main` first).
 2. Requirements open questions 7 and 8 (data flows and write scopes) remain; the ERP, Billing and Conclusion clients stay inactive until answered.
 3. The network team needs the webhook hosts for `WEBHOOK_ALLOWED_HOSTS` and outbound HTTPS from the worker (operations guide, Phase 8).
+
+## Phase 7a — AI assistant backend: model client, tools, streaming, limits
+
+Requirements: FR-AI-01 (conversations, streaming, stop), FR-AI-02 (questions over CRM data through read-only tools; AC1 user's permissions, AC2 links, AC3 no invention), FR-AI-03 (record context), FR-AI-04 (save a draft as a note, explicit), FR-AI-05 (read-only), FR-AI-06 (reply in the user's language), FR-AI-07 (switch, provider failure), FR-AI-08 (rate limit, daily budget, usage per request). Owner decisions (2026-11-18): `litellm` pinned; `react-markdown` + `remark-gfm` for the drawer (7b); streaming without a library; an `assistant_usage` table; budget 200,000 tokens per user per day, history about 8,000 tokens, 60 s per model call; stop through a database flag; a scripted model for the E2E stack, refused in production. Phase 6 reached `main` through PR #14 (PRs #12 and #13 had merged into their stacked bases).
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 7a.1 | `litellm` 1.108.3; settings `AI_ENABLED` (default off), `OPENROUTER_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, `LLM_TIMEOUT_SECONDS`, `LLM_FAKE`, `AI_DAILY_TOKEN_BUDGET`, `AI_HISTORY_TOKENS`, `RATE_LIMIT_ASSISTANT_PER_10_MINUTES` in settings, `.env.example` and compose | Done |
+| 7a.2 | `app/llm`: protocol and types, LiteLLM client (OpenRouter, Cerebras only), factory, scripted demo model, scripted provider server for the E2E stack (`LLM_API_BASE`) | Done |
+| 7a.3 | Schema: `chat_conversation`, `chat_message`, `assistant_usage` | Done: migration `0010` |
+| 7a.4 | The eight read-only tools over the services | Done |
+| 7a.5 | Tool loop, SSE streaming, record context, citations, stop, usage, history | Done (ADR 0026) |
+| 7a.6 | Nine endpoints; access level "Signed-in (own only)"; `features.ai_enabled` in `/system/info` | Done |
+| 7a.7 | Tests: assistant API suite with a scripted model, client unit tests, matrix | Done |
+| 7a.8 | Live evaluation set and script | Done; the live run waits for OpenRouter credits |
+| 7a.9 | Documentation (spec v0.11, architecture, ADR 0026, `assistant-eval.md`, snapshot, this log, test record, README, CLAUDE.md), gate, PR | Done |
+
+### Endpoints built (9)
+
+`GET /assistant/status`, `GET|POST /assistant/conversations`, `GET|PATCH|DELETE /assistant/conversations/{conversation_id}`, `POST /assistant/conversations/{conversation_id}/messages` (SSE), `POST /assistant/conversations/{conversation_id}/messages/{message_id}/stop`, `POST /assistant/messages/{message_id}/save-as-note`. The route catalog's pending list now holds only MFA and GDPR (Phase 8).
+
+### Backend
+
+#### The model behind a protocol (`app/llm/`)
+
+```python
+class LLM(Protocol):                                   # app/llm/types.py
+    def stream(self, messages, tools) -> AsyncIterator[StreamItem]: ...   # TextDelta..., then Completed
+
+# app/llm/client.py: the only module importing litellm
+os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")   # no price-list download
+os.environ.setdefault("LITELLM_MODE", "PRODUCTION")             # no .env loading at import
+import litellm
+
+response = await litellm.acompletion(
+    model=self._model,                                  # openrouter/openai/gpt-oss-120b
+    messages=list(messages), tools=list(tools) if tools else None,
+    stream=True, stream_options={"include_usage": True},
+    timeout=self._timeout, api_key=self._api_key,
+    extra_body={"provider": {"order": [self._provider], "allow_fallbacks": False}},
+)
+...
+except Exception as error:                              # provider, network or timeout
+    raise LLMUnavailableError(type(error).__name__) from None   # never the prompt or answer
+```
+
+`app/llm/factory.create_llm` returns `None` while `AI_ENABLED` is off, the scripted `DemoLLM` with `LLM_FAKE`, and imports the LiteLLM client only otherwise. The import-linter contract now allows reaching `litellm` through `app.llm` and still forbids a direct import anywhere else.
+
+#### Tools over the services (`assistant/tools.py`)
+
+```python
+class SearchOpportunities(_Args):                       # extra="forbid": the JSON schema has additionalProperties false
+    query: Query | None = None
+    stage_type: Literal["open", "won", "lost"] | None = None
+    owner: Owner = "anyone"                              # "me" = the caller's own
+    close_from: date | None = None
+    close_to: date | None = None
+    ...
+    limit: Limit = 10                                    # 1..25
+
+async def run(ctx, name, raw_arguments) -> dict[str, Any]:
+    tool = TOOLS.get(name)
+    if tool is None:
+        return {"error": "unknown_tool", "available": list(TOOLS)}
+    ...                                                  # invalid_arguments with field names
+    check_access(ctx.principal, AccessLevel.SIGNED_IN)   # the same policy as the API
+    return await tool.run(ctx, args)                     # e.g. sales.opportunities.list_opportunities(...)
+```
+
+Every record in a result carries `type`, `id` and `url` (`/opportunities/<id>`); contacts come without email or phone.
+
+#### The loop and the stream (`assistant/service.py`)
+
+```python
+turn = await service.prepare_message(ctx, principal, conversation_id, body)   # 503/404/422/429 here
+return StreamingResponse(service.stream_answer(ctx, principal, turn), media_type="text/event-stream")
+
+while True:
+    offer_tools = result.rounds < MAX_TOOL_ROUNDS                 # 5; then the model must answer
+    async for item in llm.stream(prompt, schemas if offer_tools else None):
+        if isinstance(item, TextDelta):
+            yield _sse("delta", {"text": item.text})            # stop flag checked every 0.5 s
+        ...
+    if not calls or not offer_tools:
+        return
+    for call in calls:
+        yield _sse("tool_call", {"tool": call.name, "status": "running"})
+        output = await tools.run(tctx, call.name, call.arguments)
+        prompt.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(output)})
+        yield _sse("tool_call", {"tool": call.name, "status": "done"})
+```
+
+The record in view is inserted before the question as a `get_record` call and its result, so CRM text reaches the model only inside tool results. After the answer, records whose ID or name appears in it are sent as `record_ref` events. The answer, the tools called, the citations and tokens are saved in a fresh session together with an `assistant_usage` row, also when the provider fails or the browser disconnects.
+
+### Verification (2026-11-18)
+
+| Check | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| Migration 0010 up → down → up; `alembic check` | OK, no drift |
+| pytest (PostgreSQL 18) | 1248 passed, 95.6% coverage (assistant service 95%, tools 89%) |
+| pip-audit with `litellm` 1.108.3 | no known vulnerabilities |
+| OpenAPI snapshot and generated frontend types; `tsc` | up to date; clean |
+| Live evaluation | not run: the OpenRouter account has no credits (`402`); harness checked with `--fake` |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | Done for FR-AI-01..08 (backend) |
+| 2 | `docker compose up` works | Compose validated with the new settings; the stack is rebuilt for the 7b journeys |
+| 3 | Lint, types, suites green | Done locally |
+| 4 | Permission checks + matrix | Done for the 9 routes (new level "Signed-in (own only)"; closed to integration clients) |
+| 5 | UI text en + bg | 7b (the backend returns codes only) |
+| 6 | Additive migrations + tests | Done (0010) |
+| 7 | Audit | `chat_conversation.created/renamed/deleted` without content; saved notes as `activity.created` |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.11 |
+
+### Decisions and deviations
+
+- **Tool results are not stored** (architecture listed role `tool` rows): they would copy CRM data, including personal data later anonymized, into chat history. Messages keep the tools called with their arguments and the cited records; history sent to the model is questions and answers only (ADR 0026).
+- **`assistant_usage`** (one row per answer) is new in the data model; the budget does not depend on chat history.
+- **Rate limit and budget are refused before the stream starts** as `429` problem responses; only provider failures (and unexpected errors, `server.internal_error`) are `error` events. Spec section 17 updated.
+- **`stop` returns `204`, `save-as-note` returns `201`**, and `message_end` carries `status` (`complete` or `stopped`): details the draft spec left open.
+- **LiteLLM's MCP import with tools** was found by running the real client against the scripted provider server: every call with tools failed (`No module named 'mcp'`), including the first live smoke call. The client passes LiteLLM's `_skip_mcp_handler=True`; the test guards it.
+- **`LLM_API_BASE` and `app.llm.fake_server`**: the end-to-end stack runs with `ENV=production`, where `LLM_FAKE` is refused, so it points the real client at a scripted OpenAI-compatible server instead (deviation from the approved "fake through a setting refused in production"; the in-process `LLM_FAKE` remains for development).
+- **LiteLLM's import-time `.env` loading** was found while testing (it read the repository's `.env`, including `ENV=production`, into the test process). The client sets `LITELLM_MODE=PRODUCTION` first; a unit test guards it.
+- **The Cerebras skill named in CLAUDE.md is not installed** in this environment; the call follows architecture 8.1 (owner informed).
+
+### Open items
+
+1. The live evaluation needs OpenRouter credits (the account returns `402`). Then run `scripts/assistant_eval.py` and record the result in `docs/assistant-eval.md`.
+2. Requirements open question 1 (LLM data flow): `AI_ENABLED` stays `false` by default until the owner confirms.
+3. 7b: the chat drawer, Vitest and the Playwright journey with the demo model.

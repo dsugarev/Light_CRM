@@ -11,13 +11,4 @@ PENDING: dict[str, str] = {
     "POST /api/v1/auth/mfa/disable": "3. Authentication and sessions",
     "GET /api/v1/contacts/{contact_id}/personal-data": "8. Contacts",
     "POST /api/v1/contacts/{contact_id}/anonymize": "8. Contacts",
-    "GET /api/v1/assistant/status": "17. AI assistant",
-    "GET /api/v1/assistant/conversations": "17. AI assistant",
-    "POST /api/v1/assistant/conversations": "17. AI assistant",
-    "GET /api/v1/assistant/conversations/{conversation_id}": "17. AI assistant",
-    "PATCH /api/v1/assistant/conversations/{conversation_id}": "17. AI assistant",
-    "DELETE /api/v1/assistant/conversations/{conversation_id}": "17. AI assistant",
-    "POST /api/v1/assistant/conversations/{conversation_id}/messages": "17. AI assistant",
-    "POST /api/v1/assistant/conversations/{conversation_id}/messages/{message_id}/stop": "17. AI assistant",
-    "POST /api/v1/assistant/messages/{message_id}/save-as-note": "17. AI assistant",
 }

@@ -31,6 +31,7 @@ HUMANS = {"admin", "sales_manager", "sales_rep", "viewer"}
 EXPECTED: dict[str, set[str]] = {
     "Public": set(CALLERS),
     "Signed-in": HUMANS,
+    "Signed-in (own only)": HUMANS,  # another user's conversation is 404 (API spec 17)
     "Signed-in or any integration client": HUMANS,
     "Contributor": {"admin", "sales_manager", "sales_rep"},
     "Contributor (rules in service)": {"admin", "sales_manager", "sales_rep"},

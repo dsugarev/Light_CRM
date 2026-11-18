@@ -4,7 +4,7 @@ from enum import StrEnum
 from functools import lru_cache
 from typing import Self
 
-from pydantic import Field, PostgresDsn, model_validator
+from pydantic import Field, PostgresDsn, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Placeholder marker used in .env.example and in local defaults. The application
@@ -69,6 +69,22 @@ class Settings(BaseSettings):
     # "*.suffix", separated by commas or spaces. Empty: no webhook URL is allowed.
     webhook_allowed_hosts: str = ""
 
+    # AI assistant (architecture section 8, FR-AI-07/08). Off until the owner confirms the
+    # LLM data flow (requirements section 8, question 1).
+    ai_enabled: bool = False
+    openrouter_api_key: SecretStr | None = None
+    llm_model: str = "openrouter/openai/gpt-oss-120b"
+    llm_provider: str = "cerebras"
+    llm_timeout_seconds: float = Field(default=60.0, gt=0)
+    # An OpenAI-compatible endpoint to use instead of OpenRouter's, e.g. a company gateway;
+    # the end-to-end stack points it at the scripted server (app.llm.fake_server).
+    llm_api_base: str | None = None
+    # Development and end-to-end tests only: a scripted model instead of the provider.
+    llm_fake: bool = False
+    ai_daily_token_budget: int = Field(default=200_000, ge=1)
+    ai_history_tokens: int = Field(default=8_000, ge=500)
+    rate_limit_assistant_per_10_minutes: int = Field(default=20, ge=1)
+
     # Optional SMTP (A6): every flow works without it.
     smtp_host: str | None = None
     smtp_port: int = 587
@@ -103,6 +119,14 @@ class Settings(BaseSettings):
     @property
     def effective_migration_database_url(self) -> str:
         return str(self.migration_database_url or self.database_url)
+
+    @model_validator(mode="after")
+    def _assistant_needs_a_model(self) -> Self:
+        if self.llm_fake and self.is_production:
+            raise ValueError("LLM_FAKE is for development and tests; refusing it in production")
+        if self.ai_enabled and not self.llm_fake and not self.openrouter_api_key:
+            raise ValueError("AI_ENABLED needs OPENROUTER_API_KEY")
+        return self
 
     @model_validator(mode="after")
     def _refuse_default_secrets_in_production(self) -> Self:

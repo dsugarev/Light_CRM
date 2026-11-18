@@ -7,6 +7,10 @@ TEST_APP_DATABASE_URL  application (DML) role, used by the app under test
 import os
 from collections.abc import AsyncIterator
 
+# As in app.llm.client: keep LiteLLM from loading a .env file into the environment when
+# a test module imports it before the client does.
+os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
+
 import httpx
 import pytest
 from alembic import command

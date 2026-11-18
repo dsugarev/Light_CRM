@@ -25,6 +25,9 @@ class ErrorCode(StrEnum):
     """Error codes in use. Add a code here only together with the spec table."""
 
     ACTIVITY_NOT_A_TASK = "activity.not_a_task"
+    ASSISTANT_BUDGET_EXCEEDED = "assistant.budget_exceeded"
+    ASSISTANT_DISABLED = "assistant.disabled"
+    ASSISTANT_PROVIDER_UNAVAILABLE = "assistant.provider_unavailable"
     AUTH_ACCOUNT_LOCKED = "auth.account_locked"
     AUTH_API_KEY_INVALID = "auth.api_key_invalid"
     AUTH_CLIENT_INACTIVE = "auth.client_inactive"
