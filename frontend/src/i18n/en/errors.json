@@ -11,7 +11,13 @@
     "mixed_credentials": "The request was rejected.",
     "api_key_invalid": "The request was rejected.",
     "client_inactive": "The integration client is deactivated.",
-    "ip_not_allowed": "Requests from this address are not allowed."
+    "ip_not_allowed": "Requests from this address are not allowed.",
+    "mfa_required": "Enter the code from your authenticator app.",
+    "mfa_code_invalid": "The code is wrong or has expired. Try the current code.",
+    "mfa_setup_required": "Set up two-factor sign-in on your profile to continue.",
+    "mfa_enforced": "Two-factor sign-in is required for Admins and cannot be turned off.",
+    "mfa_already_enabled": "Two-factor sign-in is already on.",
+    "mfa_not_enabled": "Two-factor sign-in is not on."
   },
   "permission": {
     "denied": "You are not allowed to do this.",
@@ -109,7 +115,8 @@
   },
   "contact": {
     "not_found": "The contact does not exist.",
-    "organization_mismatch": "The contact belongs to another organization."
+    "organization_mismatch": "The contact belongs to another organization.",
+    "anonymized": "This contact was anonymized and cannot be changed."
   },
   "opportunity": {
     "closed": "This opportunity is closed. A manager can reopen it.",

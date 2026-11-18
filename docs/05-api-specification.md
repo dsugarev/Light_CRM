@@ -1,6 +1,6 @@
 # 05 — API Specification (Release 1)
 
-Status: Draft v0.11 (updated after Phase 7a, 2026-11-18) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
+Status: Draft v0.12 (updated after Phase 8a, 2026-11-18) · Read together with `01-requirements.md` (requirement IDs) and `02-architecture.md` section 5 (conventions).
 
 This document lists every endpoint the backend must provide in Release 1. The same API serves two kinds of caller: the CRM's own web frontend (users, cookie sessions) and **integrated applications** (Conclusion, ERP and Billing in R1; service accounts with API keys, section 19). It is the reference for implementation, for the authorization matrix test, for the integrating teams, and for review. The FastAPI-generated OpenAPI document remains the machine-readable contract and must match this catalog. An endpoint that is not listed here is not built without first adding it here.
 
@@ -13,14 +13,14 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | 1 Conventions: problem details, request IDs, CSRF, access levels | 0–1 | Built |
 | 1.3 Lists: paging, sorting, filters, `q`, `include_archived`, sync mode | 2 | Built (shared machinery, ADR 0017); users and audit-log lists keep their Phase 1 parameters |
 | 2 System and health | 0–1 | Built |
-| 3 Authentication and sessions | 1 | Built, except MFA endpoints (FR-AUTH-07, Phase 8) |
+| 3 Authentication and sessions | 1, 8 | Built; two-factor sign-in (FR-AUTH-07) since Phase 8a |
 | 4 Current user | 1, 4, 6 | Built; `/me/tasks` since Phase 4b; integration callers (`system`, `scopes`) since Phase 6a |
 | 5 Users and roles | 1 | Built |
 | 6.1 Application settings | 1, 4 | Built with session timeouts (Phase 1) and the stale-opportunity threshold (Phase 4); further settings added by their phases |
 | 6.2 Reference lists | 2–4 | Built; `industries`, `lead-sources`, `disqualification-reasons`, `loss-reasons` registered; `external-systems` since Phase 6a (seeded `conclusion`, `erp`, `billing`) |
 | 6.3 Pipelines and stages | 4 | Built (Phase 4a) |
 | 7 Organizations | 2–5 | Built; `/export` since Phase 5a; `/leads` and the open-lead count added in Phase 3; `/opportunities`, open-opportunity figures and the archive guard in Phase 4a; `/timeline` in Phase 4b |
-| 8 Contacts | 2, 4, 5 | Built, except GDPR `personal-data`/`anonymize` (Phase 8); `/timeline` since Phase 4b; `/export` since Phase 5a |
+| 8 Contacts | 2, 4, 5, 8 | Built; `/timeline` since Phase 4b; `/export` since Phase 5a; GDPR `personal-data` and `anonymize` since Phase 8a |
 | 9 Leads | 3–5 | Built; `conversion-preview`, `convert` and `/timeline` since Phase 4b; `/export` since Phase 5a |
 | 10 Opportunities and pipeline board | 4, 5 | Built; `/export` since Phase 5a |
 | 11 Activities and tasks | 4, 5 | Built (Phase 4b); `/export` since Phase 5a |
@@ -158,7 +158,13 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `auth.token_invalid` | 400 | Set or reset password token invalid, used or expired |
 | `auth.password_policy` | 422 | Password fails the policy; `errors` lists rules failed (`password.too_short`, `password.too_long`, `password.too_common`) |
 | `auth.csrf_failed` | 403 | Missing header or bad origin |
-| `auth.mfa_required` | 401 | Password accepted, TOTP code needed (only if MFA enabled) |
+| `auth.mfa_required` | 401 | Password accepted, TOTP code needed (only if MFA enabled); sets the pending-MFA cookie |
+| `auth.mfa_code_invalid` | 401 / 422 | Wrong, expired or reused code (401 at `login/mfa`; 422 with field `code` at `mfa/confirm`) |
+| `auth.mfa_setup_required` | 403 | An Admin must set up two-factor sign-in first (setting `mfa_required_for_admins`) |
+| `auth.mfa_enforced` | 403 | Two-factor sign-in is required for Admins and cannot be turned off |
+| `auth.mfa_already_enabled` | 409 | `mfa/setup` or `mfa/confirm` while already on |
+| `auth.mfa_not_enabled` | 409 | `mfa/disable` while off, or `mfa/confirm` without `mfa/setup` |
+| `contact.anonymized` | 409 | The contact was anonymized and cannot be changed or anonymized again |
 | `permission.denied` | 403 | Role or ownership does not allow the action |
 | `permission.last_admin` | 409 | The change would leave no active Admin (demote or deactivate the last one) |
 | `resource.not_found` | 404 | No such record (also returned for unknown paths) |
@@ -243,7 +249,7 @@ Health responses contain status only, never version numbers, hostnames or config
 | Method | Path | Purpose | Access | Req. |
 |---|---|---|---|---|
 | POST | `/api/v1/auth/login` | Sign in with email and password; sets the session cookie | Public | FR-AUTH-01 |
-| POST | `/api/v1/auth/login/mfa` | Complete sign-in with a TOTP code when MFA is enabled | Public (pending-MFA cookie) | FR-AUTH-07 (S) |
+| POST | `/api/v1/auth/login/mfa` | Complete sign-in with a TOTP code (or a recovery code) when MFA is enabled; needs the pending-MFA cookie set by `login` | Public | FR-AUTH-07 (S) |
 | POST | `/api/v1/auth/logout` | End the current session and clear the cookie | Signed-in | FR-AUTH-04 |
 | POST | `/api/v1/auth/password/set` | Set a password using a one-time token (new user or reset) | Public | FR-AUTH-02, 03 |
 | GET | `/api/v1/auth/password/token/{token}` | Check a token is valid before showing the form; returns email only | Public | FR-AUTH-02 |
@@ -261,6 +267,9 @@ Rules:
 - `password/change` (`{ "current_password", "new_password" }` → `204`): a wrong current password returns `422 validation.failed` with field `current_password` / code `password.current_incorrect`; all other sessions of the user end, the current one stays.
 - Password policy failures return `422 auth.password_policy` with field codes `password.too_short` (< 12), `password.too_long` (> 128), `password.too_common` (in the bundled common-password list, case-insensitive).
 - `logout` returns `204` and clears the cookie.
+- **Two-factor sign-in (FR-AUTH-07, as built in Phase 8a).** With MFA on, a correct password returns `401 auth.mfa_required` and sets `mfa_pending` (HMAC-signed, 5 minutes, `HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth/login`); no session exists yet. `POST /auth/login/mfa` (`{ "code" }`, a 6-digit TOTP code or a recovery code `xxxxx-xxxxx`) then answers like `login`. A missing, forged or expired pending cookie returns `401 auth.session_expired`; a wrong or reused code `401 auth.mfa_code_invalid` and counts towards the lockout. Codes are valid one 30-second step either side of now, each once.
+- `mfa/setup` → `{ "secret", "provisioning_uri" }` (otpauth URI for a QR code; a new call replaces the pending secret). `mfa/confirm` (`{ "code" }`) → `{ "recovery_codes": [10 codes] }`, shown once. `mfa/disable` (`{ "password" }`) → `204`; a wrong password is `422` with field `password` / `password.current_incorrect`. Audit actions: `user.mfa_enabled`, `user.mfa_disabled`, `user.mfa_recovery_code_used`, `user.mfa_reset` (CLI); `auth.login_succeeded` details include `mfa`.
+- **Enforcement.** When the setting `mfa_required_for_admins` is on, an Admin without MFA can call only `GET /me`, `GET /system/info`, `POST /auth/logout`, `/auth/mfa/setup` and `/auth/mfa/confirm`; everything else returns `403 auth.mfa_setup_required`. `GET /me` adds `mfa_enabled` and `mfa_setup_required`. Operators reset a lost device with `python -m app.cli reset-mfa --email …`.
 
 Login request and response:
 
@@ -352,6 +361,7 @@ Settings present so far (later phases add theirs; unknown fields return `422`):
 | `session_idle_timeout_minutes` | 480 (8 h) | 15–1440, not above the absolute timeout | 1 |
 | `session_absolute_timeout_minutes` | 10080 (7 days) | 60–43200 | 1 |
 | `stale_opportunity_days` | 14 | 1–365 | 4 |
+| `mfa_required_for_admins` | false | boolean | 8 |
 
 Changes take effect within 30 seconds on every backend process and are audited as `settings.updated` with before and after values.
 
@@ -469,6 +479,8 @@ Contact resource (response):
   "notes": null, "created_at": "...", "updated_at": "...", "created_by": { "id": "...", "full_name": "..." },
   "archived_at": null, "anonymized_at": null }
 ```
+
+**GDPR (FR-ADM-04, as built in Phase 8a; ADR 0027).** `personal-data` returns a JSON attachment (`Content-Disposition: attachment; filename="contact-<id>-personal-data.json"`, `Cache-Control: no-store`) with `generated_at`, `contact` (the contact resource) and sections from the other modules: `leads` (linked, or with the same email), `opportunities_as_primary_contact`, `activities` (linked), `activities_mentioning_the_contact` and `assistant_chats_mentioning_the_contact` (free text that mentions the name or email, for manual review), `ids_in_other_systems`, and `audit_log` (number of entries, kept). Audited as `contact.personal_data_exported`. `anonymize` (`{ "confirm": "ANONYMIZE" }`, anything else `422`) sets the names to `Anonymized` / `#<last 6 hex digits of the ID>`, clears email, phone, job title, preferred language and notes, sets `anonymized_at`, and clears contact name, email and phone on leads linked to the contact or with its email (each audited as `lead.updated` with `details.reason = "contact_anonymized"`); it returns the contact. Organization, opportunities and activities stay. The audit entry `contact.anonymized` holds only the result; earlier audit entries are kept unchanged. Changing or anonymizing an anonymized contact returns `409 contact.anonymized`. Both endpoints are Admin only (`gdpr.manage` in `/me` permissions).
 
 Rules (as built): `first_name` and `last_name` required (≤ 100); `email` stored in lower case; `preferred_locale` `en | bg`; `organization_id` must exist and not be archived (`422`, field `organization_id` / `organization.not_found` or `organization.archived`). A contact whose email already exists returns `409 conflict.duplicate` with `matches` (`reason: "email"`) unless `confirm_duplicate`. `owner` is derived (organization owner, else creator), and Owner+ edit rights follow it. Archived contacts cannot be changed (`409 resource.archived`). List filters: `organization_id`, `owner_id` (`me`); `q` searches names (both scripts), email, phone and job title. Audit actions: `contact.created`, `contact.updated`, `contact.archived`, `contact.restored`.
 

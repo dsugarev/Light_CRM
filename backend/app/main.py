@@ -22,6 +22,7 @@ from app.llm.types import LLM
 from app.modules.activity import router as activity_router
 from app.modules.activity import service as activity_service
 from app.modules.assistant import router as assistant_router
+from app.modules.assistant import service as assistant_service
 from app.modules.audit import router as audit_router
 from app.modules.audit import service as audit_service
 from app.modules.dataimport import router as dataimport_router
@@ -108,6 +109,15 @@ def create_app(
     }
     app.state.organization_stats = sales_service.ORGANIZATION_STATS
     app.state.organization_archive_guards = sales_service.ORGANIZATION_ARCHIVE_GUARDS
+    # GDPR tools (FR-ADM-04): what each module holds about a contact, and who clears it.
+    app.state.personal_data_providers = (
+        *sales_service.PERSONAL_DATA_PROVIDERS,
+        activity_service.personal_data,
+        integration_service.personal_data,
+        assistant_service.personal_data,
+        audit_service.personal_data,
+    )
+    app.state.contact_anonymizers = sales_service.CONTACT_ANONYMIZERS
 
     register_error_handlers(app)
     app.add_middleware(IntegrationMiddleware)  # inside: request IDs are already set

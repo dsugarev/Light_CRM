@@ -5,6 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.responses import JSONResponse
 
 from app.core.access import AccessLevel
 from app.core.auth import CurrentPrincipal, endpoint
@@ -17,6 +18,7 @@ from app.core.listing import ListQuery, Page, SyncPage, list_query
 from app.core.principal import Principal
 from app.modules.party import service
 from app.modules.party.schemas import (
+    AnonymizeRequest,
     ContactCreate,
     ContactOut,
     ContactUpdate,
@@ -42,6 +44,8 @@ async def context(request: Request, session: DbSession) -> service.Context:
         external_filter=request.app.state.external_filter,
         organization_stats=request.app.state.organization_stats,
         organization_archive_guards=request.app.state.organization_archive_guards,
+        personal_data_providers=request.app.state.personal_data_providers,
+        contact_anonymizers=request.app.state.contact_anonymizers,
     )
 
 
@@ -370,6 +374,36 @@ async def archive_contact(contact_id: UUID, ctx: Ctx, principal: CurrentPrincipa
 )
 async def restore_contact(contact_id: UUID, ctx: Ctx, principal: CurrentPrincipal) -> ContactOut:
     return await service.restore_contact(ctx, principal, contact_id)
+
+
+@contacts_router.get(
+    "/{contact_id}/personal-data",
+    summary="GDPR export of all personal data held about the contact (JSON download); audited",
+    response_class=JSONResponse,
+    responses={200: {"content": {"application/json": {"schema": {"type": "object"}}}}},
+    **endpoint(AccessLevel.ADMIN),
+)
+async def personal_data(contact_id: UUID, ctx: Ctx, principal: CurrentPrincipal) -> JSONResponse:
+    document = await service.personal_data(ctx, principal, contact_id)
+    filename = f"contact-{contact_id}-personal-data.json"
+    return JSONResponse(
+        document,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@contacts_router.post(
+    "/{contact_id}/anonymize",
+    summary='Irreversibly anonymize; body must contain "confirm": "ANONYMIZE"; audited',
+    **endpoint(AccessLevel.ADMIN),
+)
+async def anonymize_contact(
+    contact_id: UUID, body: AnonymizeRequest, ctx: Ctx, principal: CurrentPrincipal
+) -> ContactOut:
+    return await service.anonymize_contact(ctx, principal, contact_id)
 
 
 routers = [organizations_router, contacts_router]

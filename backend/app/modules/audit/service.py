@@ -30,6 +30,7 @@ from app.modules.audit import repository
 from app.modules.audit.models import AuditLog
 from app.modules.audit.schemas import AuditActor, AuditEntry, AuditEntrySummary, AuditPage
 from app.modules.identity import service as identity
+from app.modules.party import service as party
 
 # Defence in depth: these keys are dropped wherever they appear in a payload.
 _SECRET_KEYS = frozenset(
@@ -182,3 +183,14 @@ async def export_entries(
     )
     await session.commit()
     return ExportFile(content, options.format, "audit-log", now.astimezone(SOFIA).date())
+
+
+async def personal_data(session: AsyncSession, subject: party.DataSubject) -> Mapping[str, Any]:
+    """The audit trail is kept as it is (append-only, for accountability; ADR 0027): the
+    export says how many entries concern the contact."""
+    return {
+        "audit_log": {
+            "entries": await repository.count_for(session, "contact", subject.contact_id),
+            "retention": "kept unchanged for accountability; see the operations guide",
+        }
+    }

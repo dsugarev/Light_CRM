@@ -11,6 +11,7 @@ import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,6 +31,8 @@ import { formatDateTime } from '@/lib/format'
 import { storeLocale } from '@/lib/locale'
 import { useLocale } from '@/lib/useLocale'
 
+import { MfaCard } from './MfaCard'
+
 export function ProfilePage() {
   const { t } = useTranslation('profile')
   const { data: me } = useMe()
@@ -37,9 +40,19 @@ export function ProfilePage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <PageHeader title={t('title')} />
-      <DetailsCard me={me} />
-      <PasswordCard />
-      <SessionsCard />
+      {me.mfa_setup_required ? (
+        <Alert>
+          <AlertDescription>{t('mfa.required')}</AlertDescription>
+        </Alert>
+      ) : null}
+      <MfaCard me={me} />
+      {me.mfa_setup_required ? null : (
+        <>
+          <DetailsCard me={me} />
+          <PasswordCard />
+          <SessionsCard />
+        </>
+      )}
     </div>
   )
 }

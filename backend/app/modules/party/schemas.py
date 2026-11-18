@@ -203,3 +203,9 @@ class ContactOut(BaseModel):
     created_by: UserSummary | None
     archived_at: datetime | None
     anonymized_at: datetime | None
+
+
+class AnonymizeRequest(_Request):
+    """FR-ADM-04: the word must be typed, so the irreversible step cannot happen by accident."""
+
+    confirm: Literal["ANONYMIZE"]

@@ -743,12 +743,89 @@ NFR-01 measurement (milliseconds):
 - The live model is still not evaluated (no OpenRouter credits).
 - Screen-reader behaviour of the streaming log (`role="log"`, `aria-busy`) was not checked with an actual screen reader.
 
+## 15. Phase 8a — GDPR tools, two-factor sign-in, security pass
+
+### Strategy
+
+- **Two-factor sign-in with real codes.** API tests compute TOTP codes with `pyotp` at the frozen test clock, so time decides validity. Covered:
+  - the pending cookie's attributes;
+  - no session before the code;
+  - a code works once;
+  - a recovery code works once;
+  - wrong codes lock the account;
+  - a forged or expired pending token is refused;
+  - turning it off needs the password;
+  - enforcement for Admins (only the allowed routes, other roles unaffected);
+  - the CLI reset;
+  - secrets encrypted and never in the audit log.
+
+  The Playwright journey computes codes in Node (RFC 6238 with `node:crypto`), turns it on from the profile, then signs in again with a recovery code.
+- **GDPR across modules.** One fixture gives a contact a footprint in every module:
+  - a linked lead and a same-email lead;
+  - an opportunity with the contact as primary contact;
+  - a linked activity, and an activity that mentions the contact;
+  - an ERP ID;
+  - an assistant chat message.
+
+  The export must list each item. Anonymization must clear the person fields and keep the commercial records. Search must no longer find the person. The audit entry and the outbox event must hold no old values. Re-anonymizing and editing must be refused, and after anonymization the export's structured sections must hold no personal data.
+- **Security pass.** The ASVS L1 checklist was reviewed requirement by requirement. What the browser receives through Caddy is checked by Playwright:
+  - security headers on the app and the API;
+  - no `Server` header;
+  - `Cache-Control: no-store` on the API;
+  - the session cookie's flags;
+  - no CSP violation on ten main pages.
+
+  Backend tests cover anti-caching, CSRF and error bodies.
+
+### Test cases added (summary)
+
+| Area | Cases | Files |
+|---|---|---|
+| Two-factor sign-in: enrol, two-step sign-in, pending cookie, replay, recovery codes, lockout, disable, enforcement, CLI reset, flag, malformed codes | 13 | `backend/tests/api/test_mfa.py` |
+| GDPR: export, anonymization, export after anonymization, Admin only | 4 | `backend/tests/api/test_gdpr.py` |
+| Security: anti-caching, routes' own cache policy, CSRF, error bodies | 4 | `backend/tests/api/test_security_headers.py` |
+| Concurrent duplicate user creation | 1 | `backend/tests/api/test_users.py` |
+| Settings and system info expectations updated for the new setting and flag | (2 updated) | `backend/tests/api/test_me_settings_audit.py` |
+| Authorization matrix and integration scope matrix: 6 new routes | +12 | `backend/tests/api/test_authorization_matrix.py` |
+| Route catalog: new routes | +12 | `backend/tests/api/test_route_catalog.py` |
+| Sign-in code step, profile setup and disable, forced setup, Admin setting | 6 | `frontend/src/features/profile/mfa.test.tsx` |
+| GDPR panel: download, typed confirmation, other roles | 3 | `frontend/src/features/contacts/gdpr.test.tsx` |
+| Privacy journeys (two-factor sign-in, anonymization) | 2 × 2 languages × 2 browsers | `frontend/e2e/privacy.spec.ts` |
+| Security checks through Caddy | 2 × 2 browsers | `frontend/e2e/security.spec.ts` |
+
+### Runs performed
+
+| Date | Where | What | Result |
+|---|---|---|---|
+| 2026-11-18 | Developer Mac, PostgreSQL 18 | Migration 0011 up/down/up; `alembic check` | OK, no drift |
+| 2026-11-18 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 1295 passed, 95.5% coverage; clean |
+| 2026-11-18 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (1,064 keys), build, `pnpm audit` | 143 passed; clean |
+| 2026-11-18 | Docker Desktop, stack rebuilt (migration 0011, new Caddyfile; proxy restarted) | Playwright Chromium: privacy and security specs, then the full suite | 4/6 then 6/6 after the fixes below; full suite 34/34 |
+
+### Defects found by testing and fixed
+
+| Found by | Defect | Fix |
+|---|---|---|
+| Security journey (CSP violations) | The toast library injects its stylesheet inline; the CSP blocked it on every page, so toasts were unstyled behind Caddy since Phase 1 | The two style blocks allowed by hash; the journey fails if a library upgrade changes them |
+| ASVS review (8.2.1) | API responses had no anti-caching header | `Cache-Control: no-store` on `/api` unless the route sets one; tests |
+| Privacy journey (500) | Two users created with the same email at the same moment: the loser hit the unique index and got 500 | Mapped to `409 conflict.duplicate`; concurrent API test |
+| Privacy journey (test defect) | The en and bg journeys generated the same email in the same millisecond | The language is part of the generated address |
+| MFA enforcement test | The allowed-routes check compared route templates, which FastAPI 0.163 stores without the router prefix | Compares the request path (the allowed routes have no parameters) |
+| Local stack | A changed Caddyfile is bind-mounted but not reloaded | Proxy restarted; noted for the operations guide |
+| CI security journey on Firefox (run 44258388795) | Zod 4 probes `new Function` once per page; the CSP blocks it and Firefox reports a violation (Chromium does not) | `z.config({ jitless: true })` loaded first; Vitest check |
+
+### Gaps and deferred
+
+- ASVS open items (strength meter, show-password toggle, notices after credential changes, privacy notice) wait for the owner.
+- Firefox does not launch on the developer Mac; CI runs both browsers.
+- The CLI reset is tested through its service function, not by running the command.
+
 ## Appendix — test case inventory
 
 <!-- inventory:start -->
 _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 
-### Backend (pytest: unit, API, authorization matrix, migrations) — 1249 test cases
+### Backend (pytest: unit, API, authorization matrix, migrations) — 1295 test cases
 
 **`backend/tests/api/test_activities.py`** (13)
 
@@ -834,13 +911,13 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Login is rate limited per ip | — | 1 |
 | Rate limit response has retry after | — | 1 |
 
-**`backend/tests/api/test_authorization_matrix.py`** (289)
+**`backend/tests/api/test_authorization_matrix.py`** (301)
 
 | Test | Requirement | Cases |
 |---|---|---|
-| Route role matrix | FR-AUTH-05 | 144 |
+| Route role matrix | FR-AUTH-05 | 150 |
 | Matrix covers every api route | — | 1 |
-| Integration scope matrix | FR-INT-03 | 144 |
+| Integration scope matrix | FR-INT-03 | 150 |
 
 **`backend/tests/api/test_contacts_reference_search.py`** (12)
 
@@ -882,6 +959,15 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Contacts and audit log | FR-REP-02 | 1 |
 | Row cap | FR-REP-02 | 1 |
 | Neutralize formula prefixes | — | 1 |
+
+**`backend/tests/api/test_gdpr.py`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Export lists everything held about the contact | FR-ADM-04 | 1 |
+| Anonymize replaces personal fields and keeps history | FR-ADM-04 | 1 |
+| Export after anonymization holds only free text mentions | FR-ADM-04 | 1 |
+| Only admins | FR-ADM-04 | 1 |
 
 **`backend/tests/api/test_health.py`** (7)
 
@@ -983,6 +1069,22 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Audit entries never contain secrets | — | 1 |
 | Application role cannot change audit entries | FR-ADM-03 | 1 |
 
+**`backend/tests/api/test_mfa.py`** (13)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Enrol with a code and get recovery codes | FR-AUTH-07 | 1 |
+| Sign in needs the code after the password | FR-AUTH-07 | 1 |
+| Pending cookie is scoped and short lived | FR-AUTH-07 | 1 |
+| A code works once | FR-AUTH-07 | 1 |
+| Recovery code works once | FR-AUTH-07 | 1 |
+| Wrong codes lock the account | FR-AUTH-01 | 1 |
+| Disable needs the password | FR-AUTH-07 | 1 |
+| Enforced for admins | FR-AUTH-07 | 1 |
+| Reset mfa from the cli | — | 1 |
+| System info reports mfa available | — | 1 |
+| Malformed codes are refused | — | 3 |
+
 **`backend/tests/api/test_operations.py`** (5)
 
 | Test | Requirement | Cases |
@@ -1067,16 +1169,25 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Report export with total row | FR-REP-02 | 1 |
 | Forecast conversion and win loss exports | FR-REP-02 | 1 |
 
-**`backend/tests/api/test_route_catalog.py`** (451)
+**`backend/tests/api/test_route_catalog.py`** (463)
 
 | Test | Requirement | Cases |
 |---|---|---|
 | Catalog is parsed | — | 1 |
-| Every route is in the catalog | — | 148 |
-| Every api route declares the catalog access level | — | 146 |
+| Every route is in the catalog | — | 154 |
+| Every api route declares the catalog access level | — | 152 |
 | Every catalog entry is built or pending | — | 154 |
 | Pending list only names catalog entries | — | 1 |
 | No route is hidden from the openapi document | — | 1 |
+
+**`backend/tests/api/test_security_headers.py`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Asvs 8 2 1 api responses are not cached | — | 1 |
+| Asvs 8 2 1 routes may set their own cache policy | — | 1 |
+| Asvs 4 2 2 state changing requests need the csrf header | — | 1 |
+| Asvs 7 4 1 errors carry a code and request id only | — | 1 |
 
 **`backend/tests/api/test_sync_mode.py`** (8)
 
@@ -1090,7 +1201,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Rows inside the safety lag are held back | — | 1 |
 | Sync mode needs an index on updated at and id | — | 2 |
 
-**`backend/tests/api/test_users.py`** (16)
+**`backend/tests/api/test_users.py`** (17)
 
 | Test | Requirement | Cases |
 |---|---|---|
@@ -1110,6 +1221,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Admin unlocks an account | FR-AUTH-01 | 1 |
 | Admin revokes all sessions of a user | — | 1 |
 | Roles list permissions | — | 1 |
+| Simultaneous creation with one email is a conflict | FR-ADM-01 | 1 |
 
 **`backend/tests/api/test_webhooks.py`** (42)
 
@@ -1294,7 +1406,7 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Failing job does not stop other jobs | — | 1 |
 | Worker runs jobs until stopped | — | 1 |
 
-### Frontend (Vitest + Testing Library + MSW) — 129 test cases
+### Frontend (Vitest + Testing Library + MSW) — 138 test cases
 
 **`frontend/src/app/app.test.tsx`** (15)
 
@@ -1356,6 +1468,23 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-AUTH-04 settings › validates timeouts before saving | FR-AUTH-04 | 1 |
 | FR-AUTH-04 settings › FR-OPP-06 saves the stale-opportunity threshold | FR-AUTH-04, FR-OPP-06 | 1 |
 
+**`frontend/src/features/assistant/assistant.test.tsx`** (12)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-AI-07 switch › shows no assistant while it is switched off | FR-AI-07 | 1 |
+| FR-AI-07 switch › opens the drawer from the header, in Bulgarian too | FR-AI-07 | 1 |
+| FR-AI-01, 02 streamed answers › streams an answer with tool progress, Markdown, record links and no raw HTML | FR-AI-01 | 1 |
+| FR-AI-01, 02 streamed answers › stops a running answer | FR-AI-01 | 1 |
+| FR-AI-01, 02 streamed answers › FR-AI-07 shows a provider failure as a chat error | FR-AI-01, FR-AI-07 | 1 |
+| FR-AI-01, 02 streamed answers › FR-AI-08 shows a used-up budget | FR-AI-01, FR-AI-08 | 1 |
+| FR-AI-01 follow-up questions › shows each message once while a follow-up streams | FR-AI-01 | 1 |
+| FR-AI-03 record context › offers the opportunity in view and sends it with the new conversation | FR-AI-03 | 1 |
+| FR-AI-01 history › lists, opens, renames and deletes conversations | FR-AI-01 | 1 |
+| FR-AI-04 drafts › copies a draft and saves an edited draft as a note on a cited record | FR-AI-04 | 1 |
+| FR-AI-04 drafts › offers no note saving to viewers | FR-AI-04 | 1 |
+| Server-Sent Events parsing › keeps an unfinished block for the next chunk | — | 1 |
+
 **`frontend/src/features/imports/imports.test.tsx`** (6)
 
 | Test | Requirement | Cases |
@@ -1392,18 +1521,6 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-INT-08 failing-delivery alert › shows a badge on the navigation and a banner in the admin area | FR-INT-08 | 1 |
 | FR-INT-08 failing-delivery alert › is not shown without problems | FR-INT-08 | 1 |
 
-**`frontend/src/features/contacts/contacts.test.tsx`** (7)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
-| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
-| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
-| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
-
 **`frontend/src/features/auth/setPassword.test.tsx`** (6)
 
 | Test | Requirement | Cases |
@@ -1414,23 +1531,6 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | forgot password › always confirms without revealing whether the account exists | — | 1 |
 | safeNext | — | 1 |
 | set password errors › reports rate limiting instead of calling the link invalid | — | 1 |
-
-**`frontend/src/features/assistant/assistant.test.tsx`** (12)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-AI-07 switch › shows no assistant while it is switched off | FR-AI-07 | 1 |
-| FR-AI-07 switch › opens the drawer from the header, in Bulgarian too | FR-AI-07 | 1 |
-| FR-AI-01, 02 streamed answers › streams an answer with tool progress, Markdown, record links and no raw HTML | FR-AI-01 | 1 |
-| FR-AI-01, 02 streamed answers › stops a running answer | FR-AI-01 | 1 |
-| FR-AI-01, 02 streamed answers › FR-AI-07 shows a provider failure as a chat error | FR-AI-01, FR-AI-07 | 1 |
-| FR-AI-01, 02 streamed answers › FR-AI-08 shows a used-up budget | FR-AI-01, FR-AI-08 | 1 |
-| FR-AI-01 follow-up questions › shows each message once while a follow-up streams | FR-AI-01 | 1 |
-| FR-AI-03 record context › offers the opportunity in view and sends it with the new conversation | FR-AI-03 | 1 |
-| FR-AI-01 history › lists, opens, renames and deletes conversations | FR-AI-01 | 1 |
-| FR-AI-04 drafts › copies a draft and saves an edited draft as a note on a cited record | FR-AI-04 | 1 |
-| FR-AI-04 drafts › offers no note saving to viewers | FR-AI-04 | 1 |
-| Server-Sent Events parsing › keeps an unfinished block for the next chunk | — | 1 |
 
 **`frontend/src/features/leads/leads.test.tsx`** (14)
 
@@ -1451,38 +1551,6 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-LEAD-04 conversion › suggests the matching organization and converts in one request | FR-LEAD-04 | 1 |
 | FR-LEAD-04 conversion › asks before creating a duplicate organization | FR-LEAD-04 | 1 |
 
-**`frontend/src/features/organizations/organizations.test.tsx`** (9)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-PARTY-04 organization list › shows organizations with translated industry and keeps sort and filters in the URL | FR-PARTY-04 | 1 |
-| FR-PARTY-04 organization list › searches after typing pauses | FR-PARTY-04 | 1 |
-| FR-PARTY-01 create organization › AC1 warns about possible duplicates before saving, with a link | FR-PARTY-01 | 1 |
-| FR-PARTY-01 create organization › AC1 offers \"Create anyway\" after a 409 and resends with confirm_duplicate | FR-PARTY-01 | 1 |
-| FR-PARTY-01 create organization › validates EIK, VAT, website and country on the client | FR-PARTY-01 | 1 |
-| FR-PARTY-01 create organization › shows the owner picker only to users who may reassign | FR-PARTY-01 | 1 |
-| FR-PARTY-03 organization 360 › shows details, counts, contacts and empty later-phase sections | FR-PARTY-03 | 1 |
-| FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
-| FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
-
-**`frontend/src/features/profile/profile.test.tsx`** (3)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
-| profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
-| profile › shows the server error for a wrong current password | — | 1 |
-
-**`frontend/src/features/reports/reports.test.tsx`** (5)
-
-| Test | Requirement | Cases |
-|---|---|---|
-| FR-REP-01 dashboard › shows pipeline, forecast, rates and my tasks; the owner filter is in the URL | FR-REP-01 | 1 |
-| FR-REP-01 dashboard › FR-I18N-01 in Bulgarian | FR-REP-01, FR-I18N-01 | 1 |
-| FR-REP-03 win/loss report › groups by loss reason with a total row and regroups by month | FR-REP-03 | 1 |
-| FR-REP-02 export › downloads the list with its filters and without paging | FR-REP-02 | 1 |
-| FR-REP-02 export › explains when the export is too large | FR-REP-02 | 1 |
-
 **`frontend/src/features/opportunities/opportunities.test.tsx`** (12)
 
 | Test | Requirement | Cases |
@@ -1500,7 +1568,70 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | FR-OPP-03 pipeline board › FR-I18N-01 shows Bulgarian stage names | FR-OPP-03, FR-I18N-01 | 1 |
 | FR-OPP-02 / FR-ADM-02 stage administration › deactivates a stage and explains why a used stage cannot be deleted | FR-OPP-02, FR-ADM-02 | 1 |
 
-### End-to-end (Playwright, composed stack) — 56 test cases
+**`frontend/src/features/contacts/contacts.test.tsx`** (7)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-PARTY-02 contacts › lists contacts with their organization | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › creates a contact for the organization it was started from | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › picks an organization by searching | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows email duplicates after a 409 | FR-PARTY-02 | 1 |
+| FR-PARTY-02 contacts › shows a contact with links and the ownership note | FR-PARTY-02 | 1 |
+| FR-ADM-02 reference list administration › adds a value and explains why a used value cannot be deleted | FR-ADM-02 | 1 |
+| FR-PARTY-04 global search › searches from the header and shows grouped results | FR-PARTY-04 | 1 |
+
+**`frontend/src/features/contacts/gdpr.test.tsx`** (3)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-ADM-04 GDPR tools › downloads the personal data as a JSON file | FR-ADM-04 | 1 |
+| FR-ADM-04 GDPR tools › anonymizes only after the word is typed | FR-ADM-04 | 1 |
+| FR-ADM-04 GDPR tools › is not offered to other roles | FR-ADM-04 | 1 |
+
+**`frontend/src/features/profile/mfa.test.tsx`** (6)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-AUTH-07 sign-in with a code › asks for the code after the password and signs in with it | FR-AUTH-07 | 1 |
+| FR-AUTH-07 sign-in with a code › shows a wrong code and goes back to the password when the step expired | FR-AUTH-07 | 1 |
+| FR-AUTH-07 profile › sets up with a QR code and a key, then shows the recovery codes once | FR-AUTH-07 | 1 |
+| FR-AUTH-07 profile › turns off with the password and shows an enforcement refusal | FR-AUTH-07 | 1 |
+| FR-AUTH-07 profile › sends an Admin who must set it up to the profile, with only the setup card | FR-AUTH-07 | 1 |
+| FR-AUTH-07 Admin setting › requires two-factor sign-in for Admins | FR-AUTH-07 | 1 |
+
+**`frontend/src/features/profile/profile.test.tsx`** (3)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| profile › FR-AUTH-04 lists sessions and signs out another one | FR-AUTH-04 | 1 |
+| profile › FR-AUTH-03 checks the new password before calling the API | FR-AUTH-03 | 1 |
+| profile › shows the server error for a wrong current password | — | 1 |
+
+**`frontend/src/features/organizations/organizations.test.tsx`** (9)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-PARTY-04 organization list › shows organizations with translated industry and keeps sort and filters in the URL | FR-PARTY-04 | 1 |
+| FR-PARTY-04 organization list › searches after typing pauses | FR-PARTY-04 | 1 |
+| FR-PARTY-01 create organization › AC1 warns about possible duplicates before saving, with a link | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › AC1 offers \"Create anyway\" after a 409 and resends with confirm_duplicate | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › validates EIK, VAT, website and country on the client | FR-PARTY-01 | 1 |
+| FR-PARTY-01 create organization › shows the owner picker only to users who may reassign | FR-PARTY-01 | 1 |
+| FR-PARTY-03 organization 360 › shows details, counts, contacts and empty later-phase sections | FR-PARTY-03 | 1 |
+| FR-PARTY-03 organization 360 › FR-AUTH-05 hides edit and archive from a rep who does not own it | FR-PARTY-03, FR-AUTH-05 | 1 |
+| FR-PARTY-03 organization 360 › archives after confirmation | FR-PARTY-03 | 1 |
+
+**`frontend/src/features/reports/reports.test.tsx`** (5)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| FR-REP-01 dashboard › shows pipeline, forecast, rates and my tasks; the owner filter is in the URL | FR-REP-01 | 1 |
+| FR-REP-01 dashboard › FR-I18N-01 in Bulgarian | FR-REP-01, FR-I18N-01 | 1 |
+| FR-REP-03 win/loss report › groups by loss reason with a total row and regroups by month | FR-REP-03 | 1 |
+| FR-REP-02 export › downloads the list with its filters and without paging | FR-REP-02 | 1 |
+| FR-REP-02 export › explains when the export is too large | FR-REP-02 | 1 |
+
+### End-to-end (Playwright, composed stack) — 68 test cases
 
 **`frontend/e2e/assistant.spec.ts`** (4)
 
@@ -1584,6 +1715,19 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Organizations and contacts in bg › FR-PARTY-01..04 create, detect duplicate, add contact, search across scripts, archive (firefox) | FR-PARTY-01 | 1 |
 | Ownership › FR-AUTH-05 AC1 a sales rep cannot edit an organization owned by someone else (firefox) | FR-AUTH-05 AC1 | 1 |
 
+**`frontend/e2e/privacy.spec.ts`** (8)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| Privacy and sign-in in en › FR-AUTH-07 a rep turns on two-factor sign-in and signs in with a recovery code (chromium) | FR-AUTH-07 | 1 |
+| Privacy and sign-in in en › FR-ADM-04 an Admin anonymizes a contact (chromium) | FR-ADM-04 | 1 |
+| Privacy and sign-in in bg › FR-AUTH-07 a rep turns on two-factor sign-in and signs in with a recovery code (chromium) | FR-AUTH-07 | 1 |
+| Privacy and sign-in in bg › FR-ADM-04 an Admin anonymizes a contact (chromium) | FR-ADM-04 | 1 |
+| Privacy and sign-in in en › FR-AUTH-07 a rep turns on two-factor sign-in and signs in with a recovery code (firefox) | FR-AUTH-07 | 1 |
+| Privacy and sign-in in en › FR-ADM-04 an Admin anonymizes a contact (firefox) | FR-ADM-04 | 1 |
+| Privacy and sign-in in bg › FR-AUTH-07 a rep turns on two-factor sign-in and signs in with a recovery code (firefox) | FR-AUTH-07 | 1 |
+| Privacy and sign-in in bg › FR-ADM-04 an Admin anonymizes a contact (firefox) | FR-ADM-04 | 1 |
+
 **`frontend/e2e/reports.spec.ts`** (4)
 
 | Test | Requirement | Cases |
@@ -1592,6 +1736,15 @@ _Generated by `python3 scripts/test_inventory.py`; do not edit by hand._
 | Reports in bg › FR-REP-01..03 dashboard for my opportunities, list export, win/loss (chromium) | FR-REP-01 | 1 |
 | Reports in en › FR-REP-01..03 dashboard for my opportunities, list export, win/loss (firefox) | FR-REP-01 | 1 |
 | Reports in bg › FR-REP-01..03 dashboard for my opportunities, list export, win/loss (firefox) | FR-REP-01 | 1 |
+
+**`frontend/e2e/security.spec.ts`** (4)
+
+| Test | Requirement | Cases |
+|---|---|---|
+| ASVS 14.4 security headers on the app and the API, no server banner (chromium) | — | 1 |
+| ASVS 3.4 session cookie flags and no CSP violations on the main pages (chromium) | — | 1 |
+| ASVS 14.4 security headers on the app and the API, no server banner (firefox) | — | 1 |
+| ASVS 3.4 session cookie flags and no CSP violations on the main pages (firefox) | — | 1 |
 
 **`frontend/e2e/smoke.spec.ts`** (10)
 

@@ -27,6 +27,7 @@ import { ExportMenu } from '@/features/reports/ExportMenu'
 
 import { ContactForm } from './ContactForm'
 import { contactDefaults, contactPayload, type ContactValues } from './contactValues'
+import { PersonalData } from './PersonalData'
 
 type Contact = Schemas['ContactOut']
 const PAGE_SIZE = 25
@@ -279,7 +280,9 @@ export function ContactPage() {
   if (contact.isError) return <ErrorState error={contact.error} />
   if (!contact.data) return <Loading />
   const c = contact.data
-  const editable = canEdit(c.owner.id)
+  const mayManageGdpr = can('gdpr.manage')
+  // An anonymized contact cannot be edited: that would add personal data back (FR-ADM-04).
+  const editable = canEdit(c.owner.id) && !c.anonymized_at
   const actionError = [archive.error, restore.error].find((e) => e instanceof ApiError)
   const rows: [string, React.ReactNode][] = [
     [t('contact.fields.jobTitle'), c.job_title],
@@ -323,6 +326,11 @@ export function ContactPage() {
             {c.archived_at ? (
               <Badge variant="outline">
                 {t('organization.detail.archivedOn', { date: formatDate(c.archived_at, locale) })}
+              </Badge>
+            ) : null}
+            {c.anonymized_at ? (
+              <Badge variant="outline">
+                {t('contact.gdpr.anonymizedOn', { date: formatDate(c.anonymized_at, locale) })}
               </Badge>
             ) : null}
             {editable && !c.archived_at ? (
@@ -376,6 +384,7 @@ export function ContactPage() {
         </CardContent>
       </Card>
       <ExternalReferences resource="contacts" id={c.id} />
+      {mayManageGdpr ? <PersonalData contact={c} /> : null}
       <RecordTimeline record={{ kind: 'contact', id: c.id }} canLog={!c.archived_at} />
     </section>
   )

@@ -421,3 +421,28 @@ async def updated_at_of(session: AsyncSession, kind: str, ids: set[UUID]) -> dic
     model: type[Lead] | type[Opportunity] = Lead if kind == "lead" else Opportunity
     rows = await session.execute(select(model.id, model.updated_at).where(model.id.in_(ids)))
     return {row_id: stamp for row_id, stamp in rows.all()}  # noqa: C416 - Row to tuple
+
+
+# --- GDPR (FR-ADM-04) ---------------------------------------------------------------------
+
+
+async def leads_of_person(
+    session: AsyncSession, contact_id: UUID, email: str | None, *, for_update: bool = False
+) -> list[Lead]:
+    """Leads linked to the contact, or carrying the same email address."""
+    match = Lead.contact_id == contact_id
+    if email:
+        match = or_(match, func.lower(Lead.email) == email.lower())
+    statement = select(Lead).where(match).order_by(Lead.created_at, Lead.id)
+    if for_update:
+        statement = statement.with_for_update(of=Lead)
+    return list((await session.execute(statement)).unique().scalars())
+
+
+async def opportunities_of_contact(session: AsyncSession, contact_id: UUID) -> list[Opportunity]:
+    statement = (
+        select(Opportunity)
+        .where(Opportunity.primary_contact_id == contact_id)
+        .order_by(Opportunity.created_at, Opportunity.id)
+    )
+    return list((await session.execute(statement)).unique().scalars())

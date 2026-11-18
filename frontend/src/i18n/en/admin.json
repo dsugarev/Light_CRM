@@ -103,13 +103,21 @@
         "activated": "User activated",
         "password_reset_issued": "Password reset link created",
         "unlocked": "Account unlocked",
-        "sessions_revoked": "All sessions ended"
+        "sessions_revoked": "All sessions ended",
+        "mfa_enabled": "Two-factor sign-in turned on",
+        "mfa_disabled": "Two-factor sign-in turned off",
+        "mfa_reset": "Two-factor sign-in reset by an operator",
+        "mfa_recovery_code_used": "Recovery code used"
       },
       "session": {
         "revoked": "Session ended"
       },
       "settings": {
         "updated": "Settings changed"
+      },
+      "contact": {
+        "anonymized": "Contact anonymized",
+        "personal_data_exported": "Personal data exported"
       }
     }
   },
@@ -122,7 +130,10 @@
     "absoluteHint": "Default 10080 (7 days); 60 to 43200.",
     "opportunities": "Opportunities",
     "staleDays": "Days without activity before an opportunity needs attention",
-    "staleDaysHint": "Default 14; 1 to 365."
+    "staleDaysHint": "Default 14; 1 to 365.",
+    "security": "Security",
+    "mfaRequired": "Require two-factor sign-in for Admins",
+    "mfaRequiredHint": "Admins without it must set it up at their next request and cannot turn it off."
   },
   "reference": {
     "title": "Lists",

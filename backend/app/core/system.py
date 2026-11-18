@@ -33,10 +33,10 @@ async def system_info(request: Request) -> SystemInfo:
         version=settings.app_version,
         build=settings.app_build,
         supported_locales=["en", "bg"],
-        # The assistant shows only while AI_ENABLED is on (FR-AI-07); MFA (FR-AUTH-07)
-        # arrives in Phase 8.
+        # The assistant shows only while AI_ENABLED is on (FR-AI-07); optional
+        # two-factor sign-in (FR-AUTH-07) is always available.
         features=FeatureFlags(
             ai_enabled=settings.ai_enabled and request.app.state.llm is not None,
-            mfa_available=False,
+            mfa_available=True,
         ),
     )

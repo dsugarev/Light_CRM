@@ -80,7 +80,7 @@ async def test_system_info_for_signed_in_users(test_app: TestApp) -> None:
     client, _ = await test_app.signed_in(RoleCode.VIEWER)
     info = (await client.get("/api/v1/system/info")).json()
     assert info["supported_locales"] == ["en", "bg"]
-    assert info["features"] == {"ai_enabled": False, "mfa_available": False}
+    assert info["features"] == {"ai_enabled": False, "mfa_available": True}
     assert (await test_app.client().get("/api/v1/system/info")).status_code == 401
 
 
@@ -94,6 +94,7 @@ async def test_FR_AUTH_04_settings_defaults_and_update(test_app: TestApp) -> Non
         "session_idle_timeout_minutes": 480,
         "session_absolute_timeout_minutes": 10080,
         "stale_opportunity_days": 14,
+        "mfa_required_for_admins": False,
     }
 
     response = await admin.patch(
@@ -107,6 +108,7 @@ async def test_FR_AUTH_04_settings_defaults_and_update(test_app: TestApp) -> Non
         "session_idle_timeout_minutes": 480,
         "session_absolute_timeout_minutes": 1440,
         "stale_opportunity_days": 14,
+        "mfa_required_for_admins": False,
     }
 
 

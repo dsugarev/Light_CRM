@@ -4,11 +4,4 @@ The route catalog test fails if an endpoint in docs/05-api-specification.md has
 no route and is not listed here. Remove entries as each phase builds them.
 """
 
-PENDING: dict[str, str] = {
-    "POST /api/v1/auth/login/mfa": "3. Authentication and sessions",
-    "POST /api/v1/auth/mfa/setup": "3. Authentication and sessions",
-    "POST /api/v1/auth/mfa/confirm": "3. Authentication and sessions",
-    "POST /api/v1/auth/mfa/disable": "3. Authentication and sessions",
-    "GET /api/v1/contacts/{contact_id}/personal-data": "8. Contacts",
-    "POST /api/v1/contacts/{contact_id}/anonymize": "8. Contacts",
-}
+PENDING: dict[str, str] = {}

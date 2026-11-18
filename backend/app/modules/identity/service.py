@@ -12,9 +12,10 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import runtime_settings
+from app.core import crypto, runtime_settings
 from app.core.auth import SESSION_COOKIE
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode, FieldError
@@ -23,7 +24,7 @@ from app.core.ids import new_id
 from app.core.mailer import Mailer
 from app.core.policy import CONTRIBUTOR_ROLES, permissions_for
 from app.core.principal import Principal, PrincipalType, RoleCode
-from app.modules.identity import repository
+from app.modules.identity import mfa, repository
 from app.modules.identity.emails import password_link_email
 from app.modules.identity.models import PasswordToken, User, UserSession
 from app.modules.identity.passwords import (
@@ -36,6 +37,8 @@ from app.modules.identity.providers import PROVIDERS
 from app.modules.identity.schemas import (
     Me,
     MeUpdate,
+    MfaRecoveryCodes,
+    MfaSetup,
     PasswordLink,
     PasswordTokenInfo,
     RoleOut,
@@ -74,6 +77,13 @@ class NewSession:
     expires_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class MfaChallenge:
+    """The password was right; sign-in continues at POST /auth/login/mfa (FR-AUTH-07)."""
+
+    token: str
+
+
 # --- Helpers ------------------------------------------------------------------
 
 
@@ -89,13 +99,20 @@ def _audit_view(user: User) -> dict[str, Any]:
     }
 
 
-def principal_for(user: User, session_id: UUID | None = None) -> Principal:
+def principal_for(
+    user: User, session_id: UUID | None = None, *, mfa_required_for_admins: bool = False
+) -> Principal:
+    role = RoleCode(user.role.code)
     return Principal(
         type=PrincipalType.USER,
         user_id=user.id,
-        role=RoleCode(user.role.code),
+        role=role,
         display_name=user.full_name,
         session_id=session_id,
+        # FR-AUTH-07: an Admin without MFA, where it is required, may only set it up.
+        mfa_setup_required=(
+            mfa_required_for_admins and role is RoleCode.ADMIN and user.mfa_enabled_at is None
+        ),
     )
 
 
@@ -204,10 +221,12 @@ async def authenticate_request(request: Request, session: AsyncSession) -> Princ
     if now - user_session.last_seen_at >= _TOUCH_INTERVAL:
         user_session.last_seen_at = now
         await session.commit()
-    return principal_for(user, user_session.id)
+    return principal_for(
+        user, user_session.id, mfa_required_for_admins=timeouts.mfa_required_for_admins
+    )
 
 
-async def login(ctx: Context, email: str, password: str) -> NewSession:
+async def login(ctx: Context, email: str, password: str) -> NewSession | MfaChallenge:
     """FR-AUTH-01: generic errors, lockout after repeated failures, audit of every attempt."""
     user = await repository.get_user_by_email(ctx.session, email.strip(), for_update=True)
     provider = PROVIDERS.get(user.auth_provider) if user is not None else None
@@ -240,33 +259,45 @@ async def login(ctx: Context, email: str, password: str) -> NewSession:
         )
 
     if not await provider.verify_credentials(user, password):
-        user.failed_login_count += 1
-        await _publish(
-            ctx,
-            "auth.login_failed",
-            actor=None,
-            entity_id=user.id,
-            details={"email": user.email, "reason": "bad_password"},
-        )
-        if user.failed_login_count >= ctx.settings.login_max_failed_attempts:
-            user.locked_until = ctx.now + timedelta(minutes=ctx.settings.login_lockout_minutes)
-            user.failed_login_count = 0
-            await _publish(
-                ctx,
-                "auth.account_locked",
-                actor=None,
-                entity_id=user.id,
-                details={"locked_until": user.locked_until.isoformat()},
-            )
-        await ctx.session.commit()
+        await _failed_attempt(ctx, user, "bad_password")
         raise AppError(ErrorCode.AUTH_INVALID_CREDENTIALS, HTTPStatus.UNAUTHORIZED)
 
+    if user.password_hash is not None and needs_rehash(user.password_hash):
+        user.password_hash = await hash_password(password)
+    if user.mfa_enabled_at is not None:
+        # FR-AUTH-07: the password is right; the session waits for the code.
+        await ctx.session.commit()
+        return MfaChallenge(token=mfa.pending_token(ctx.settings.app_secret_key, user.id, ctx.now))
+    return await _start_session(ctx, user)
+
+
+async def _failed_attempt(ctx: Context, user: User, reason: str) -> None:
+    """Count a failed password or code; lock the account after too many (FR-AUTH-01)."""
+    user.failed_login_count += 1
+    await _publish(
+        ctx,
+        "auth.login_failed",
+        actor=None,
+        entity_id=user.id,
+        details={"email": user.email, "reason": reason},
+    )
+    if user.failed_login_count >= ctx.settings.login_max_failed_attempts:
+        user.locked_until = ctx.now + timedelta(minutes=ctx.settings.login_lockout_minutes)
+        user.failed_login_count = 0
+        await _publish(
+            ctx,
+            "auth.account_locked",
+            actor=None,
+            entity_id=user.id,
+            details={"locked_until": user.locked_until.isoformat()},
+        )
+    await ctx.session.commit()
+
+
+async def _start_session(ctx: Context, user: User) -> NewSession:
     user.failed_login_count = 0
     user.locked_until = None
     user.last_login_at = ctx.now
-    if user.password_hash is not None and needs_rehash(user.password_hash):
-        user.password_hash = await hash_password(password)
-
     timeouts = await runtime_settings.load(ctx.session)
     raw, token_hash = new_token()
     expires_at = ctx.now + timedelta(minutes=timeouts.session_absolute_timeout_minutes)
@@ -286,9 +317,49 @@ async def login(ctx: Context, email: str, password: str) -> NewSession:
         "auth.login_succeeded",
         actor=principal_for(user, user_session.id),
         entity_id=user.id,
+        details={"mfa": user.mfa_enabled_at is not None},
     )
     await ctx.session.commit()
     return NewSession(user=user, token=raw, expires_at=expires_at)
+
+
+async def login_mfa(ctx: Context, pending: str | None, code: str) -> NewSession:
+    """FR-AUTH-07: finish sign-in with a TOTP code or a recovery code."""
+    user_id = mfa.read_pending_token(ctx.settings.app_secret_key, pending, ctx.now)
+    user = await repository.get_user(ctx.session, user_id, for_update=True) if user_id else None
+    if (
+        user is None
+        or not user.is_active
+        or not user.is_human
+        or user.mfa_enabled_at is None
+        or user.mfa_secret is None
+    ):
+        raise AppError(ErrorCode.AUTH_SESSION_EXPIRED, HTTPStatus.UNAUTHORIZED)
+    if _is_locked(user, ctx.now):
+        assert user.locked_until is not None  # noqa: S101 - guaranteed by _is_locked
+        raise AppError(
+            ErrorCode.AUTH_ACCOUNT_LOCKED,
+            HTTPStatus.LOCKED,
+            extra={"locked_until": user.locked_until.isoformat()},
+        )
+    secret = crypto.decrypt(ctx.settings, user.mfa_secret)
+    counter = mfa.verify_code(secret, code, ctx.now, user.mfa_last_counter)
+    if counter is not None:
+        user.mfa_last_counter = counter
+    else:
+        remaining = mfa.use_recovery_code(user.mfa_recovery_codes or [], code)
+        if remaining is None:
+            await _failed_attempt(ctx, user, "bad_mfa_code")
+            raise AppError(ErrorCode.AUTH_MFA_CODE_INVALID, HTTPStatus.UNAUTHORIZED)
+        user.mfa_recovery_codes = remaining
+        await _publish(
+            ctx,
+            "user.mfa_recovery_code_used",
+            actor=principal_for(user),
+            entity_id=user.id,
+            details={"remaining": len(remaining)},
+        )
+    return await _start_session(ctx, user)
 
 
 async def logout(ctx: Context, principal: Principal) -> None:
@@ -432,7 +503,105 @@ async def get_me(ctx: Context, principal: Principal) -> Me:
         permissions=sorted(permissions_for(RoleCode(user.role.code))),
         system=principal.system,
         scopes=sorted(principal.scopes),
+        mfa_enabled=user.mfa_enabled_at is not None,
+        mfa_setup_required=principal.mfa_setup_required,
     )
+
+
+# --- Two-factor sign-in (FR-AUTH-07) ---------------------------------------------
+
+
+async def _own_user(ctx: Context, principal: Principal) -> User:
+    user = await repository.get_user(ctx.session, principal.user_id, for_update=True)
+    if user is None or not user.is_human:
+        raise _not_found()
+    return user
+
+
+async def mfa_setup(ctx: Context, principal: Principal) -> MfaSetup:
+    """Start (or restart) enrolment: a new secret, kept pending until a code confirms it."""
+    user = await _own_user(ctx, principal)
+    if user.mfa_enabled_at is not None:
+        raise AppError(ErrorCode.AUTH_MFA_ALREADY_ENABLED, HTTPStatus.CONFLICT)
+    secret = mfa.new_secret()
+    user.mfa_pending_secret = crypto.encrypt(ctx.settings, secret)
+    await ctx.session.commit()
+    return MfaSetup(secret=secret, provisioning_uri=mfa.provisioning_uri(secret, user.email))
+
+
+async def mfa_confirm(ctx: Context, principal: Principal, code: str) -> MfaRecoveryCodes:
+    user = await _own_user(ctx, principal)
+    if user.mfa_enabled_at is not None:
+        raise AppError(ErrorCode.AUTH_MFA_ALREADY_ENABLED, HTTPStatus.CONFLICT)
+    if user.mfa_pending_secret is None:
+        raise AppError(ErrorCode.AUTH_MFA_NOT_ENABLED, HTTPStatus.CONFLICT)
+    secret = crypto.decrypt(ctx.settings, user.mfa_pending_secret)
+    counter = mfa.verify_code(secret, code, ctx.now, None)
+    if counter is None:
+        raise AppError(
+            ErrorCode.AUTH_MFA_CODE_INVALID,
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            errors=[FieldError("code", "auth.mfa_code_invalid")],
+        )
+    codes, hashes = mfa.new_recovery_codes()
+    user.mfa_secret = user.mfa_pending_secret
+    user.mfa_pending_secret = None
+    user.mfa_enabled_at = ctx.now
+    user.mfa_recovery_codes = hashes
+    user.mfa_last_counter = counter
+    await _publish(ctx, "user.mfa_enabled", actor=principal, entity_id=user.id)
+    await ctx.session.commit()
+    return MfaRecoveryCodes(recovery_codes=codes)
+
+
+async def mfa_disable(ctx: Context, principal: Principal, password: str) -> None:
+    user = await _own_user(ctx, principal)
+    if user.mfa_enabled_at is None:
+        raise AppError(ErrorCode.AUTH_MFA_NOT_ENABLED, HTTPStatus.CONFLICT)
+    provider = PROVIDERS.get(user.auth_provider)
+    if provider is None or not await provider.verify_credentials(user, password):
+        raise AppError(
+            ErrorCode.VALIDATION_FAILED,
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            errors=[FieldError("password", "password.current_incorrect")],
+        )
+    timeouts = await runtime_settings.load(ctx.session)
+    if timeouts.mfa_required_for_admins and principal.role is RoleCode.ADMIN:
+        raise AppError(ErrorCode.AUTH_MFA_ENFORCED, HTTPStatus.FORBIDDEN)
+    _clear_mfa(user)
+    await _publish(ctx, "user.mfa_disabled", actor=principal, entity_id=user.id)
+    await ctx.session.commit()
+
+
+def _clear_mfa(user: User) -> None:
+    user.mfa_secret = None
+    user.mfa_pending_secret = None
+    user.mfa_enabled_at = None
+    user.mfa_recovery_codes = None
+    user.mfa_last_counter = None
+
+
+async def reset_mfa(session: AsyncSession, events: EventBus, now: datetime, email: str) -> bool:
+    """CLI only (operations guide): switch MFA off for a user who lost the device and the
+    recovery codes. Their sessions end; audited with no actor (the operator)."""
+    user = await repository.get_user_by_email(session, email.strip(), for_update=True)
+    if user is None or not user.is_human:
+        return False
+    _clear_mfa(user)
+    await repository.delete_user_sessions(session, user.id)
+    await events.publish(
+        session,
+        DomainEvent(
+            action="user.mfa_reset",
+            entity_type="user",
+            entity_id=user.id,
+            actor=None,
+            occurred_at=now,
+            details={"via": "cli"},
+        ),
+    )
+    await session.commit()
+    return True
 
 
 async def update_me(ctx: Context, principal: Principal, changes: MeUpdate) -> Me:
@@ -575,7 +744,19 @@ async def create_user(ctx: Context, principal: Principal | None, data: UserCreat
         updated_by=actor_id,
     )
     ctx.session.add(user)
-    await ctx.session.flush()
+    try:
+        await ctx.session.flush()
+    except IntegrityError as error:
+        # Two requests for the same email at once: the second loses the race at the
+        # unique index and gets the same answer as the check above.
+        await ctx.session.rollback()
+        if "uq_app_user_email_lower" not in str(error.orig):
+            raise
+        raise AppError(
+            ErrorCode.CONFLICT_DUPLICATE,
+            HTTPStatus.CONFLICT,
+            errors=[FieldError("email", "user.email_taken")],
+        ) from None
     await ctx.session.refresh(user)
     link = await _issue_password_token(ctx, user, "set", created_by=actor_id)
     await _publish(ctx, "user.created", actor=principal, entity_id=user.id, after=_audit_view(user))

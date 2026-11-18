@@ -425,6 +425,22 @@
         "title": "ActivityUpdate",
         "type": "object"
       },
+      "AnonymizeRequest": {
+        "additionalProperties": false,
+        "description": "FR-ADM-04: the word must be typed, so the irreversible step cannot happen by accident.",
+        "properties": {
+          "confirm": {
+            "const": "ANONYMIZE",
+            "title": "Confirm",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm"
+        ],
+        "title": "AnonymizeRequest",
+        "type": "object"
+      },
       "ApiKeyCreate": {
         "additionalProperties": false,
         "properties": {
@@ -3741,6 +3757,23 @@
         "title": "LinkSummary",
         "type": "object"
       },
+      "LoginMfaRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "TOTP code or a recovery code",
+            "maxLength": 20,
+            "minLength": 6,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "LoginMfaRequest",
+        "type": "object"
+      },
       "LoginRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3901,6 +3934,16 @@
             ],
             "title": "Locale",
             "type": "string"
+          },
+          "mfa_enabled": {
+            "default": false,
+            "title": "Mfa Enabled",
+            "type": "boolean"
+          },
+          "mfa_setup_required": {
+            "default": false,
+            "title": "Mfa Setup Required",
+            "type": "boolean"
           },
           "permissions": {
             "items": {
@@ -4096,6 +4139,75 @@
           "created_at"
         ],
         "title": "MessageOut",
+        "type": "object"
+      },
+      "MfaConfirmRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 10,
+            "minLength": 6,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "MfaConfirmRequest",
+        "type": "object"
+      },
+      "MfaDisableRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "MfaDisableRequest",
+        "type": "object"
+      },
+      "MfaRecoveryCodes": {
+        "properties": {
+          "recovery_codes": {
+            "description": "Shown once; each works once",
+            "items": {
+              "type": "string"
+            },
+            "title": "Recovery Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "recovery_codes"
+        ],
+        "title": "MfaRecoveryCodes",
+        "type": "object"
+      },
+      "MfaSetup": {
+        "properties": {
+          "provisioning_uri": {
+            "description": "otpauth:// URI, for a QR code",
+            "title": "Provisioning Uri",
+            "type": "string"
+          },
+          "secret": {
+            "description": "Base32 secret, for typing into an authenticator app",
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "provisioning_uri"
+        ],
+        "title": "MfaSetup",
         "type": "object"
       },
       "MoveRequest": {
@@ -6210,6 +6322,11 @@
       },
       "RuntimeSettings": {
         "properties": {
+          "mfa_required_for_admins": {
+            "default": false,
+            "title": "Mfa Required For Admins",
+            "type": "boolean"
+          },
           "session_absolute_timeout_minutes": {
             "maximum": 43200.0,
             "minimum": 60.0,
@@ -6240,6 +6357,17 @@
       "RuntimeSettingsUpdate": {
         "additionalProperties": false,
         "properties": {
+          "mfa_required_for_admins": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Required For Admins"
+          },
           "session_absolute_timeout_minutes": {
             "anyOf": [
               {
@@ -10488,6 +10616,48 @@
         "x-access-level": "Public"
       }
     },
+    "/api/v1/auth/login/mfa": {
+      "post": {
+        "operationId": "login_mfa_api_v1_auth_login_mfa_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginMfaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete sign-in with a TOTP code (or a recovery code) when MFA is enabled",
+        "tags": [
+          "auth"
+        ],
+        "x-access-level": "Public"
+      }
+    },
     "/api/v1/auth/logout": {
       "post": {
         "operationId": "logout_api_v1_auth_logout_post",
@@ -10497,6 +10667,105 @@
           }
         },
         "summary": "End the current session and clear the cookie",
+        "tags": [
+          "auth"
+        ],
+        "x-access-level": "Signed-in"
+      }
+    },
+    "/api/v1/auth/mfa/confirm": {
+      "post": {
+        "operationId": "mfa_confirm_api_v1_auth_mfa_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaRecoveryCodes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm enrolment with a code; returns recovery codes once",
+        "tags": [
+          "auth"
+        ],
+        "x-access-level": "Signed-in"
+      }
+    },
+    "/api/v1/auth/mfa/disable": {
+      "post": {
+        "operationId": "mfa_disable_api_v1_auth_mfa_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaDisableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disable own MFA (requires password); not allowed where enforced",
+        "tags": [
+          "auth"
+        ],
+        "x-access-level": "Signed-in"
+      }
+    },
+    "/api/v1/auth/mfa/setup": {
+      "post": {
+        "operationId": "mfa_setup_api_v1_auth_mfa_setup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaSetup"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Start TOTP enrolment; returns the secret and provisioning URI",
         "tags": [
           "auth"
         ],
@@ -11344,6 +11613,104 @@
         ],
         "x-access-level": "Owner+",
         "x-required-scope": "contacts:write"
+      }
+    },
+    "/api/v1/contacts/{contact_id}/anonymize": {
+      "post": {
+        "operationId": "anonymize_contact_api_v1_contacts__contact_id__anonymize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Contact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnonymizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Irreversibly anonymize; body must contain \"confirm\": \"ANONYMIZE\"; audited",
+        "tags": [
+          "contacts"
+        ],
+        "x-access-level": "Admin"
+      }
+    },
+    "/api/v1/contacts/{contact_id}/personal-data": {
+      "get": {
+        "operationId": "personal_data_api_v1_contacts__contact_id__personal_data_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Contact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "GDPR export of all personal data held about the contact (JSON download); audited",
+        "tags": [
+          "contacts"
+        ],
+        "x-access-level": "Admin"
       }
     },
     "/api/v1/contacts/{contact_id}/restore": {

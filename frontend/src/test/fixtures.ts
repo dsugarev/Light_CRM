@@ -16,6 +16,7 @@ export const ADMIN_ME: Schemas['Me'] = {
     'audit.read',
     'data.export',
     'data.import',
+    'gdpr.manage',
     'records.create',
     'records.edit_any',
     'records.edit_own',
@@ -26,6 +27,8 @@ export const ADMIN_ME: Schemas['Me'] = {
     'users.manage',
   ],
   scopes: [],
+  mfa_enabled: false,
+  mfa_setup_required: false,
 }
 
 export const REP_ME: Schemas['Me'] = {

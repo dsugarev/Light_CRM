@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
@@ -37,19 +38,87 @@ export function SignInPage() {
     defaultValues: { email: '', password: '' },
   })
 
+  // FR-AUTH-07: after a correct password, accounts with two-factor sign-in need a code.
+  const [codeStep, setCodeStep] = useState(false)
+  const [code, setCode] = useState('')
+  const finish = async (result: { user: { locale: string } }) => {
+    if (isLocale(result.user.locale)) {
+      storeLocale(result.user.locale)
+      await i18n.changeLanguage(result.user.locale)
+    }
+    await queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY })
+    await navigate(next, { replace: true })
+  }
   const signIn = useMutation({
     mutationFn: (values: Values) => call(api.POST('/api/v1/auth/login', { body: values })),
-    onSuccess: async (result) => {
-      if (isLocale(result.user.locale)) {
-        storeLocale(result.user.locale)
-        await i18n.changeLanguage(result.user.locale)
+    onSuccess: finish,
+    onError: (failure) => {
+      if (failure instanceof ApiError && failure.code === 'auth.mfa_required') setCodeStep(true)
+    },
+  })
+  const verify = useMutation({
+    mutationFn: () => call(api.POST('/api/v1/auth/login/mfa', { body: { code: code.trim() } })),
+    onSuccess: finish,
+    onError: (failure) => {
+      // The five-minute window passed: start again from the password.
+      if (failure instanceof ApiError && failure.code === 'auth.session_expired') {
+        setCodeStep(false)
+        setCode('')
       }
-      await queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY })
-      await navigate(next, { replace: true })
     },
   })
 
   if (me) return <Navigate to={next} replace />
+
+  if (codeStep) {
+    const codeError = verify.error
+    return (
+      <section className="mx-auto mt-16 w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
+        <h1 className="mb-2 text-xl font-semibold">{t('mfa.title')}</h1>
+        <p className="mb-4 text-sm text-muted-foreground">{t('mfa.hint')}</p>
+        <form
+          noValidate
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (code.trim()) verify.mutate()
+          }}
+        >
+          <FormMessage
+            error={codeError instanceof ApiError ? codeError.code : codeError ? 'unknown' : null}
+          />
+          <FormField label={t('mfa.code')}>
+            {(control) => (
+              <Input
+                {...control}
+                autoFocus
+                autoComplete="one-time-code"
+                inputMode="text"
+                maxLength={20}
+                value={code}
+                onChange={(event) => {
+                  setCode(event.target.value)
+                }}
+              />
+            )}
+          </FormField>
+          <Button type="submit" disabled={verify.isPending || code.trim() === ''}>
+            {t('mfa.verify')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setCodeStep(false)
+              setCode('')
+            }}
+          >
+            {t('mfa.back')}
+          </Button>
+        </form>
+      </section>
+    )
+  }
 
   const error = signIn.error
   const lockedUntil =

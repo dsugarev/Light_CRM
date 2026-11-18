@@ -48,7 +48,8 @@ export async function createUserWithPassword(
   project: string,
   locale: 'en' | 'bg' = 'en',
 ) {
-  const email = uniqueEmail(`e2e-${role}`, project)
+  // The language too: the en and bg journeys can run in the same millisecond.
+  const email = uniqueEmail(`e2e-${role}-${locale}`, project)
   const headers = { 'X-Requested-With': 'XMLHttpRequest' }
   const created = await page.request.post('/api/v1/users', {
     headers,

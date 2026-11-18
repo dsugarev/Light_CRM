@@ -2118,3 +2118,117 @@ img: () => null,
 1. Owner review of Phase 7 (PR #15 for 7a; the 7b PR).
 2. Fund the OpenRouter account, then run `scripts/assistant_eval.py` and record the results.
 3. Requirements question 1 (LLM data flow) before `AI_ENABLED=true` in production; the backend then needs outbound HTTPS to `openrouter.ai`.
+
+## Phase 8a — GDPR tools, two-factor sign-in, security pass
+
+Requirements: FR-ADM-04 (GDPR export and anonymization), FR-AUTH-07 (optional TOTP, enforceable for Admins), NFR-04 (OWASP ASVS Level 1), NFR-05 (privacy). Owner decisions (2026-11-18): build two-factor sign-in with `pyotp` 2.9.0 and a QR code (`qrcode.react` 4.2.0); anonymize the contact and linked leads, keep the audit log, list free-text mentions for manual review; no staging server (Phase 8b uses a second stack).
+
+### Tasks
+
+| # | Task | Result |
+|---|---|---|
+| 8a.1 | Migration 0011: MFA columns on `app_user`, `mfa_required_for_admins` setting | Done |
+| 8a.2 | TOTP helpers (replay protection, recovery codes, pending-sign-in token); `login` split into password and code steps; setup, confirm, disable; Admin enforcement; `reset-mfa` CLI | Done |
+| 8a.3 | GDPR export and anonymization through provider and anonymizer extension points (party, sales, activity, integration, assistant, audit) | Done (ADR 0027) |
+| 8a.4 | Frontend: sign-in code step, two-factor card on the profile (QR, key, recovery codes, disable), forced setup for Admins, Admin setting, GDPR panel on the contact page, anonymized state, audit labels (en, bg) | Done |
+| 8a.5 | Security pass: ASVS L1 checklist, fixes, header and cookie checks through Caddy | Done (`docs/security/asvs-l1.md`) |
+| 8a.6 | Tests: API (MFA, GDPR, security headers, user race), Vitest, Playwright (privacy, security) | Done |
+| 8a.7 | Documentation (spec v0.12, architecture, ADR 0027, checklist, this log, test record, README, CLAUDE.md), gate, PR | Done |
+
+### Endpoints built (6)
+
+`POST /auth/login/mfa`, `POST /auth/mfa/setup`, `POST /auth/mfa/confirm`, `POST /auth/mfa/disable`, `GET /contacts/{contact_id}/personal-data`, `POST /contacts/{contact_id}/anonymize`. The route catalog's pending list is now empty: every endpoint in the specification is built. `/me` gained `mfa_enabled` and `mfa_setup_required`; settings gained `mfa_required_for_admins` (additive).
+
+### Backend
+
+#### Sign-in in two steps (`identity/service.py`, `identity/mfa.py`)
+
+```python
+if user.mfa_enabled_at is not None:
+    # FR-AUTH-07: the password is right; the session waits for the code.
+    await ctx.session.commit()
+    return MfaChallenge(token=mfa.pending_token(ctx.settings.app_secret_key, user.id, ctx.now))
+return await _start_session(ctx, user)
+
+def verify_code(secret, code, now, last_counter) -> int | None:
+    current = int(now.timestamp()) // STEP_SECONDS
+    for counter in (current - 1, current, current + 1):
+        if last_counter is not None and counter <= last_counter:
+            continue                                       # a code works once
+        if hmac.compare_digest(totp.generate_otp(counter), digits):
+            return counter
+```
+
+The router turns the challenge into `401 auth.mfa_required` with the pending cookie (`Path=/api/v1/auth/login`, 5 minutes). Wrong codes go through the same `_failed_attempt` as wrong passwords, so they lock the account too. While `mfa_required_for_admins` is on, an Admin without MFA gets `mfa_setup_required` on the principal and the permission dependency allows only `/me`, `/system/info`, sign-out and enrolment.
+
+#### GDPR through extension points (`party/service.py`, `app/main.py`)
+
+```python
+PersonalDataProvider = Callable[[AsyncSession, DataSubject], Awaitable[Mapping[str, Any]]]
+ContactAnonymizer = Callable[[AnonymizeContext, DataSubject], Awaitable[None]]
+
+app.state.personal_data_providers = (
+    *sales_service.PERSONAL_DATA_PROVIDERS,     # leads (linked or same email), opportunities
+    activity_service.personal_data,            # linked activities, and mentions for review
+    integration_service.personal_data,         # IDs in other systems
+    assistant_service.personal_data,           # chat mentions with an excerpt
+    audit_service.personal_data,               # number of entries kept
+)
+app.state.contact_anonymizers = sales_service.CONTACT_ANONYMIZERS   # clears person fields on leads
+```
+
+`anonymize_contact` replaces the personal fields, runs the anonymizers, and publishes `contact.anonymized` with the result only; further edits return `409 contact.anonymized`.
+
+#### Security pass fixes
+
+- `RequestContextMiddleware` adds `Cache-Control: no-store` to every `/api` response that sets none (ASVS 8.2.1).
+- The Caddyfile CSP allows the toast library's two injected style blocks by hash. Before, they were blocked and toasts were unstyled behind the proxy (ASVS 14.4.3; found by the new no-violations check).
+- `create_user` maps the unique-index error of a concurrent duplicate to `409 conflict.duplicate` instead of `500` (found by the privacy journey).
+- Zod runs `jitless`: its `new Function` probe was blocked by the CSP and reported by Firefox (found by the security journey in CI).
+
+### Frontend
+
+- Sign-in: after `auth.mfa_required`, a code step that accepts a TOTP or a recovery code; back to the password when the five minutes pass.
+- Profile: a "Two-factor sign-in" card with the QR code (`qrcode.react`), the key to type, confirmation, recovery codes shown once with Copy, and turning off with the password. Admins who must enrol are redirected to the profile and see only this card.
+- Settings: "Require two-factor sign-in for Admins".
+- Contact page (`gdpr.manage`): export as a JSON download, anonymize after typing ANONYMIZE; anonymized contacts show the date and lose the Edit button.
+
+### Verification (2026-11-18)
+
+| Check | Result |
+|---|---|
+| ruff, format, mypy (strict), import-linter (14) | clean |
+| Migration 0011 up → down → up; `alembic check` | OK, no drift |
+| pytest | 1295 passed, 95.5% coverage (identity MFA 98%, GDPR providers 92–95%) |
+| pip-audit with `pyotp` 2.9.0 | no known vulnerabilities |
+| ESLint, Prettier, tsc, i18n (1,064 keys), build | clean |
+| Vitest | 143 passed (9 new) |
+| `pnpm audit --prod` with `qrcode.react` | no known vulnerabilities |
+| OpenAPI snapshot and generated types | up to date |
+| Playwright Chromium against the rebuilt stack | 34/34, including the privacy journeys (en, bg) and the security checks |
+
+### Definition of done
+
+| # | Item | State |
+|---|---|---|
+| 1 | AC tests with requirement IDs | FR-ADM-04, FR-AUTH-07; ASVS IDs on the security tests |
+| 2 | `docker compose up` works | Done (rebuilt with migration 0011; the proxy must be restarted after a Caddyfile change) |
+| 3 | Lint, types, suites green | Done locally |
+| 4 | Permission checks + matrix | Done for the 6 routes (GDPR Admin; MFA Signed-in/Public; closed to integration clients) |
+| 5 | UI text en + bg | Done |
+| 6 | Additive migrations + tests | Done (0011) |
+| 7 | Audit | `user.mfa_*`, `contact.personal_data_exported`, `contact.anonymized` (result only), `lead.updated` with a reason |
+| 8 | Frontend types regenerated | Done |
+| 9 | Endpoints match the spec | Done; spec v0.12 |
+
+### Decisions and deviations
+
+- `login/mfa` is "Public" in the spec table (the pending cookie is described in the purpose) instead of a new access level "Public (pending-MFA cookie)".
+- A new permission `gdpr.manage` (Admins) drives the GDPR panel; the server check is the Admin access level.
+- No API to reset another user's second factor: the `reset-mfa` CLI only, so a stolen Admin session cannot remove it.
+- Accepted ASVS deviations and open items are listed in the checklist and ADR 0027.
+
+### Open items
+
+1. ASVS open items for the owner: password strength meter and show-password toggle (2.1.8, 2.1.12), email notices after credential changes once SMTP is confirmed (2.2.3, 2.5.5), the privacy notice (8.3.3).
+2. Phase 8b: accessibility, restore drill, integration readiness kit, guides, acceptance checklist, live assistant evaluation (OpenRouter credits), `v1.0.0`.

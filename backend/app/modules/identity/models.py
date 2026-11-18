@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -15,6 +16,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base, BusinessTableMixin, IdMixin, TimestampMixin
@@ -60,8 +62,13 @@ class User(BusinessTableMixin, Base):
     password_changed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    # Reserved for optional TOTP (FR-AUTH-07, Phase 8); stored encrypted when used.
+    # Optional TOTP (FR-AUTH-07). Secrets are encrypted with APP_ENCRYPTION_KEY; recovery
+    # codes are kept as SHA-256 hashes; the last accepted time step blocks code replay.
     mfa_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mfa_pending_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mfa_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    mfa_recovery_codes: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    mfa_last_counter: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     role: Mapped[Role] = relationship(lazy="joined")
 
