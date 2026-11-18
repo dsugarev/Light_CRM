@@ -268,3 +268,16 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - Sensitivity checked: swapping one baseline for another page's image fails with 19,972 different pixels; restoring it passes.
   - The first attempt had the dashboard figures unmasked, and both runs still passed within the pixel tolerance even though the totals change per run. They are now masked and the baselines regenerated.
 - **Gate:** lint, prettier, typecheck, Vitest 225/225; Playwright Chromium 45/45 (visual excluded from the normal run); visual 4/4 twice.
+
+## UX-14 follow-up — 2026-11-18 19:20
+
+- One visual run after a full E2E run failed on `en-768-win-loss`: the report shows its totals in a table, not cards, and the E2E run had added won deals. The win/loss table is now masked too and the baselines regenerated. Verified: full E2E run (45/45), then the visual suite twice in a row (4/4, 4/4).
+
+## FN-01 — 2026-11-18 19:25
+
+- **Found:** the profile already changed the password through `POST /auth/password/change`; the backend ends the user's other sessions (FR-AUTH-04), and the page said so ("Password changed. Your other sessions were signed out.") and reloaded the sessions list.
+- **What changed:** the form now reuses UX-07's `PasswordChecklist`, live from `useWatch`, and `PasswordInput` (show/hide, Caps Lock) for all three fields. The schema uses the shared `PASSWORD_MIN_LENGTH`/`PASSWORD_MAX_LENGTH`.
+- **Tests:** in `src/features/profile/profile.test.tsx`:
+  - `FN-01 shows the password rules live while typing`: the rules update, and each field has show/hide;
+  - `FN-01 changes the password and says the other sessions were signed out`: request body, message, the sessions list reloaded with only this session left, form cleared.
+- **Gate:** lint, prettier, typecheck, Vitest 227/227, i18n 1190 keys; Playwright Chromium 45/45; visual 4/4 (the password card is below the 900 px fold, so no baseline changed); backend ruff, mypy, import-linter 14/14, pytest 1304 passed.

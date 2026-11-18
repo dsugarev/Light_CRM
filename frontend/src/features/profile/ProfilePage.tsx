@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
@@ -11,6 +11,12 @@ import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PasswordChecklist,
+} from '@/components/PasswordChecklist'
+import { PasswordInput } from '@/components/PasswordInput'
 import { PageHeader } from '@/components/PageHeader'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -150,8 +156,8 @@ const passwordSchema = z
     current_password: z.string().min(1, { error: 'validation.required' }),
     new_password: z
       .string()
-      .min(12, { error: 'password.too_short' })
-      .max(128, { error: 'password.too_long' }),
+      .min(PASSWORD_MIN_LENGTH, { error: 'password.too_short' })
+      .max(PASSWORD_MAX_LENGTH, { error: 'password.too_long' }),
     confirm: z.string(),
   })
   .refine((v) => v.new_password === v.confirm, {
@@ -168,6 +174,9 @@ function PasswordCard() {
     resolver: zodResolver(passwordSchema),
     defaultValues: { current_password: '', new_password: '', confirm: '' },
   })
+  // FN-01: the same live policy checklist as setting a password (UX-07).
+  const newPassword = useWatch({ control: form.control, name: 'new_password' })
+  const confirmPassword = useWatch({ control: form.control, name: 'confirm' })
   const change = useMutation({
     mutationFn: (values: PasswordValues) =>
       call(
@@ -206,9 +215,8 @@ function PasswordCard() {
             error={form.formState.errors.current_password?.message}
           >
             {(control) => (
-              <Input
+              <PasswordInput
                 {...control}
-                type="password"
                 autoComplete="current-password"
                 {...form.register('current_password')}
               />
@@ -220,9 +228,8 @@ function PasswordCard() {
             error={form.formState.errors.new_password?.message}
           >
             {(control) => (
-              <Input
+              <PasswordInput
                 {...control}
-                type="password"
                 autoComplete="new-password"
                 {...form.register('new_password')}
               />
@@ -234,14 +241,14 @@ function PasswordCard() {
             error={form.formState.errors.confirm?.message}
           >
             {(control) => (
-              <Input
+              <PasswordInput
                 {...control}
-                type="password"
                 autoComplete="new-password"
                 {...form.register('confirm')}
               />
             )}
           </FormField>
+          <PasswordChecklist password={newPassword} confirm={confirmPassword} />
           <Button type="submit" className="self-start" disabled={change.isPending}>
             {t('password.submit')}
           </Button>

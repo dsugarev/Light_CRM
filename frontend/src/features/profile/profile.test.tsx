@@ -82,3 +82,55 @@ describe('profile', () => {
     expect(await screen.findByText('The current password is wrong.')).toBeInTheDocument()
   })
 })
+
+describe('FN-01 change password', () => {
+  function rule(name: RegExp): HTMLElement {
+    const list = screen.getByRole('list', { name: 'Password rules' })
+    const text = within(list).getByText(name)
+    return text.closest('li') ?? text
+  }
+
+  it('FN-01 shows the password rules live while typing', async () => {
+    await renderApp('/profile')
+    const next = await screen.findByLabelText('New password')
+    expect(rule(/At least 12 characters/)).toHaveTextContent('(not yet)')
+    await userEvent.type(next, 'Winter-Harbour-77')
+    expect(rule(/At least 12 characters/)).toHaveTextContent('(done)')
+    await userEvent.type(screen.getByLabelText('Repeat the new password'), 'Winter-Harbour-77')
+    expect(rule(/Both entries match/)).toHaveTextContent('(done)')
+    // Each of the three password fields can be shown.
+    expect(screen.getAllByRole('button', { name: 'Show password', pressed: false })).toHaveLength(3)
+  })
+
+  it('FN-01 changes the password and says the other sessions were signed out', async () => {
+    let body: unknown
+    let sessionLoads = 0
+    server.use(
+      http.post('*/api/v1/auth/password/change', async ({ request }) => {
+        body = await request.json()
+        return new HttpResponse(null, { status: 204 })
+      }),
+      http.get('*/api/v1/me/sessions', () => {
+        sessionLoads += 1
+        // After the change only this session is left.
+        return HttpResponse.json(sessionLoads === 1 ? sessions : sessions.slice(0, 1))
+      }),
+    )
+    await renderApp('/profile')
+    await userEvent.type(await screen.findByLabelText('Current password'), 'Old-Password-123')
+    await userEvent.type(screen.getByLabelText('New password'), 'Winter-Harbour-77')
+    await userEvent.type(screen.getByLabelText('Repeat the new password'), 'Winter-Harbour-77')
+    await userEvent.click(screen.getByRole('button', { name: 'Change password' }))
+    expect(
+      await screen.findByText('Password changed. Your other sessions were signed out.'),
+    ).toBeInTheDocument()
+    expect(body).toEqual({
+      current_password: 'Old-Password-123',
+      new_password: 'Winter-Harbour-77',
+    })
+    // The sessions list is reloaded and shows only this session.
+    expect(await screen.findByText('This session')).toBeInTheDocument()
+    expect(screen.queryByText('Phone')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('New password')).toHaveValue('')
+  })
+})
