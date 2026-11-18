@@ -7,6 +7,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
+import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
 import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
@@ -79,7 +80,7 @@ export function LeadsPage() {
       header: t('list.columns.score'),
       sortKey: 'qualification_score',
       cell: (lead) => lead.qualification.score,
-      className: 'text-right',
+      className: 'text-right hidden lg:table-cell',
     },
     {
       key: 'value',
@@ -88,9 +89,15 @@ export function LeadsPage() {
       cell: (lead) => (lead.estimated_value ? formatMoney(lead.estimated_value, locale) : ''),
       className: 'text-right',
     },
-    { key: 'owner', header: t('list.columns.owner'), cell: (lead) => lead.owner.full_name },
+    {
+      key: 'owner',
+      className: 'hidden lg:table-cell',
+      header: t('list.columns.owner'),
+      cell: (lead) => lead.owner.full_name,
+    },
     {
       key: 'created',
+      className: 'hidden lg:table-cell',
       header: t('list.columns.created'),
       sortKey: 'created_at',
       cell: (lead) => formatDate(lead.created_at, locale),
@@ -111,7 +118,7 @@ export function LeadsPage() {
           </div>
         }
       />
-      <div className="mb-4 grid items-center gap-3 md:grid-cols-[2fr_1fr_1fr_1fr_auto_auto]">
+      <FilterBar>
         <SearchInput
           label={t('list.search')}
           value={list.q}
@@ -177,7 +184,7 @@ export function LeadsPage() {
           />
           {t('list.archived')}
         </label>
-      </div>
+      </FilterBar>
       {leads.isError ? (
         <ErrorState
           error={leads.error}

@@ -22,7 +22,7 @@ Why now: Phase 1 sets the patterns every later phase reuses (app shell, tables, 
 - [x] **UX-10 Audit log viewer.** Filters for user, entity type, action and date range with presets (today, 7 days, 30 days); a detail drawer showing before and after values side by side with changed fields highlighted, falling back to formatted JSON. AC: works with long values and Cyrillic text.
 - [x] **UX-11 Form conventions.** Shared form field components: label, required marker, help text, inline errors translated from backend field codes, consistent spacing; a warning before leaving a page with unsaved changes. AC: all existing forms use them.
 - [x] **UX-12 Accessibility.** Visible focus rings, a skip-to-content link, landmarks, labelled controls, sufficient contrast; axe check with no serious or critical violations on every page. AC: axe runs inside Playwright for every existing page.
-- [ ] **UX-13 Bulgarian layout check.** No truncated or overflowing text with Bulgarian strings at 1440 and 768 px; dates and numbers formatted per locale. AC: screenshots reviewed for both languages; any fixes made in components, not by shortening translations.
+- [x] **UX-13 Bulgarian layout check.** No truncated or overflowing text with Bulgarian strings at 1440 and 768 px; dates and numbers formatted per locale. AC: screenshots reviewed for both languages; any fixes made in components, not by shortening translations.
 - [ ] **UX-14 Visual baselines.** Playwright screenshot tests for every existing page, in English and Bulgarian, at 1440 and 768 px, with baselines committed. Done last, after the other A items. AC: suite passes twice in a row (no flaky diffs; dynamic values masked).
 
 ## B. Small functional improvements (approved, within the existing spec)
@@ -48,6 +48,6 @@ These need a product or design decision. The loop may add notes here but must no
 - **C-04 Command palette (Ctrl+K) with global search:** valuable once organizations and leads exist (after Phase 2/3).
 - **C-05 Admin system-status page:** version, database and worker health, failing webhook deliveries (fits Phase 6).
 - **C-06 Sign-in notice:** an acceptable-use or data-protection notice on the sign-in page, if company policy needs one.
-- **C-07 Dashboard chart polish:** Y-axis labels of large EUR amounts are clipped ("0000000") and the light-grey "Weighted" series and legend have weak contrast; compact axis formatting and a stronger chart token would fix both.
+- **C-07 Dashboard chart polish:** fixed in UX-13: compact locale money on the Y axis ("340 млн. €", "€1.3bn") and a darker weighted series.
 - **C-08 Assistant "Save note" flake:** fixed (commit `fix(assistant): keep an opened note form …`): the reload after an answer remounted the message and dropped an opened note form.
 - **C-09 Locked-users filter:** `GET /users` has no `is_locked` filter, so the status filter offers active/deactivated only; adding one would let admins list locked accounts directly.

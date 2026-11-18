@@ -18,7 +18,7 @@ import { Loading } from '@/components/Loading'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { stageName } from '@/features/opportunities/opportunityValues'
-import { formatMoney, formatNumber, formatPercent } from '@/lib/format'
+import { formatMoney, formatMoneyCompact, formatNumber, formatPercent } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 
 import { ScopeFilters } from './ScopeFilters'
@@ -27,7 +27,8 @@ import { useReportScope } from './useReportScope'
 type DashboardData = Schemas['Dashboard']
 const CHART_HEIGHT = 260
 const TOTAL_COLOR = 'var(--color-chart-2)'
-const WEIGHTED_COLOR = 'var(--color-chart-1)'
+// UX-13: both series keep 3:1 against the card (the weighted one was a faint 1.3:1 grey).
+const WEIGHTED_COLOR = 'var(--color-chart-5)'
 
 /** FR-REP-01: pipeline, forecast, conversion and win rates, my open tasks. */
 export function Dashboard() {
@@ -160,7 +161,11 @@ function Figures({ data }: { data: DashboardData }) {
                 <BarChart data={stages} accessibilityLayer={false}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" fontSize={12} />
-                  <YAxis fontSize={12} />
+                  <YAxis
+                    fontSize={12}
+                    width={76}
+                    tickFormatter={(value: number) => formatMoneyCompact(value, locale)}
+                  />
                   <Tooltip formatter={(value) => money(String(value))} />
                   <Legend />
                   <Bar dataKey="total" name={t('dashboard.total')} fill={TOTAL_COLOR} />
@@ -206,7 +211,11 @@ function Figures({ data }: { data: DashboardData }) {
                 <BarChart data={months} accessibilityLayer={false}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" fontSize={12} />
-                  <YAxis fontSize={12} />
+                  <YAxis
+                    fontSize={12}
+                    width={76}
+                    tickFormatter={(value: number) => formatMoneyCompact(value, locale)}
+                  />
                   <Tooltip formatter={(value) => money(String(value))} />
                   <Bar
                     dataKey="weighted"

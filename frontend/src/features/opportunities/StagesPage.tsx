@@ -129,7 +129,7 @@ export function StagesPage() {
             <TableRow>
               <TableHead>{t('stages.nameEn')}</TableHead>
               <TableHead>{t('stages.nameBg')}</TableHead>
-              <TableHead>{t('stages.probability')}</TableHead>
+              <TableHead className="whitespace-normal">{t('stages.probability')}</TableHead>
               <TableHead>{t('stages.type')}</TableHead>
               <TableHead />
               <TableHead />
@@ -207,6 +207,7 @@ function StageRow({
       <TableCell>
         <Input
           aria-label={`${t('stages.nameEn')}: ${stage.name_en}`}
+          className="min-w-32"
           value={draft.name_en}
           maxLength={100}
           onChange={(e) => {
@@ -217,6 +218,7 @@ function StageRow({
       <TableCell>
         <Input
           aria-label={`${t('stages.nameBg')}: ${stage.name_en}`}
+          className="min-w-32"
           lang="bg"
           value={draft.name_bg}
           maxLength={100}
@@ -258,49 +260,51 @@ function StageRow({
           {t('stages.save')}
         </Button>
       </TableCell>
-      <TableCell className="flex flex-wrap justify-end gap-1">
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          aria-label={`${t('stages.moveUp')}: ${stage.name_en}`}
-          disabled={first || busy}
-          onClick={() => {
-            onMove(-1)
-          }}
-        >
-          ↑
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          aria-label={`${t('stages.moveDown')}: ${stage.name_en}`}
-          disabled={last || busy}
-          onClick={() => {
-            onMove(1)
-          }}
-        >
-          ↓
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={() => {
-            onSave({ is_active: !stage.is_active })
-          }}
-        >
-          {stage.is_active ? t('stages.deactivate') : t('stages.activate')}
-        </Button>
-        <ConfirmButton
-          label={t('stages.delete')}
-          title={t('stages.delete')}
-          description={t('stages.confirmDelete', { name: stage.name_en })}
-          variant="destructive"
-          onConfirm={onDelete}
-        />
+      <TableCell className="whitespace-normal">
+        <div className="flex flex-wrap justify-end gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-label={`${t('stages.moveUp')}: ${stage.name_en}`}
+            disabled={first || busy}
+            onClick={() => {
+              onMove(-1)
+            }}
+          >
+            ↑
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-label={`${t('stages.moveDown')}: ${stage.name_en}`}
+            disabled={last || busy}
+            onClick={() => {
+              onMove(1)
+            }}
+          >
+            ↓
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => {
+              onSave({ is_active: !stage.is_active })
+            }}
+          >
+            {stage.is_active ? t('stages.deactivate') : t('stages.activate')}
+          </Button>
+          <ConfirmButton
+            label={t('stages.delete')}
+            title={t('stages.delete')}
+            description={t('stages.confirmDelete', { name: stage.name_en })}
+            variant="destructive"
+            onConfirm={onDelete}
+          />
+        </div>
       </TableCell>
     </TableRow>
   )

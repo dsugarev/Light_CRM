@@ -158,7 +158,9 @@ export function DeliveriesPage() {
                 <TableHead>{t('deliveries.client')}</TableHead>
                 <TableHead>{t('deliveries.eventType')}</TableHead>
                 <TableHead>{t('deliveries.statusLabel')}</TableHead>
-                <TableHead className="text-right">{t('deliveries.attempts')}</TableHead>
+                <TableHead className="hidden text-right lg:table-cell">
+                  {t('deliveries.attempts')}
+                </TableHead>
                 <TableHead>{t('deliveries.lastResult')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -185,7 +187,9 @@ export function DeliveriesPage() {
                     <TableCell>
                       <StatusBadge status={d.status} />
                     </TableCell>
-                    <TableCell className="text-right">{d.attempt_count}</TableCell>
+                    <TableCell className="hidden text-right lg:table-cell">
+                      {d.attempt_count}
+                    </TableCell>
                     <TableCell>{d.last_status_code ?? d.last_error ?? ''}</TableCell>
                   </TableRow>
                 ))

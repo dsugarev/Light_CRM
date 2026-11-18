@@ -224,3 +224,25 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - **Test fix:** the keyboard board walkthrough now runs as a fresh sales rep. The E2E admin's board had grown past the 200-Tab limit across runs, partly because the new axe test creates a deal on each run.
 - **Files:** `frontend/src/index.css`, `e2e/{accessibility,keyboard}.spec.ts`, `docs/accessibility.md`.
 - **Gate:** lint, prettier, typecheck, Vitest 220/220, i18n 1190 keys; Playwright Chromium 44/44; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
+
+## UX-13 — 2026-11-18 18:40
+
+- **How it was checked:** a temporary sweep visited every route (23 main pages, then also record, edit and convert pages: 68 checks per language) in Bulgarian and English at 1440 and 768 px. It took screenshots and measured, in the browser:
+  - sideways page scrolling;
+  - text clipped by its box;
+  - select boxes too narrow for their chosen option;
+  - tables that need sideways scrolling.
+
+  I reviewed screenshots of the busiest pages in both languages.
+- **Found and fixed (all in components, no translation shortened):**
+  - **Filter rows** on organizations, contacts, leads, opportunities and users squeezed their selects (Bulgarian "Всички статуси" got 56 of 144 px at 768). New `components/FilterBar.tsx`: a wrapping row; the search takes the free space but at least 20 rem, selects size to their option, checkbox labels do not break.
+  - **Wide tables** at 768 px (leads, opportunities, integrations, deliveries, profile sessions): secondary columns are hidden below 1024 px (score, owner, created; probability, weighted, owner; keys, webhooks, last used; attempts; session start). The information stays on the record or detail page. Opportunity names and organizations wrap.
+  - **Stages and reference lists:** the action cells had `display: flex` on the `<td>` (buttons drawn above the row) and could not wrap; they now use an inner wrapping container. The long "Вероятност по подразбиране (%)" header wraps, stage name inputs keep 8 rem, and reference names wrap.
+  - **Header search:** the placeholder "Търсене на организации и контакти" was cut even at 1440 px. The box now shows the short "Търсене / Search"; the full text stays its accessible name and tooltip.
+  - **Dashboard (C-07):** Y-axis amounts were clipped ("0000000"). New `formatMoneyCompact` (Intl compact currency: "340 млн. €", "€1.3bn") with a wider axis; the weighted series uses a dark grey instead of a 1.3:1 light grey, which also makes its legend text readable.
+  - Dates and numbers were already locale-formatted everywhere ("18.11.2026 г.", "1 265 236 578,00 €" / "18 Nov 2026", "€1,265,236,578.00").
+- **Tests:**
+  - New `e2e/layout.spec.ts`, `UX-13 Bulgarian at 768 px …`: 16 list and admin pages fail on sideways page scrolling, sideways-scrolling tables (board excluded by design) or a select that cuts its option.
+  - `src/lib/format.test.ts`: 5 `UX-13 …` compact-money cases (en/bg).
+  - Final sweep: 68 checks per language, no findings.
+- **Gate:** lint, prettier, typecheck, Vitest 225/225, i18n 1190 keys; Playwright Chromium 45/45 (including the new layout spec); backend ruff, mypy, import-linter 14/14, pytest 1304 passed.

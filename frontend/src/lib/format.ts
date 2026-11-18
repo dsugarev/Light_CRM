@@ -69,3 +69,13 @@ export function formatRelative(iso: string, now: number, locale: Locale): string
   }
   return formatDateTime(iso, locale)
 }
+
+/** UX-13: short money for chart axes: "€1.3bn", "1,3 млрд. €". */
+export function formatMoneyCompact(amount: number, locale: Locale, currency = 'EUR'): string {
+  return new Intl.NumberFormat(TAGS[locale], {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(amount)
+}

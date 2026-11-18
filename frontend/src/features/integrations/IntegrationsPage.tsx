@@ -51,7 +51,12 @@ export function IntegrationsPage() {
         </Badge>
       ),
     },
-    { key: 'keys', header: t('list.keys'), cell: (c) => c.active_keys, className: 'text-right' },
+    {
+      key: 'keys',
+      header: t('list.keys'),
+      cell: (c) => c.active_keys,
+      className: 'text-right hidden lg:table-cell',
+    },
     {
       key: 'usage',
       header: t('list.usage'),
@@ -60,6 +65,7 @@ export function IntegrationsPage() {
     },
     {
       key: 'webhooks',
+      className: 'hidden lg:table-cell',
       header: t('list.webhooks'),
       cell: (c) =>
         c.webhooks.failing_deliveries + c.webhooks.suspended_subscriptions > 0 ? (
@@ -72,6 +78,7 @@ export function IntegrationsPage() {
     },
     {
       key: 'used',
+      className: 'hidden lg:table-cell',
       header: t('list.lastUsed'),
       cell: (c) => (c.last_used_at ? formatDateTime(c.last_used_at, locale) : t('list.never')),
     },

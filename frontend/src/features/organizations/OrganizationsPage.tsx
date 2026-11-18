@@ -7,6 +7,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
+import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
@@ -88,7 +89,7 @@ export function OrganizationsPage() {
           </div>
         }
       />
-      <div className="mb-4 grid items-center gap-3 sm:grid-cols-[2fr_1fr_1fr_auto]">
+      <FilterBar>
         <SearchInput
           label={t('organizations.search')}
           value={list.q}
@@ -130,7 +131,7 @@ export function OrganizationsPage() {
           />
           {t('organizations.filters.archived')}
         </label>
-      </div>
+      </FilterBar>
       {organizations.isError ? (
         <ErrorState
           error={organizations.error}

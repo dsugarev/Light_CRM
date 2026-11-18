@@ -9,6 +9,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
+import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
 import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
@@ -95,7 +96,7 @@ export function ContactsPage() {
           </div>
         }
       />
-      <div className="mb-4 grid items-center gap-3 sm:grid-cols-[2fr_1fr_auto]">
+      <FilterBar>
         <SearchInput
           label={t('contacts.search')}
           value={list.q}
@@ -123,7 +124,7 @@ export function ContactsPage() {
           />
           {t('organizations.filters.archived')}
         </label>
-      </div>
+      </FilterBar>
       {contacts.isError ? (
         <ErrorState
           error={contacts.error}

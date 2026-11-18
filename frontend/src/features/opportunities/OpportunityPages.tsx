@@ -7,6 +7,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
+import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
 import { useSectionCrumbs } from '@/components/useSectionCrumbs'
 import { Pagination } from '@/components/Pagination'
@@ -60,6 +61,7 @@ export function OpportunitiesPage() {
   const columns: Column<Opportunity>[] = [
     {
       key: 'name',
+      className: 'whitespace-normal',
       header: t('list.columns.name'),
       sortKey: 'name',
       cell: (o) => (
@@ -74,6 +76,7 @@ export function OpportunitiesPage() {
     },
     {
       key: 'organization',
+      className: 'whitespace-normal',
       header: t('list.columns.organization'),
       cell: (o) => (
         <Link to={`/organizations/${o.organization.id}`} className="hover:underline">
@@ -93,13 +96,13 @@ export function OpportunitiesPage() {
       key: 'probability',
       header: t('list.columns.probability'),
       cell: (o) => `${String(o.probability)}%`,
-      className: 'text-right',
+      className: 'text-right hidden lg:table-cell',
     },
     {
       key: 'weighted',
       header: t('list.columns.weighted'),
       cell: (o) => (o.weighted_amount ? formatMoney(o.weighted_amount, locale) : ''),
-      className: 'text-right',
+      className: 'text-right hidden lg:table-cell',
     },
     {
       key: 'close',
@@ -107,7 +110,12 @@ export function OpportunitiesPage() {
       sortKey: 'expected_close_date',
       cell: (o) => (o.expected_close_date ? formatDay(o.expected_close_date, locale) : ''),
     },
-    { key: 'owner', header: t('list.columns.owner'), cell: (o) => o.owner.full_name },
+    {
+      key: 'owner',
+      className: 'hidden lg:table-cell',
+      header: t('list.columns.owner'),
+      cell: (o) => o.owner.full_name,
+    },
   ]
   return (
     <section className="mx-auto max-w-7xl">
@@ -127,7 +135,7 @@ export function OpportunitiesPage() {
           </div>
         }
       />
-      <div className="mb-4 grid items-center gap-3 md:grid-cols-[2fr_1fr_1fr_1fr_auto_auto]">
+      <FilterBar>
         <SearchInput
           label={t('list.search')}
           value={list.q}
@@ -193,7 +201,7 @@ export function OpportunitiesPage() {
           />
           {t('list.archived')}
         </label>
-      </div>
+      </FilterBar>
       {opportunities.isError ? (
         <ErrorState
           error={opportunities.error}

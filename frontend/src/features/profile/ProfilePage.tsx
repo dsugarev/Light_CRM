@@ -294,7 +294,7 @@ function SessionsCard() {
               <TableRow>
                 <TableHead>{t('sessions.device')}</TableHead>
                 <TableHead>{t('sessions.ip')}</TableHead>
-                <TableHead>{t('sessions.started')}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t('sessions.started')}</TableHead>
                 <TableHead>{t('sessions.lastSeen')}</TableHead>
                 <TableHead />
               </TableRow>
@@ -306,7 +306,9 @@ function SessionsCard() {
                     {session.user_agent ?? t('sessions.unknownDevice')}
                   </TableCell>
                   <TableCell>{session.ip ?? ''}</TableCell>
-                  <TableCell>{formatDateTime(session.created_at, locale)}</TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {formatDateTime(session.created_at, locale)}
+                  </TableCell>
                   <TableCell>{formatDateTime(session.last_seen_at, locale)}</TableCell>
                   <TableCell className="text-right">
                     {session.current ? (

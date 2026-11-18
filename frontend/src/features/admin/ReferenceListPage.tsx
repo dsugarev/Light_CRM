@@ -147,57 +147,59 @@ function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
             {items.data.map((item, index, list) => (
               <TableRow key={item.id}>
                 <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                <TableCell>{item.name_en}</TableCell>
-                <TableCell>{item.name_bg}</TableCell>
+                <TableCell className="whitespace-normal">{item.name_en}</TableCell>
+                <TableCell className="whitespace-normal">{item.name_bg}</TableCell>
                 <TableCell>
                   <Badge variant={item.is_active ? 'secondary' : 'outline'}>
                     {item.is_active ? t('reference.active') : t('reference.inactive')}
                   </Badge>
                 </TableCell>
-                <TableCell className="flex flex-wrap justify-end gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    aria-label={`${t('reference.moveUp')}: ${item.name_en}`}
-                    disabled={index === 0 || reorder.isPending}
-                    onClick={() => {
-                      move(list, index, -1)
-                    }}
-                  >
-                    ↑
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    aria-label={`${t('reference.moveDown')}: ${item.name_en}`}
-                    disabled={index === list.length - 1 || reorder.isPending}
-                    onClick={() => {
-                      move(list, index, 1)
-                    }}
-                  >
-                    ↓
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      update.mutate({ id: item.id, body: { is_active: !item.is_active } })
-                    }}
-                  >
-                    {item.is_active ? t('reference.deactivate') : t('reference.activate')}
-                  </Button>
-                  <ConfirmButton
-                    label={t('reference.delete')}
-                    title={t('reference.delete')}
-                    description={t('reference.confirmDelete', { name: item.name_en })}
-                    variant="destructive"
-                    onConfirm={() => {
-                      remove.mutate(item.id)
-                    }}
-                  />
+                <TableCell className="whitespace-normal">
+                  <div className="flex flex-wrap justify-end gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`${t('reference.moveUp')}: ${item.name_en}`}
+                      disabled={index === 0 || reorder.isPending}
+                      onClick={() => {
+                        move(list, index, -1)
+                      }}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`${t('reference.moveDown')}: ${item.name_en}`}
+                      disabled={index === list.length - 1 || reorder.isPending}
+                      onClick={() => {
+                        move(list, index, 1)
+                      }}
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        update.mutate({ id: item.id, body: { is_active: !item.is_active } })
+                      }}
+                    >
+                      {item.is_active ? t('reference.deactivate') : t('reference.activate')}
+                    </Button>
+                    <ConfirmButton
+                      label={t('reference.delete')}
+                      title={t('reference.delete')}
+                      description={t('reference.confirmDelete', { name: item.name_en })}
+                      variant="destructive"
+                      onConfirm={() => {
+                        remove.mutate(item.id)
+                      }}
+                    />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

@@ -9,6 +9,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
+import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
 import { Pagination } from '@/components/Pagination'
 import { RelativeTime } from '@/components/RelativeTime'
@@ -143,7 +144,7 @@ export function UsersPage({ creating = false }: { creating?: boolean }) {
           </Link>
         }
       />
-      <div className="mb-4 grid gap-3 sm:grid-cols-[2fr_1fr_1fr]">
+      <FilterBar>
         <SearchInput
           label={t('users.search')}
           value={list.q}
@@ -176,7 +177,7 @@ export function UsersPage({ creating = false }: { creating?: boolean }) {
           <option value="active">{t('users.status.active')}</option>
           <option value="inactive">{t('users.status.inactive')}</option>
         </NativeSelect>
-      </div>
+      </FilterBar>
       {users.isError ? (
         <ErrorState
           error={users.error}

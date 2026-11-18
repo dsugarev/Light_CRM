@@ -1,4 +1,4 @@
-import { formatDate, formatDateTime, formatMoney, formatNumber } from './format'
+import { formatDate, formatDateTime, formatMoney, formatMoneyCompact, formatNumber } from './format'
 
 describe('FR-I18N-03 locale formatting in Europe/Sofia time', () => {
   it('shows UTC timestamps in Sofia time', () => {
@@ -12,5 +12,17 @@ describe('FR-I18N-03 locale formatting in Europe/Sofia time', () => {
     expect(formatNumber(1234567.5, 'bg')).toMatch(/^1\s234\s567,5$/)
     expect(formatMoney('48000.00', 'en')).toBe('€48,000.00')
     expect(formatMoney('48000.00', 'bg')).toMatch(/^48\s000,00\s€$/)
+  })
+})
+
+describe('UX-13 compact money for chart axes', () => {
+  it.each([
+    [1_265_236_578, 'en', '€1.3bn'],
+    [340_000_000, 'en', '€340m'],
+    [0, 'en', '€0'],
+    [340_000_000, 'bg', '340 млн. €'],
+    [1_265_236_578, 'bg', '1,3 млрд. €'],
+  ] as const)('UX-13 %d in %s is %s', (amount, locale, expected) => {
+    expect(formatMoneyCompact(amount, locale).replace(/\s/g, ' ')).toBe(expected)
   })
 })
