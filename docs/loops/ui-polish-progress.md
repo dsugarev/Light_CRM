@@ -80,3 +80,25 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
 - **Blocked:** three full Playwright runs failed on different steps each time: 10, 6 and 3 failures. The failures were timeouts on "Welcome", assistant answers, import and board steps. The backend logged its own requests taking 3–42 s (a sign-in 41.9 s, `GET /api/v1/me` 9.2 s; normally about 0.2 s). Host swap grew from 9 to 12.6 GB and the load average reached 48. A backend pytest run also had 2 timing failures that passed on rerun; no backend code changed. The prompt does not allow committing an item that fails the gate, so the work was moved out of `ui-polish`.
 - **Owner action:** free memory on the development Mac (close apps, restart Docker Desktop or the machine), then on `wip/ux-05-feedback` run the full gate. If it is green, merge it into `ui-polish` and mark UX-05 `[x]`. Earlier items passed 41/41 when the host was quiet.
 - **For later:** at 768 px the profile's sessions table needs horizontal scrolling (the Browser column is cut).
+
+## UX-06 — 2026-11-18 15:55 — blocked `[!]` (environment, not the change)
+
+- **Repair first:** Docker Desktop was restarted. The committed `ui-polish` code (UX-01..04) then passed Playwright 41/41 (1 worker, 2.0 min), so the host could run the gate at the start of the iteration.
+- **Built (kept on branch `wip/ux-06-sign-in`, not merged into `ui-polish`):**
+  - New `components/PasswordInput.tsx`: a show/hide toggle with `aria-pressed`/`aria-controls`, and a Caps Lock warning tied to the field through `aria-describedby` and cleared on blur. UX-07 and FN-01 can reuse it.
+  - New `components/Spinner.tsx`.
+  - Sign-in button disabled, `aria-busy` and spinner while pending; the same on the two-factor step.
+  - Lockout: the unlock time as before, plus "You can try again in N minutes", computed from `locked_until` when the error arrives.
+  - `FormMessage` gained `focusOnError`, which moves focus to a server error. The first invalid field was already focused by react-hook-form.
+  - `autocomplete` (`username`, `current-password`, `one-time-code`) and the language switch in the signed-out header were already in place and are now asserted.
+  - Tests: `src/features/auth/signInPage.test.tsx`, 7 `UX-06 ...` cases (autocomplete and language switch, show/hide, caps lock warning, busy button, lockout minutes with focus, first-field focus, Bulgarian lockout).
+- **Passed:** lint, prettier, typecheck, Vitest 170/170, i18n 1080 keys. Screenshots of a locked sign-in with the password shown, en/bg at 1440 and 768 px; axe: no violations.
+- **Blocked:** two full Playwright runs on the final build each ended 38/41, with different timeouts each time (assistant, opportunities board, imports, integrations; none on the sign-in page). Runs took 4.5–5.2 min against 2.0 min for the baseline, and a trace file was written truncated. Backend requests again took 2–3.5 s. The specs that failed in the first run passed when rerun (4/4). With no clean full run after three attempts, the work was moved out of `ui-polish`.
+- **Owner action:** the development Mac has 8 GB of RAM, and Docker (about 3.8 GB VM), Chromium and the dev tools push it into 9–13 GB of swap. Either run the gate on a machine with more memory (or CI) or close other applications. Then on `wip/ux-05-feedback` and `wip/ux-06-sign-in` run the full gate and merge each into `ui-polish` when green. UX-06 builds on UX-04 and is independent of UX-05; the two branches touch `FormMessage` and `ConfirmButton` differently, so merge one, then rebase the other.
+
+## Loop status — 2026-11-18 16:00
+
+- Done on `ui-polish`: UX-01, UX-02, UX-03, UX-04.
+- Blocked by the host environment, work kept on branches: UX-05 (`wip/ux-05-feedback`), UX-06 (`wip/ux-06-sign-in`).
+- Open: UX-07 to UX-14 and FN-01 to FN-08. The loop is not complete. The final summary will be written when no `[ ]` items remain.
+- Section C additions so far: C-07 (dashboard chart polish).
