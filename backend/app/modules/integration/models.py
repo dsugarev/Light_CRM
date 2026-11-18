@@ -134,3 +134,98 @@ class IntegrationUsage(Base):
     hour: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     requests: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     errors: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+
+# --- Webhooks (API spec 19.6, FR-INT-07) --------------------------------------------------------
+
+
+class OutboxEvent(IdMixin, Base):
+    """A change to tell subscribers about, written in the business transaction (AC1).
+    The worker fans it out into deliveries and sets `dispatched_at`."""
+
+    __tablename__ = "outbox_event"
+    __table_args__ = (
+        Index(
+            "ix_outbox_event_undispatched",
+            "occurred_at",
+            postgresql_where="dispatched_at IS NULL",
+        ),
+        Index("ix_outbox_event_occurred_at", "occurred_at"),
+    )
+
+    event_type: Mapped[str] = mapped_column(String(60), nullable=False)
+    entity_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    entity_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    actor: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    changes: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class WebhookSubscription(IdMixin, TimestampMixin, AuthorshipMixin, Base):
+    """FR-INT-07: a client's endpoint and the event types it receives. Secrets are
+    encrypted (architecture 4.5); the previous one stays valid 24 h after rotation."""
+
+    __tablename__ = "webhook_subscription"
+
+    client_id: Mapped[UUID] = mapped_column(
+        ForeignKey("integration_client.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    event_types: Mapped[list[str]] = mapped_column(ARRAY(String(60)), nullable=False)
+    secret_encrypted: Mapped[str] = mapped_column(String(500), nullable=False)
+    previous_secret_encrypted: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    previous_secret_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    # Set by the worker: first failure of the current failing streak, and suspension
+    # after 72 hours of failures (API spec 19.6).
+    failing_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class WebhookDelivery(IdMixin, Base):
+    """One event to one subscription, with its retry state (FR-INT-07 AC3)."""
+
+    __tablename__ = "webhook_delivery"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'retrying', 'succeeded', 'failed')", name="status"),
+        Index("ix_webhook_delivery_due", "status", "next_attempt_at"),
+        Index("ix_webhook_delivery_created_at", "created_at"),
+    )
+
+    event_id: Mapped[UUID] = mapped_column(
+        ForeignKey("outbox_event.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    subscription_id: Mapped[UUID] = mapped_column(
+        ForeignKey("webhook_subscription.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(10), nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    last_response_excerpt: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class WebhookAttempt(IdMixin, Base):
+    """Each delivery attempt, for the delivery log (API spec 19.7)."""
+
+    __tablename__ = "webhook_attempt"
+
+    delivery_id: Mapped[UUID] = mapped_column(
+        ForeignKey("webhook_delivery.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    response_excerpt: Mapped[str | None] = mapped_column(String(1000), nullable=True)

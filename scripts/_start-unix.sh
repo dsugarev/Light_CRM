@@ -11,6 +11,7 @@ if [[ ! -f .env ]]; then
       -e "s/^CRM_MIGRATOR_PASSWORD=.*/CRM_MIGRATOR_PASSWORD=$(gen)/" \
       -e "s/^CRM_APP_PASSWORD=.*/CRM_APP_PASSWORD=$(gen)/" \
       -e "s/^APP_SECRET_KEY=.*/APP_SECRET_KEY=$(openssl rand -hex 32)/" \
+      -e "s/^APP_ENCRYPTION_KEY=.*/APP_ENCRYPTION_KEY=$(openssl rand -hex 32)/" \
       .env.example > .env
   chmod 600 .env
   echo "Created .env with generated passwords and secret key."
@@ -19,6 +20,10 @@ fi
 if ! grep -q '^APP_SECRET_KEY=' .env; then
   printf '\n# Added by start script\nAPP_SECRET_KEY=%s\n' "$(openssl rand -hex 32)" >> .env
   echo "Added APP_SECRET_KEY to .env."
+fi
+if ! grep -q '^APP_ENCRYPTION_KEY=' .env; then
+  printf '\n# Added by start script\nAPP_ENCRYPTION_KEY=%s\n' "$(openssl rand -hex 32)" >> .env
+  echo "Added APP_ENCRYPTION_KEY to .env."
 fi
 
 docker compose up --build --detach

@@ -997,7 +997,7 @@ Contact events for an anonymized contact carry the anonymized object. The `objec
 | PATCH | `/api/v1/webhook-subscriptions/{subscription_id}` | Change URL, event types, active flag | Admin | FR-INT-07 |
 | DELETE | `/api/v1/webhook-subscriptions/{subscription_id}` | Remove | Admin | FR-INT-07 |
 | POST | `/api/v1/webhook-subscriptions/{subscription_id}/rotate-secret` | New secret, returned once; old one valid for 24 hours | Admin | FR-INT-07 |
-| POST | `/api/v1/webhook-subscriptions/{subscription_id}/test` | Send a `ping` event and return the receiver's status code and timing | Admin | FR-INT-07 |
+| POST | `/api/v1/webhook-subscriptions/{subscription_id}/test` | Queue a `ping` event (`202` with the delivery); the worker sends it once, and the receiver's status code and timing appear in the delivery (no outbound call inside a request) | Admin | FR-INT-07 |
 | GET | `/api/v1/webhook-deliveries` | Delivery log. Filters: `subscription_id`, `client_id`, `event_type`, `status` (`pending`, `succeeded`, `retrying`, `failed`), `created_at_from/to` | Admin | FR-INT-07, 08 |
 | GET | `/api/v1/webhook-deliveries/{delivery_id}` | Attempts with status codes, timings and truncated response bodies | Admin | FR-INT-07 |
 | POST | `/api/v1/webhook-deliveries/{delivery_id}/redeliver` | Queue the event again | Admin | FR-INT-07 |

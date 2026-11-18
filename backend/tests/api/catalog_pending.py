@@ -20,13 +20,4 @@ PENDING: dict[str, str] = {
     "POST /api/v1/assistant/conversations/{conversation_id}/messages": "17. AI assistant",
     "POST /api/v1/assistant/conversations/{conversation_id}/messages/{message_id}/stop": "17. AI assistant",
     "POST /api/v1/assistant/messages/{message_id}/save-as-note": "17. AI assistant",
-    "GET /api/v1/integration-clients/{client_id}/webhook-subscriptions": "19. Integration API (Conclusion, ERP, Billing)",
-    "POST /api/v1/integration-clients/{client_id}/webhook-subscriptions": "19. Integration API (Conclusion, ERP, Billing)",
-    "PATCH /api/v1/webhook-subscriptions/{subscription_id}": "19. Integration API (Conclusion, ERP, Billing)",
-    "DELETE /api/v1/webhook-subscriptions/{subscription_id}": "19. Integration API (Conclusion, ERP, Billing)",
-    "POST /api/v1/webhook-subscriptions/{subscription_id}/rotate-secret": "19. Integration API (Conclusion, ERP, Billing)",
-    "POST /api/v1/webhook-subscriptions/{subscription_id}/test": "19. Integration API (Conclusion, ERP, Billing)",
-    "GET /api/v1/webhook-deliveries": "19. Integration API (Conclusion, ERP, Billing)",
-    "GET /api/v1/webhook-deliveries/{delivery_id}": "19. Integration API (Conclusion, ERP, Billing)",
-    "POST /api/v1/webhook-deliveries/{delivery_id}/redeliver": "19. Integration API (Conclusion, ERP, Billing)",
 }

@@ -624,6 +624,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integration-clients/{client_id}/webhook-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Subscriptions of a client, with 24-hour delivery counts */
+        get: operations["list_subscriptions_api_v1_integration_clients__client_id__webhook_subscriptions_get"];
+        put?: never;
+        /** Subscribe an HTTPS endpoint; the signing secret is in this response only */
+        post: operations["create_subscription_api_v1_integration_clients__client_id__webhook_subscriptions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leads": {
         parameters: {
             query?: never;
@@ -1694,6 +1712,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhook-deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Delivery log, newest first */
+        get: operations["list_deliveries_api_v1_webhook_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhook-deliveries/{delivery_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A delivery with its attempts */
+        get: operations["get_delivery_api_v1_webhook_deliveries__delivery_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhook-deliveries/{delivery_id}/redeliver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue the event again for the same subscription */
+        post: operations["redeliver_api_v1_webhook_deliveries__delivery_id__redeliver_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhook-subscriptions/{subscription_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a subscription and its delivery log */
+        delete: operations["delete_subscription_api_v1_webhook_subscriptions__subscription_id__delete"];
+        options?: never;
+        head?: never;
+        /** Change URL, event types or the active flag */
+        patch: operations["update_subscription_api_v1_webhook_subscriptions__subscription_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/webhook-subscriptions/{subscription_id}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New signing secret, returned once; the old one signs too for 24 hours */
+        post: operations["rotate_secret_api_v1_webhook_subscriptions__subscription_id__rotate_secret_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhook-subscriptions/{subscription_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue a ping event; the worker sends it once and records the result */
+        post: operations["send_test_api_v1_webhook_subscriptions__subscription_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/{resource}/{id}/external-references": {
         parameters: {
             query?: never;
@@ -2358,6 +2479,17 @@ export interface components {
             to_date: string;
             win_loss: components["schemas"]["WinLossFigures"];
         };
+        /** DeliveryCounts */
+        DeliveryCounts: {
+            /** Failed */
+            failed: number;
+            /** Pending */
+            pending: number;
+            /** Retrying */
+            retrying: number;
+            /** Succeeded */
+            succeeded: number;
+        };
         /** Disqualification */
         Disqualification: {
             /** Disqualified At */
@@ -2636,6 +2768,7 @@ export interface components {
              */
             updated_at: string;
             usage: components["schemas"]["UsageFigures"];
+            webhooks: components["schemas"]["WebhookFigures"];
         };
         /** IntegrationClientUpdate */
         IntegrationClientUpdate: {
@@ -3943,6 +4076,273 @@ export interface components {
         VersionOnly: {
             /** Version */
             version: number;
+        };
+        /** WebhookAttemptOut */
+        WebhookAttemptOut: {
+            /**
+             * Attempted At
+             * Format: date-time
+             */
+            attempted_at: string;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Error */
+            error: string | null;
+            /** Number */
+            number: number;
+            /** Response Excerpt */
+            response_excerpt: string | null;
+            /** Status Code */
+            status_code: number | null;
+        };
+        /** WebhookDeliveryDetail */
+        WebhookDeliveryDetail: {
+            /** Attempt Count */
+            attempt_count: number;
+            /** Attempts */
+            attempts: components["schemas"]["WebhookAttemptOut"][];
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Delivered At */
+            delivered_at: string | null;
+            /** Entity Id */
+            entity_id: string | null;
+            /** Entity Type */
+            entity_type: string | null;
+            /**
+             * Event Id
+             * @description evt_<hex>, as sent in X-CRM-Event-Id
+             */
+            event_id: string;
+            /** Event Type */
+            event_type: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Status Code */
+            last_status_code: number | null;
+            /** Next Attempt At */
+            next_attempt_at: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "retrying" | "succeeded" | "failed";
+            /**
+             * Subscription Id
+             * Format: uuid
+             */
+            subscription_id: string;
+            /** Url */
+            url: string;
+        };
+        /** WebhookDeliveryOut */
+        WebhookDeliveryOut: {
+            /** Attempt Count */
+            attempt_count: number;
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Delivered At */
+            delivered_at: string | null;
+            /** Entity Id */
+            entity_id: string | null;
+            /** Entity Type */
+            entity_type: string | null;
+            /**
+             * Event Id
+             * @description evt_<hex>, as sent in X-CRM-Event-Id
+             */
+            event_id: string;
+            /** Event Type */
+            event_type: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Status Code */
+            last_status_code: number | null;
+            /** Next Attempt At */
+            next_attempt_at: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "retrying" | "succeeded" | "failed";
+            /**
+             * Subscription Id
+             * Format: uuid
+             */
+            subscription_id: string;
+        };
+        /** WebhookDeliveryPage */
+        WebhookDeliveryPage: {
+            /** Items */
+            items: components["schemas"]["WebhookDeliveryOut"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** WebhookFigures */
+        WebhookFigures: {
+            /**
+             * Failing Deliveries
+             * @description Deliveries now retrying, or failed in the last 24 hours (FR-INT-08)
+             */
+            failing_deliveries: number;
+            /** Subscriptions */
+            subscriptions: number;
+            /** Suspended Subscriptions */
+            suspended_subscriptions: number;
+        };
+        /** WebhookSecret */
+        WebhookSecret: {
+            /**
+             * Previous Secret Valid Until
+             * Format: date-time
+             */
+            previous_secret_valid_until: string;
+            /**
+             * Secret
+             * @description The new signing secret, shown only in this response
+             */
+            secret: string;
+        };
+        /** WebhookSubscriptionCreate */
+        WebhookSubscriptionCreate: {
+            /** Event Types */
+            event_types: string[];
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** Url */
+            url: string;
+        };
+        /** WebhookSubscriptionCreated */
+        WebhookSubscriptionCreated: {
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            deliveries_24h: components["schemas"]["DeliveryCounts"];
+            /** Event Types */
+            event_types: string[];
+            /** Failing Since */
+            failing_since: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Previous Secret Valid Until */
+            previous_secret_valid_until: string | null;
+            /**
+             * Secret
+             * @description The signing secret, shown only in this response
+             */
+            secret: string;
+            /** Suspended At */
+            suspended_at: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Url */
+            url: string;
+        };
+        /** WebhookSubscriptionOut */
+        WebhookSubscriptionOut: {
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            deliveries_24h: components["schemas"]["DeliveryCounts"];
+            /** Event Types */
+            event_types: string[];
+            /** Failing Since */
+            failing_since: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Previous Secret Valid Until */
+            previous_secret_valid_until: string | null;
+            /** Suspended At */
+            suspended_at: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Url */
+            url: string;
+        };
+        /** WebhookSubscriptionUpdate */
+        WebhookSubscriptionUpdate: {
+            /** Event Types */
+            event_types?: string[] | null;
+            /**
+             * Is Active
+             * @description true also lifts an automatic suspension
+             */
+            is_active?: boolean | null;
+            /** Url */
+            url?: string | null;
         };
         /** WinLossFigures */
         WinLossFigures: {
@@ -5589,6 +5989,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IntegrationClientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_subscriptions_api_v1_integration_clients__client_id__webhook_subscriptions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscriptionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_subscription_api_v1_integration_clients__client_id__webhook_subscriptions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookSubscriptionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscriptionCreated"];
                 };
             };
             /** @description Validation Error */
@@ -8222,6 +8688,232 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_deliveries_api_v1_webhook_deliveries_get: {
+        parameters: {
+            query?: {
+                subscription_id?: string | null;
+                client_id?: string | null;
+                event_type?: string | null;
+                status?: ("pending" | "retrying" | "succeeded" | "failed") | null;
+                created_at_from?: string | null;
+                created_at_to?: string | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_delivery_api_v1_webhook_deliveries__delivery_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redeliver_api_v1_webhook_deliveries__delivery_id__redeliver_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_subscription_api_v1_webhook_subscriptions__subscription_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_subscription_api_v1_webhook_subscriptions__subscription_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookSubscriptionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscriptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_secret_api_v1_webhook_subscriptions__subscription_id__rotate_secret_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecret"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_test_api_v1_webhook_subscriptions__subscription_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryOut"];
                 };
             };
             /** @description Validation Error */

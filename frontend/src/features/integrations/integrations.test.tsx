@@ -29,6 +29,7 @@ const CLIENT: Schemas['IntegrationClientOut'] = {
   active_keys: 0,
   last_used_at: null,
   usage: { requests_24h: 12, errors_24h: 1 },
+  webhooks: { subscriptions: 0, failing_deliveries: 0, suspended_subscriptions: 0 },
   created_at: '2026-11-17T09:00:00Z',
   updated_at: '2026-11-17T09:00:00Z',
 }
