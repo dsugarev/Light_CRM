@@ -613,6 +613,7 @@ NFR-01 measurement (milliseconds):
 | 2026-11-18 | Developer Mac | ruff, mypy, import-linter, pytest, pip-audit | 1171 passed, 96% coverage; clean |
 | 2026-11-18 | Developer Mac | ESLint, Prettier, tsc, Vitest, i18n (959 keys), `pnpm audit` (high) and `--prod`, OpenAPI snapshot and generated types | 122 passed; clean |
 | 2026-11-18 | Docker Desktop, stack rebuilt with migration 0009, `APP_ENCRYPTION_KEY` and `WEBHOOK_ALLOWED_HOSTS` | Playwright Chromium, integrations spec, then full suite | 4/4, then 26/26 |
+| 2026-11-18 | GitHub Actions, PR #13 run 44209396859 | All four jobs | Green; Playwright on Chromium and Firefox |
 
 ### Defects found by testing and fixed
 

@@ -1855,6 +1855,7 @@ Standard library only: `verify_signature` (constant-time, 5-minute window, any `
 | `pnpm audit --audit-level high` | passes (ADR 0022 ignore); `--prod` clean |
 | OpenAPI snapshot and generated types | up to date |
 | Playwright Chromium vs. rebuilt stack (`WEBHOOK_ALLOWED_HOSTS=hooks.example.test`) | 26/26, including the webhook journey through the real worker in en and bg |
+| GitHub Actions (PR #13, run 44209396859) | all four jobs green, including Playwright on Chromium and Firefox |
 
 ### Definition of done
 
@@ -1862,7 +1863,7 @@ Standard library only: `verify_signature` (constant-time, 5-minute window, any `
 |---|---|---|
 | 1 | AC tests with requirement IDs | Done for FR-INT-07 AC1–AC5, FR-INT-08, 10, 12, NFR-13 |
 | 2 | `docker compose up` works | Done (rebuilt with migration 0009 and the new settings) |
-| 3 | Lint, types, suites green | Done locally; CI on the PR |
+| 3 | Lint, types, suites green | Done locally and in CI (PR #13) |
 | 4 | Permission checks + matrix | Done for all 135 routes (all Admin; closed to integration clients) |
 | 5 | UI text en + bg | Done |
 | 6 | Additive migrations + tests | Done (0009) |
