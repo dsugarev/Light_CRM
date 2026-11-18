@@ -18,11 +18,13 @@ The check runs in CI on Chromium and Firefox with every change.
 | Date | Result |
 |---|---|
 | 2026-11-18, first run | 3 rules failed: `aria-hidden-focus` on the dashboard (2 charts), `color-contrast` on destructive buttons (14 on lists, 6 on stages, 1 on record pages, 1 in the assistant drawer) |
-| 2026-11-18, after the fixes below | No violations |
+| 2026-11-18, after the fixes below | No violations locally |
+| 2026-11-18, CI after merging #18 (run on `main`) | `color-contrast` on the red "Locked" badge in Chromium and Firefox |
+| 2026-11-18, after darkening the destructive token | No violations locally (Chromium); CI covers Firefox |
 
 Fixes:
 - **Dashboard charts** are hidden from assistive technology because a screen-reader table holds the same figures, but Recharts 3 made the chart surface focusable, so keyboard focus reached hidden content. The charts now use `accessibilityLayer={false}`.
-- **Destructive buttons** (Archive, Delete, Deactivate…) used the red text colour on a light red tint, below 4.5:1. The text is now 20 % darker in the light theme; the dark theme is unchanged.
+- **Destructive red** (buttons such as Archive, Delete, Deactivate, and the red badges such as "Locked") was below 4.5:1 on its light red tint. The light theme's `--destructive` token is now Tailwind's red 700 instead of red 600; the dark theme is unchanged. (The first fix darkened only the buttons; CI then found the "Locked" badge, which the local data had not shown. The check now creates a locked user first.)
 
 ## Keyboard walkthroughs (`frontend/e2e/keyboard.spec.ts`)
 

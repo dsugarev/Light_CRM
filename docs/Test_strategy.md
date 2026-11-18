@@ -896,6 +896,7 @@ NFR-01 measurement (milliseconds):
 | 2026-11-18 10:20 | Same | Run 2, after the language and owner fixes | 18/20 (checker problems only) |
 | 2026-11-18 10:22 | Same | Run 3, after the checker fixes | **20/20**; median 1.3 s per answer |
 | 2026-11-18 | Developer Mac | ruff, mypy, import-linter, pytest | 1297 passed, 95.6% coverage; clean |
+| 2026-11-18 | Docker Desktop, rebuilt stack with `docker-compose.e2e.yml` | Full Chromium suite with the contrast and keyboard fixes | First run: 9 sign-in timeouts right after the rebuild (backend busy); rerun 39/39 |
 
 ### Defects found by testing and fixed
 
@@ -905,6 +906,7 @@ NFR-01 measurement (milliseconds):
 | Live run 1 | "The open pipeline" answered for the user's own deals only | Prompt: "me" only when the user asks about their own records |
 | Live runs 1–2 (checker defects) | Typographic hyphens and apostrophes; record names counted as language; the injection case could not tell quoting from obeying | Normalization; names ignored; the injection case requires the real figure |
 | Live run 1 | Migration and LiteLLM INFO lines mixed into the report | Logs to stderr; LiteLLM below WARNING silenced |
+| CI on `main` after #18 (merged while its end-to-end job was failing) | axe: the red "Locked" badge below 4.5:1 (local data had no locked user); Firefox keyboard journey: Tab does not wrap from the page end to the header | Light `--destructive` darkened to red 700 (buttons, badges, alerts); the axe check creates a locked user first; the keyboard journey reloads before tabbing to the header |
 
 ### Gaps and deferred
 - One Bulgarian answer took 18 s (provider latency); the timeout is 60 s.

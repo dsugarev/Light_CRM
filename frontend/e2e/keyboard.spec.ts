@@ -93,6 +93,8 @@ test('NFR-10 dialogs and the assistant drawer close with Escape and return focus
 
   const launcher = page.getByRole('button', { name: 'Assistant', exact: true })
   if (await launcher.isVisible()) {
+    // Firefox does not wrap Tab from the end of the page to its start: begin at the top.
+    await page.reload()
     await tabTo(page, launcher)
     await page.keyboard.press('Enter')
     const panel = page.getByRole('complementary', { name: 'Assistant' })
