@@ -2,7 +2,7 @@
 
 Release 1 is ready for the three integrating teams to build and test against. This kit is the plan for getting each of them from "not connected" to "running in production" (implementation plan, Phase 8). The technical reference for the teams is `docs/integration-guide.md` with the Postman collection.
 
-**Status (2026-11-18):** the CRM side is ready. Each team's flow depends on the answers to requirements open questions 7 and 8; until then the three clients exist, inactive and read-only (API spec 19.9).
+**Status (2026-11-18):** the CRM side is ready. Owner answers (ADR 0028): for now each system gets every integration scope (administration, imports, exports, audit, GDPR and the assistant stay closed to integrations); API keys are used (OAuth 2.0 or mutual TLS can be added later); the teams' addresses and detailed flows are still to come.
 
 ## 1. Environment
 
@@ -42,7 +42,7 @@ Each team works through these in staging; the Admin records the dates. The same 
 | # | Step | Conclusion | ERP | Billing |
 |---|---|---|---|---|
 | 1 | Open questions 7a–e answered: purpose, trigger, records and fields, identifier owned, webhooks or polling, contact and addresses | ☐ | ☐ | ☐ |
-| 2 | Profile agreed: scopes (read; write only if 7b says so), default owner for records it creates, IP allowlist | ☐ | ☐ | ☐ |
+| 2 | Profile: every integration scope for now (owner decision; narrow it once the flow is known); a default owner for records it creates; IP allowlist once the addresses are known | ☐ | ☐ | ☐ |
 | 3 | Network rules for staging in place (section 2) | ☐ | ☐ | ☐ |
 | 4 | Client activated, key handed over (section 3); `GET /api/v1/me` returns the client's system and scopes | ☐ | ☐ | ☐ |
 | 5 | Sync: a full first load with `updated_since` and cursors, then incremental runs; no record missed or repeated | ☐ | ☐ | ☐ |
@@ -61,5 +61,5 @@ Each team works through these in staging; the Admin records the dates. The same 
 
 ## 6. Open
 
-- Requirements open questions 7 (data flows per system) and 8 (OAuth 2.0 or mutual TLS policy instead of API keys).
+- The detailed data flows of each system (open question 7, partly answered), to narrow the scopes later.
 - Webhook receiver host names and caller addresses from each team.

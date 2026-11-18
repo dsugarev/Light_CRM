@@ -25,7 +25,7 @@ from app.core.mailer import Mailer
 from app.core.policy import CONTRIBUTOR_ROLES, permissions_for
 from app.core.principal import Principal, PrincipalType, RoleCode
 from app.modules.identity import mfa, repository
-from app.modules.identity.emails import password_link_email
+from app.modules.identity.emails import password_link_email, security_notice_email
 from app.modules.identity.models import PasswordToken, User, UserSession
 from app.modules.identity.passwords import (
     burn_verification_time,
@@ -414,6 +414,17 @@ async def _email_link(ctx: Context, user: User, purpose: str, link: PasswordLink
     return link.model_copy(update={"emailed": sent})
 
 
+async def _notify(mailer: Mailer, user: User, kind: str, at: datetime) -> None:
+    """Tell the user about a change to how they sign in, when SMTP is configured.
+    Sent after the change is committed; a mail failure never undoes the change."""
+    if mailer.enabled:
+        await mailer.send(
+            security_notice_email(
+                to=user.email, name=user.full_name, locale=user.locale, kind=kind, at=at
+            )
+        )
+
+
 async def _valid_token(ctx: Context, raw: str) -> PasswordToken:
     token = await repository.get_password_token(ctx.session, hash_token(raw))
     if (
@@ -448,6 +459,8 @@ async def set_password_with_token(ctx: Context, raw: str, password: str) -> None
         details={"purpose": token.purpose},
     )
     await ctx.session.commit()
+    if token.purpose == "reset":
+        await _notify(ctx.mailer, user, "password_reset", ctx.now)
 
 
 async def request_password_reset(ctx: Context, email: str) -> None:
@@ -484,6 +497,7 @@ async def change_password(
     )
     await _publish(ctx, "auth.password_changed", actor=principal, entity_id=user.id)
     await ctx.session.commit()
+    await _notify(ctx.mailer, user, "password_changed", ctx.now)
 
 
 # --- Current user -------------------------------------------------------------
@@ -551,6 +565,7 @@ async def mfa_confirm(ctx: Context, principal: Principal, code: str) -> MfaRecov
     user.mfa_last_counter = counter
     await _publish(ctx, "user.mfa_enabled", actor=principal, entity_id=user.id)
     await ctx.session.commit()
+    await _notify(ctx.mailer, user, "mfa_enabled", ctx.now)
     return MfaRecoveryCodes(recovery_codes=codes)
 
 
@@ -571,6 +586,7 @@ async def mfa_disable(ctx: Context, principal: Principal, password: str) -> None
     _clear_mfa(user)
     await _publish(ctx, "user.mfa_disabled", actor=principal, entity_id=user.id)
     await ctx.session.commit()
+    await _notify(ctx.mailer, user, "mfa_disabled", ctx.now)
 
 
 def _clear_mfa(user: User) -> None:
@@ -581,7 +597,9 @@ def _clear_mfa(user: User) -> None:
     user.mfa_last_counter = None
 
 
-async def reset_mfa(session: AsyncSession, events: EventBus, now: datetime, email: str) -> bool:
+async def reset_mfa(
+    session: AsyncSession, events: EventBus, now: datetime, email: str, mailer: Mailer | None = None
+) -> bool:
     """CLI only (operations guide): switch MFA off for a user who lost the device and the
     recovery codes. Their sessions end; audited with no actor (the operator)."""
     user = await repository.get_user_by_email(session, email.strip(), for_update=True)
@@ -601,6 +619,8 @@ async def reset_mfa(session: AsyncSession, events: EventBus, now: datetime, emai
         ),
     )
     await session.commit()
+    if mailer is not None:
+        await _notify(mailer, user, "mfa_reset", now)
     return True
 
 

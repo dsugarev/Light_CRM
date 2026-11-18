@@ -106,7 +106,7 @@ async def reset_mfa(email: str) -> int:
     try:
         async with create_session_factory(engine)() as session:
             done = await identity_service.reset_mfa(
-                session, create_event_bus(), SystemClock().now(), email
+                session, create_event_bus(), SystemClock().now(), email, create_mailer(settings)
             )
     finally:
         await engine.dispose()

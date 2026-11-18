@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from http import HTTPStatus
-from typing import Any
+from typing import Any, get_args
 from uuid import UUID
 
 from fastapi import Request
@@ -47,6 +47,7 @@ from app.modules.integration.schemas import (
     IntegrationClientOut,
     IntegrationClientUpdate,
     Resource,
+    Scope,
     SystemSummary,
     UsageFigures,
     WebhookFigures,
@@ -70,14 +71,15 @@ RESOURCE_OF: Mapping[str, str] = {entity: resource for resource, entity in ENTIT
 
 # API spec 19.9: working assumptions until the data flows are confirmed (read-only plus
 # writing back each system's own IDs). Created inactive, without keys.
+# Owner answer to requirements open question 7 (2026-11-18): for now each system may use
+# every integration scope. Endpoints closed to integrations (admin, import, export, audit,
+# GDPR, assistant) stay closed whatever the scopes (API spec 19.3).
+ALL_SCOPES: tuple[str, ...] = get_args(Scope)
 PROFILES: Mapping[str, tuple[str, tuple[str, ...]]] = {
-    "erp": ("ERP", ("organizations:read", "contacts:read", "opportunities:read",
-                    "reference:read", "external-references:write")),
-    "billing": ("Billing", ("organizations:read", "contacts:read", "opportunities:read",
-                            "reference:read", "external-references:write")),
-    "conclusion": ("Conclusion", ("organizations:read", "opportunities:read", "reference:read",
-                                  "external-references:write")),
-}  # fmt: skip
+    "erp": ("ERP", ALL_SCOPES),
+    "billing": ("Billing", ALL_SCOPES),
+    "conclusion": ("Conclusion", ALL_SCOPES),
+}
 
 
 @dataclass(frozen=True, slots=True)

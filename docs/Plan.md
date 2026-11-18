@@ -2346,3 +2346,31 @@ The tool results (stage names, sources) use the same language. The prompt also s
 The same PR fixes `main`, whose end-to-end job failed after #18: the red "Locked" badge was below 4.5:1 (the light `--destructive` is now red 700), and the Firefox keyboard journey now reloads before tabbing to the header. CI: PR #19 run 44268290688, all four jobs green.
 
 Open items: the owner's acceptance (`docs/acceptance-checklist.md`), then the tag `v1.0.0`; open questions 1 and 4–8.
+
+## Owner answers to the open questions (2026-11-18)
+
+The owner answered requirements section 8 (recorded there, in the acceptance checklist and in ADR 0028).
+
+| # | Answer | What changed |
+|---|---|---|
+| 1 | LLM data flow approved | Docs; switch on per deployment with `AI_ENABLED=true` and the key (code default stays off) |
+| 2 | No tracker copies; suggest a format | `docs/import-format.md` (generated from the import fields, both languages) and four fictional sample CSVs in `docs/import-samples/`; a test imports them through the API (12 rows, all valid) |
+| 3 | Default stages stay, editable | Nothing to build (Admin **Stages**, FR-ADM-02) |
+| 4 | SMTP optional | Security notice emails after password change or reset and two-factor on, off or reset, only when SMTP is configured (ASVS 2.2.3, 2.5.5 now met) |
+| 5 | Copies on another machine; 10 days locally | `BACKUP_RETENTION_DAYS` default 10 (compose, `.env.example`, `backup.sh`); the operations guide adds the nightly copy with a cron example |
+| 6 | A1 now, option later | ADR 0028 describes how restricted visibility would be added; nothing built |
+| 7 | All APIs and data for now; no addresses yet | The three profiles get every integration scope; closed endpoints stay closed; the Phase 6 exit test keeps the original narrow scopes to test the mechanism |
+| 8 | API keys, with OAuth 2.0 or mutual TLS possible | ADR 0028 and API spec section 20 describe both; nothing built |
+
+#### Security notices (`identity/service.py`, `identity/emails.py`)
+
+```python
+async def _notify(mailer: Mailer, user: User, kind: str, at: datetime) -> None:
+    """Tell the user about a change to how they sign in, when SMTP is configured.
+    Sent after the change is committed; a mail failure never undoes the change."""
+    if mailer.enabled:
+        await mailer.send(security_notice_email(to=user.email, name=user.full_name,
+                                                locale=user.locale, kind=kind, at=at))
+```
+
+Called after `change_password`, a password set from a reset link (not from an invitation), `mfa_confirm`, `mfa_disabled` and the CLI `reset-mfa`.

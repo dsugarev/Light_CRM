@@ -5,9 +5,9 @@ NFR-04 sets OWASP ASVS Level 1 as the security baseline. This is the review done
 **Status:** ✅ met · ⚠️ partly met or accepted deviation (reason given) · ❌ open (owner decision needed) · — not applicable.
 
 **Summary:** 118 rows reviewed (a few rows group related IDs):
-- 103 met;
+- 105 met (2.2.3 and 2.5.5 since the owner's SMTP answer, with SMTP configured);
 - 5 partly met or accepted deviations: 2.1.7, 3.4.4, 3.7.1, 8.3.1, 12.4.2;
-- 5 open, all low risk, listed at the end for a decision: 2.1.8, 2.1.12, 2.2.3, 2.5.5, 8.3.3;
+- 3 open, all low risk, listed at the end for a decision: 2.1.8, 2.1.12, 8.3.3;
 - 5 not applicable.
 
 Found and fixed during this review:
@@ -33,13 +33,13 @@ Found and fixed during this review:
 | 2.1.12 | User can show the typed password | ❌ | Not built |
 | 2.2.1 | Anti-automation against credential stuffing | ✅ | 10 sign-ins per minute per IP; lockout after 5 failures (passwords and two-factor codes); tests |
 | 2.2.2 | No weak authenticators (SMS, email codes) | ✅ | TOTP only |
-| 2.2.3 | Notify after changes to credentials | ❌ | Needs SMTP (optional, A6); audit entries exist for every change |
+| 2.2.3 | Notify after changes to credentials | ✅ | When SMTP is configured (optional, owner decision): an email after a password change or reset and after two-factor changes (`identity/emails.py`; `test_security_notices.py`). Audit entries always |
 | 2.3.1 | Initial passwords random, short-lived, one-time | ✅ | One-time set-password links (72 h); no initial passwords |
 | 2.5.1 | No recovery secret sent in clear text | ✅ | One-time links in the URL fragment |
 | 2.5.2 | No password hints or knowledge questions | ✅ | None |
 | 2.5.3 | Current password never revealed | ✅ | Stored as Argon2id only |
 | 2.5.4 | No shared or default accounts | ✅ | First Admin via `create-admin`; service users cannot sign in |
-| 2.5.5 | Notify on authentication factor changes | ❌ | As 2.2.3 |
+| 2.5.5 | Notify on authentication factor changes | ✅ | As 2.2.3 |
 | 2.5.6 | Forgotten-password flow is secure | ✅ | `forgot` always 202; 2-hour one-time link; ends all sessions |
 | 2.7.x | Out-of-band verifiers | — | Not used |
 | 2.8.1 | Time-based OTPs have a defined lifetime | ✅ | 30-second steps, one step of tolerance, replay refused (`identity/mfa.py`; `test_mfa.py`) |
@@ -203,7 +203,7 @@ Found and fixed during this review:
 | ID | Item | Recommendation |
 |---|---|---|
 | 2.1.8, 2.1.12 | Strength meter, show-password toggle | Small UI additions; build before go-live if wanted |
-| 2.2.3, 2.5.5 | Email notice after password or two-factor changes | Build once the SMTP relay is confirmed (open question 4) |
+| 2.2.3, 2.5.5 | Email notice after password or two-factor changes | Done: sent when SMTP is configured (owner answer to open question 4) |
 | 8.3.3 | Privacy notice | DPO / owner to provide; link it from the sign-in page |
 
 Accepted deviations (3.4.4, 3.7.1, 8.3.1, 2.1.7, 12.4.2) are explained above and recorded in ADR 0027.

@@ -29,3 +29,4 @@ One file per decision: `NNNN-title.md` with context, decision and consequences. 
 - [0025 Webhooks through a PostgreSQL outbox, delivered by the worker with a pinned, allowlisted connection](0025-webhook-outbox-and-delivery.md)
 - [0026 Assistant tool loop over the services, SSE streaming, and usage kept apart from chats](0026-assistant-tool-loop-streaming-and-usage.md)
 - [0027 GDPR export and anonymization across modules; optional TOTP two-factor sign-in](0027-gdpr-tools-and-two-factor-sign-in.md)
+- [0028 Owner answers to the requirements' open questions, and the options kept open](0028-owner-answers-to-open-questions.md)
