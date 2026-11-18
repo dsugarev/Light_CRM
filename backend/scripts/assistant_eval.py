@@ -78,7 +78,7 @@ CASES = (
     Case("tasks-en", "What tasks do I have?", "en", ("my_tasks",), ("SD-WAN",)),
     Case("tasks-bg", "Какви задачи имам?", "bg", ("my_tasks",), ("SD-WAN",)),
     Case("new-leads-en", "Show me the new leads.", "en", ("search_leads",), ("IoT",)),
-    Case("leads-org-bg", "Какви лийдове имаме от Балкан Логистик?", "bg",
+    Case("leads-org-bg", "Какви потенциални клиенти имаме от Балкан Логистик?", "bg",
          ("search_leads",), ("IoT",)),
     Case("forecast-en", "What is the weighted forecast for the next 3 months?", "en",
          ("forecast_summary",)),

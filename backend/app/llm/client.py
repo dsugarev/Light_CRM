@@ -44,7 +44,7 @@ class LiteLLMClient:
         self._model = settings.llm_model
         self._provider = settings.llm_provider
         self._timeout = settings.llm_timeout_seconds
-        self._api_base = settings.llm_api_base
+        self._api_base = settings.llm_api_base or None  # compose passes "" when unset
 
     async def stream(
         self, messages: Sequence[Message], tools: Sequence[Tool] | None

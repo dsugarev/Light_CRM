@@ -34,6 +34,11 @@ def test_NFR_08_log_line_without_request_context_has_no_request_id() -> None:
     assert "request_id" not in entry
 
 
+def test_NFR_08_litellm_redaction_marker_is_not_logged() -> None:
+    entry = json.loads(JsonFormatter().format(_record("x", litellm_redacted=object())))
+    assert "litellm_redacted" not in entry
+
+
 def test_NFR_08_exceptions_are_included() -> None:
     try:
         raise RuntimeError("boom")
