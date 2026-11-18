@@ -11,9 +11,19 @@ axe-core (`@axe-core/playwright` 4.14.0) with the WCAG 2.0 and 2.1 A and AA rule
 - organizations (list, new, a record page with its timeline), contacts (list, new), leads (list, new), opportunities (list, new, board);
 - my tasks, the win/loss report, search, the profile;
 - administration: users (list, new), import, integrations, the delivery log, the audit log, settings, lists, stages;
-- the assistant drawer when the stack runs with it.
+- the assistant drawer when the stack runs with it;
+- since the UI polish (UX-12, `UX-12 record, edit, detail and drawer pages` and `UX-12 signed-out pages`), every other route as well:
+  - the contact, lead and opportunity record pages;
+  - all edit pages, and lead conversion;
+  - user detail, integration client, import batch and webhook delivery;
+  - an audit entry as a page and in its drawer;
+  - the not-found page;
+  - forgot password, set password with a valid link, and with a used link;
+- in `shell.spec.ts`: the navigation drawer and the account menu, open, at 768 px.
 
-The check runs in CI on Chromium and Firefox with every change.
+The test fails on any violation, which is stricter than the UX-12 criterion (no serious or critical ones). The check runs in CI on Chromium and Firefox with every change.
+
+**Focus indicators (UX-12).** The light theme's focus ring token (`--ring`) is now `oklch(0.45 0 0)`, used at full strength for the default outline, so focus has more than 3:1 against the page (WCAG 1.4.11); before, it was a 50% light grey, about 1.5:1 on links. `keyboard.spec.ts` (`UX-12 focus indicators …`) focuses a sidebar link, a row action button and a search field by keyboard and measures the indicator's contrast in the browser.
 
 | Date | Result |
 |---|---|
@@ -38,6 +48,7 @@ Automated so they stay true: only Tab, Enter, Escape and typing, no clicks.
 | Move an opportunity to another stage on the board without dragging: the card's **Move … to** list (typing the stage name selects it) | Works (FR-OPP-03, NFR-10). Dragging also works with the keyboard (dnd-kit: Space to lift, arrows, Space to drop) |
 | A confirmation dialog opens with Enter, closes with Escape, and focus returns to its button | Works |
 | The assistant drawer opens with Enter with focus in the question box; Escape closes it and focus returns to the **Assistant** button | Works (focus return added in Phase 8b) |
+| Move a deal on the board by keyboard runs as a fresh sales rep, so their board holds only that deal (the E2E admin's board grew past 200 tab stops across runs) | Works (UX-12) |
 
 ## Manual checks still to do by a person
 

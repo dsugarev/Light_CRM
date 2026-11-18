@@ -207,3 +207,20 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   The existing create-organization test (submit, then save anyway) shows saving does not trigger the guard.
 - **Looked at:** the new-lead form with markers and the leave dialog, en/bg at 1440 and 768 px; axe with the dialog open: no violations. Fixed after looking: required labels sat 3 px lower than the optional label beside them.
 - **Gate:** lint, prettier, typecheck, Vitest 220/220, i18n 1190 keys; Playwright Chromium 41/41 + 2 screenshot specs. After the final CSS-only alignment fix, one full run had 3 timeouts (reports exports and a sign-in) while the Docker VM was at 100% CPU and the load average reached 78; those specs passed alone (4/4). Backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
+
+## UX-12 — 2026-11-18 18:05
+
+- **Found:** the skip link, landmarks, labelled controls and an axe test on 23 main pages already existed (Phase 8). UX-02..11 kept them, with axe on each new state: drawer, menus, sheets, dialogs. Not yet covered: record, edit and detail routes and the signed-out password pages. Focus rings were a 50% light grey (about 1.5:1 on links).
+- **What changed:**
+  - **Axe on every route:** `e2e/accessibility.spec.ts` gained `UX-12 record, edit, detail and drawer pages`. It creates an organization, contact, lead, opportunity, integration client and user through the API, then checks:
+    - the contact, lead and opportunity pages and all edit pages, plus lead conversion;
+    - user detail and integration client;
+    - an audit entry as a page and in its drawer;
+    - an import batch and a webhook delivery (present from earlier journeys);
+    - the not-found page.
+
+    It also gained `UX-12 signed-out pages`: forgot password, set password with a valid link and with a used link. With the existing test and `shell.spec.ts`, every route in `router.tsx` is now checked. Any violation fails, which is stricter than "serious or critical".
+  - **Focus contrast:** the light `--ring` token went from `oklch(0.708 0 0)` to `oklch(0.45 0 0)`, and the default outline uses it at full strength. New `UX-12 focus indicators have 3:1 contrast with the page` (keyboard.spec): focuses a sidebar link, a row action button and a search input by keyboard and measures the indicator's contrast in the browser (canvas to sRGB, WCAG formula). The old value computes to about 2.6:1 even at full strength, below 3.
+  - **Test fix:** the keyboard board walkthrough now runs as a fresh sales rep. The E2E admin's board had grown past the 200-Tab limit across runs, partly because the new axe test creates a deal on each run.
+- **Files:** `frontend/src/index.css`, `e2e/{accessibility,keyboard}.spec.ts`, `docs/accessibility.md`.
+- **Gate:** lint, prettier, typecheck, Vitest 220/220, i18n 1190 keys; Playwright Chromium 44/44; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
