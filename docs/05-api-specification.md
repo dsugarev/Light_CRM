@@ -11,7 +11,7 @@ This document lists every endpoint the backend must provide in Release 1. The sa
 | Section | Phase | Status |
 |---|---|---|
 | 1 Conventions: problem details, request IDs, CSRF, access levels | 0–1 | Built |
-| 1.3 Lists: paging, sorting, filters, `q`, `include_archived`, sync mode | 2 | Built (shared machinery, ADR 0017); users and audit-log lists keep their Phase 1 parameters |
+| 1.3 Lists: paging, sorting, filters, `q`, `include_archived`, sync mode | 2 | Built (shared machinery, ADR 0017); users and audit-log lists keep their Phase 1 parameters (the users list gained an optional `sort`, UX-08) |
 | 2 System and health | 0–1 | Built |
 | 3 Authentication and sessions | 1, 8 | Built; two-factor sign-in (FR-AUTH-07) since Phase 8a |
 | 4 Current user | 1, 4, 6 | Built; `/me/tasks` since Phase 4b; integration callers (`system`, `scopes`) since Phase 6a |

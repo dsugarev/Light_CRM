@@ -371,3 +371,37 @@ Note: the backlog was written after Phase 1; the application is now at v1.0.0, s
   - the server's 409 is explained.
 - **Looked at:** the own user page with the reason, en/bg at 1440 and 768 px; axe: no violations. The last-Admin state itself cannot occur on the E2E stack, which has two Admins; component tests cover it.
 - **Gate:** lint, prettier, typecheck, Vitest 251/251, i18n 1197 keys; Playwright Chromium 46/46 + 2 screenshot specs; visual 4/4; backend ruff, mypy, import-linter 14/14, pytest 1304 passed.
+
+## Final summary — 2026-11-18 21:10
+
+**Done (21):**
+- UX-01 to UX-14: tokens, app shell, page header, states, feedback, sign-in, password pages, users table, user sheets, audit viewer, form conventions, accessibility, Bulgarian layout, visual baselines.
+- FN-01 to FN-04: password change, sessions, row-menu account actions, session expiry.
+- FN-06 to FN-08: language preference, audit export, last-admin protection.
+- UX-05 and UX-06 were first blocked by the development Mac running out of memory. They passed unchanged once it was freed.
+
+**Blocked (1):** FN-05 idle-timeout warning. The idle timeout is readable only by Admins (`GET /settings`), and section B allows only already-specified endpoints. Proposal (needs owner approval): add `session.idle_timeout_minutes` and `session.expires_at` to `GET /me`, then build the cross-tab warning as described in the FN-05 entry.
+
+**Not applicable:** none. Several B items were already built in Release 1 (FN-06, FN-07, the backend of FN-08); they got the missing tests.
+
+**Also fixed:** the assistant dropped an opened "save as note" form when the conversation reloaded after an answer (the cause of an intermittent E2E failure).
+
+**API change (additive, documented):** optional `sort` on `GET /api/v1/users` (UX-08). The spec, `docs/api/openapi.json` and the generated types are updated.
+
+**Section C proposals for the owner:**
+- C-01 branding (plugs into `--brand`);
+- C-02 dark mode;
+- C-04 command palette;
+- C-05 system status page;
+- C-06 sign-in notice;
+- C-09 a locked-users filter on `GET /users`;
+- C-10 Linux visual baselines in CI.
+
+C-03 (two-factor sign-in) was built in Phase 8a. C-07 (chart polish) and C-08 (assistant flake) were fixed during the loop.
+
+**Final gate (2026-11-18 21:05):**
+- frontend: lint, prettier, typecheck, Vitest 251/251, i18n 1197 keys, API types up to date;
+- Playwright Chromium 46/46, visual 4/4;
+- backend: ruff, mypy, import-linter 14/14, pytest 1304 passed (95.57%), OpenAPI snapshot up to date.
+
+`docs/Plan.md`, `docs/Test_strategy.md` (section 19 and the regenerated inventory), `docs/accessibility.md`, the README and CLAUDE.md are updated. Nothing is pushed.
