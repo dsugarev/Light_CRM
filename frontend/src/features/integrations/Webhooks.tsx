@@ -143,7 +143,7 @@ function SubscriptionItem({
     <li className="flex flex-col gap-2 rounded-md border p-3" aria-label={s.url}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-sm break-all">{s.url}</span>
-        <Badge variant={s.suspended_at ? 'destructive' : s.is_active ? 'secondary' : 'outline'}>
+        <Badge variant={s.suspended_at ? 'destructive' : s.is_active ? 'success' : 'outline'}>
           {state}
         </Badge>
       </div>

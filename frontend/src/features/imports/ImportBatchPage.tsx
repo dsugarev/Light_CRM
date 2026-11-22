@@ -30,6 +30,8 @@ import { useLocale } from '@/lib/useLocale'
 
 import type { ImportBatch, ImportRow } from './upload'
 
+import { ImportStatusBadge } from './ImportStatusBadge'
+
 type Outcome = NonNullable<ImportRow['outcome']>
 const OUTCOMES: readonly Outcome[] = ['invalid', 'duplicate', 'valid']
 const PAGE_SIZE = 50
@@ -73,7 +75,7 @@ export function ImportBatchPage() {
         actions={
           <span className="flex items-center gap-2">
             <Badge variant="outline">{t(`entity.${b.entity_type}`)}</Badge>
-            <Badge variant="secondary">{t(`status.${b.status}`)}</Badge>
+            <ImportStatusBadge status={b.status} />
           </span>
         }
       />

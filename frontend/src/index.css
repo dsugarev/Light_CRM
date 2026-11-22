@@ -27,6 +27,8 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
   --color-overlay: var(--overlay);
   --color-qr-surface: var(--qr-surface);
   --color-accent-foreground: var(--accent-foreground);
@@ -72,7 +74,12 @@
   /* Red 700, not 600: 4.5:1 on white and on the light red tint of badges and buttons (NFR-10). */
   --destructive: oklch(0.505 0.213 27.518);
   --destructive-foreground: oklch(0.985 0 0);
-  --success: oklch(0.696 0.17 162.48);
+  /* Status colors (loop 2): green, amber and blue 800/700. Text in these colors keeps
+     5.3:1 or more on white and on the 10% tint of status badges (NFR-10, WCAG 1.4.3);
+     a status never relies on color alone, the badge always carries its label. */
+  --success: oklch(0.448 0.119 151.328);
+  --warning: oklch(0.473 0.137 46.201);
+  --info: oklch(0.488 0.243 264.376);
   --overlay: oklch(0 0 0);
   /* QR codes need a white quiet zone in both themes to scan. */
   --qr-surface: oklch(1 0 0);
@@ -114,7 +121,9 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
-  --success: oklch(0.696 0.17 162.48);
+  --success: oklch(0.792 0.209 151.711);
+  --warning: oklch(0.828 0.189 84.429);
+  --info: oklch(0.707 0.165 254.624);
   --overlay: oklch(0 0 0);
   --qr-surface: oklch(1 0 0);
   --border: oklch(1 0 0 / 10%);

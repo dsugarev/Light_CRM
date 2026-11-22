@@ -44,7 +44,7 @@ export function UserStatus({ user }: { user: Schemas['UserOut'] }) {
   const { t } = useTranslation('admin')
   if (!user.is_active) return <Badge variant="outline">{t('users.status.inactive')}</Badge>
   if (user.is_locked) return <Badge variant="destructive">{t('users.status.locked')}</Badge>
-  return <Badge variant="secondary">{t('users.status.active')}</Badge>
+  return <Badge variant="success">{t('users.status.active')}</Badge>
 }
 
 /**

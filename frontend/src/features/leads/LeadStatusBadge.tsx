@@ -4,10 +4,12 @@ import { Badge } from '@/components/ui/badge'
 
 import type { Lead } from './leadValues'
 
+// Loop 2: new is blue (needs attention), in progress neutral, qualified green, closed
+// outcomes outlined (converted) or red (disqualified). The label always shows.
 const VARIANT = {
-  new: 'secondary',
+  new: 'info',
   contacted: 'secondary',
-  qualified: 'default',
+  qualified: 'success',
   converted: 'outline',
   disqualified: 'destructive',
 } as const
