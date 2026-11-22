@@ -317,9 +317,11 @@ async def test_FR_AI_02_answer_streams_with_tool_progress_and_record_links(
     # Progress events never carry arguments or results to the browser.
     assert "48000" not in json.dumps([d for e, d in stream if e == "tool_call"])
 
-    # The model was offered exactly the eight read-only tools, and saw the tool result.
+    # The model was offered the reading tools and, for a Sales Rep, the proposal tools
+    # (never the Admin one; FR-AI-09), and saw the tool result.
     offered = [t["function"]["name"] for t in llm.calls[0][1] or []]
-    assert offered == list(tools.TOOLS)
+    assert offered == list(tools.tools_for(RoleCode.SALES_REP))
+    assert "propose_admin_action" not in offered
     [result] = tool_results(llm.calls[1][0])
     assert result["total"] == 1
     [item] = result["items"]

@@ -23,8 +23,10 @@ from app.core.errors import AppError
 from app.core.events import EventBus
 from app.core.listing import ListQuery
 from app.core.policy import check_access
-from app.core.principal import Principal
+from app.core.principal import Principal, RoleCode
 from app.modules.activity import service as activity
+from app.modules.assistant import actions
+from app.modules.assistant.models import AssistantAction
 from app.modules.identity import service as identity
 from app.modules.party import service as party
 from app.modules.reporting import service as reporting
@@ -52,6 +54,14 @@ class ToolContext:
     organization_stats: Sequence[Any] = ()
     # Records returned by tools in this turn: (type, id) -> label, for citations.
     seen: dict[tuple[str, UUID], str] = field(default_factory=dict)
+    # FR-AI-09: where proposals belong, and the ones made in this answer (ADR 0030).
+    conversation_id: UUID | None = None
+    message_id: UUID | None = None
+    reference_lists: Mapping[str, Any] = field(default_factory=dict)
+    proposed: list[AssistantAction] = field(default_factory=list)
+    # The record the user is looking at (FR-AI-03): the default link for a new activity.
+    context_type: str | None = None
+    context_id: UUID | None = None
 
     def sales(self) -> sales.Context:
         return sales.Context(self.session, self.events, self.settings, self.now)
@@ -550,6 +560,306 @@ async def my_tasks(ctx: ToolContext, args: MyTasks) -> dict[str, Any]:
     return _page([_activity(ctx, a) for a in page.items], page.total)
 
 
+# --- Proposal tools (FR-AI-09, ADR 0030): validate and store; never execute ------------------
+
+DateText = Annotated[str, Field(max_length=40, description="ISO date (2026-11-23) or date-time")]
+Text2000 = Annotated[str, Field(max_length=2000)]
+Name200 = Annotated[str, Field(min_length=1, max_length=200)]
+Money = Annotated[str, Field(max_length=20, description="Amount in EUR, e.g. '48000.00'")]
+RecordType = Literal["organization", "contact", "lead", "opportunity", "activity"]
+
+
+class ProposeCreateActivity(_Args):
+    type: Literal["task", "note", "call", "meeting", "email"]
+    subject: Name200
+    body: Text2000 | None = None
+    due: DateText | None = Field(
+        default=None, description="Tasks: when it is due (a date means 09:00)"
+    )
+    occurred: DateText | None = Field(default=None, description="Notes, calls, meetings: when")
+    assignee_name: OwnerName = None
+    link_type: Literal["lead", "opportunity", "organization", "contact"] | None = None
+    link_id: UUID | None = None
+
+
+class ProposeCreateLead(_Args):
+    title: Name200
+    company_name: Name200
+    contact_name: Name200 | None = None
+    email: Annotated[str, Field(max_length=254)] | None = None
+    phone: Annotated[str, Field(max_length=50)] | None = None
+    source: Name200 | None = Field(default=None, description="Lead source name, e.g. 'Event'")
+    estimated_value: Money | None = None
+    description: Text2000 | None = None
+    owner_name: OwnerName = None
+
+
+class ProposeCreateOpportunity(_Args):
+    name: Name200
+    organization_id: UUID
+    amount: Money | None = None
+    expected_close_date: date | None = None
+    stage: Name200 | None = Field(default=None, description="Open stage name; default the first")
+    next_step: Text2000 | None = None
+    description: Text2000 | None = None
+    primary_contact_id: UUID | None = None
+    owner_name: OwnerName = None
+
+
+class ProposeCreateOrganization(_Args):
+    name: Name200
+    city: Annotated[str, Field(max_length=100)] | None = None
+    country: Annotated[str, Field(min_length=2, max_length=2)] | None = None
+    registration_number: Annotated[str, Field(max_length=13)] | None = None
+    vat_number: Annotated[str, Field(max_length=12)] | None = None
+    website: Annotated[str, Field(max_length=300)] | None = None
+    industry: Name200 | None = None
+    address_line: Name200 | None = None
+    postal_code: Annotated[str, Field(max_length=20)] | None = None
+    notes: Text2000 | None = None
+    create_anyway: bool = Field(
+        default=False, description="Only after the user accepted a duplicate"
+    )
+
+
+class ProposeCreateContact(_Args):
+    first_name: Annotated[str, Field(min_length=1, max_length=100)]
+    last_name: Annotated[str, Field(min_length=1, max_length=100)]
+    job_title: Annotated[str, Field(max_length=150)] | None = None
+    email: Annotated[str, Field(max_length=254)] | None = None
+    phone: Annotated[str, Field(max_length=50)] | None = None
+    organization_id: UUID | None = None
+    preferred_locale: Literal["en", "bg"] | None = None
+    notes: Text2000 | None = None
+
+
+class ProposeUpdate(_Args):
+    entity_type: RecordType
+    id: UUID
+    changes: dict[str, Any] = Field(
+        description="Only the fields to change. organization: name, city, country, website, "
+        "registration_number, vat_number, address_line, postal_code, industry (name), notes. "
+        "contact: first_name, last_name, job_title, email, phone, preferred_locale, notes, "
+        "organization_id. lead: title, company_name, contact_name, email, phone, description, "
+        "estimated_value, source (name), qualification {budget|authority|need|timeline: "
+        "{status: unknown|no|partial|yes, note}, fits_target_profile}. opportunity: name, amount, "
+        "expected_close_date, probability, next_step, description, competitor, "
+        "primary_contact_id. activity: subject, body, occurred_at, due_at, assignee_name."
+    )
+
+
+class ProposeArchiveOrRestore(_Args):
+    entity_type: RecordType
+    id: UUID
+    step: Literal["archive", "restore"]
+
+
+class ProposeLeadStep(_Args):
+    lead_id: UUID
+    step: Literal["mark_contacted", "qualify", "disqualify", "reopen", "convert"]
+    reason: Name200 | None = Field(default=None, description="Disqualification reason name")
+    note: Text2000 | None = None
+
+
+class ProposeOpportunityStep(_Args):
+    opportunity_id: UUID
+    step: Literal["move", "close_won", "close_lost", "reopen"]
+    stage: Name200 | None = Field(default=None, description="Target open stage (move, reopen)")
+    loss_reason: Name200 | None = Field(default=None, description="Required to close as lost")
+    competitor: Name200 | None = None
+    close_date: date | None = Field(default=None, description="Actual close date; default today")
+
+
+class ProposeAssign(_Args):
+    entity_type: Literal["lead", "opportunity"]
+    id: UUID
+    owner_name: Annotated[
+        str, Field(min_length=2, max_length=100, description="New owner, or 'me'")
+    ]
+
+
+class ProposeTaskStep(_Args):
+    activity_id: UUID
+    step: Literal["complete", "reopen"]
+
+
+class ProposeProfileUpdate(_Args):
+    full_name: Name200 | None = None
+    locale: Literal["en", "bg"] | None = None
+
+
+class ProposeAdminAction(_Args):
+    action: Literal[
+        "user.create", "user.update", "user.deactivate", "user.activate", "user.unlock",
+        "user.revoke_sessions", "settings.update", "reference.add", "reference.update",
+        "reference.delete", "stage.add", "stage.update", "stage.delete",
+    ]  # fmt: skip
+    params: dict[str, Any] = Field(
+        description="user.create: email, full_name, role (admin|sales_manager|sales_rep|viewer), "
+        "locale. user.*: user (name or email), and for user.update the fields to change. "
+        "settings.update: session_idle_timeout_minutes, session_absolute_timeout_minutes, "
+        "stale_opportunity_days, mfa_required_for_admins. reference.*: list (industries, "
+        "lead-sources, disqualification-reasons, loss-reasons), value (name, for update/delete), "
+        "code, name_en, name_bg, is_active. stage.*: stage (name, for update/delete), name_en, "
+        "name_bg, default_probability, stage_type (open|won|lost), is_active."
+    )
+
+
+def _reader(ctx: ToolContext) -> actions.Reader:
+    return actions.Reader(
+        session=ctx.session,
+        events=ctx.events,
+        settings=ctx.settings,
+        now=ctx.now,
+        principal=ctx.principal,
+        locale=ctx.locale,
+        reference_lists=ctx.reference_lists,
+    )
+
+
+async def _store(ctx: ToolContext, proposal: actions.Proposal) -> dict[str, Any]:
+    if ctx.conversation_id is None or ctx.message_id is None:
+        return {"error": "not_available"}
+    if len(ctx.proposed) >= actions.MAX_PROPOSALS_PER_ANSWER:
+        raise actions.ActionError("too_many_proposals", limit=actions.MAX_PROPOSALS_PER_ANSWER)
+    title = actions.title_of(proposal.action, proposal.request, ctx.locale)
+    row = AssistantAction(
+        user_id=ctx.principal.user_id,
+        conversation_id=ctx.conversation_id,
+        message_id=ctx.message_id,
+        action=proposal.action,
+        target_type=proposal.target_type,
+        target_id=proposal.target_id,
+        target_label=proposal.target_label,
+        target_version=proposal.target_version,
+        request=proposal.request,
+        card={"title": title, "details": [{"label": k, "value": v} for k, v in proposal.details]},
+        destructive=proposal.destructive,
+        status="proposed",
+        created_at=ctx.now,
+        expires_at=ctx.now + actions.PROPOSAL_TTL,
+    )
+    ctx.session.add(row)
+    await ctx.session.commit()
+    ctx.proposed.append(row)
+    summary = "; ".join(f"{k}: {v}" for k, v in proposal.details)
+    return {
+        "proposed": True,
+        "action_id": str(row.id),
+        "summary": f"{title} — {summary}",
+        "note": "Nothing has changed yet: the user must confirm the card in the chat.",
+    }
+
+
+async def _target(ctx: ToolContext, entity_type: str, entity_id: UUID) -> actions.Target:
+    return await actions.load(_reader(ctx), entity_type, entity_id)
+
+
+async def propose_create_activity(ctx: ToolContext, args: ProposeCreateActivity) -> dict[str, Any]:
+    link = None
+    if args.link_type and args.link_id:
+        link = await _target(ctx, args.link_type, args.link_id)
+    elif ctx.context_type and ctx.context_id:
+        link = await _target(ctx, ctx.context_type, ctx.context_id)
+    proposal = await actions.propose_activity(
+        _reader(ctx),
+        type=args.type,
+        subject=args.subject,
+        body=args.body,
+        due=args.due,
+        occurred=args.occurred,
+        assignee_name=args.assignee_name,
+        link=link,
+    )
+    return await _store(ctx, proposal)
+
+
+async def propose_create_lead(ctx: ToolContext, args: ProposeCreateLead) -> dict[str, Any]:
+    fields = args.model_dump(exclude_none=True)
+    return await _store(ctx, await actions.propose_lead(_reader(ctx), fields))
+
+
+async def propose_create_opportunity(
+    ctx: ToolContext, args: ProposeCreateOpportunity
+) -> dict[str, Any]:
+    org = await _target(ctx, "organization", args.organization_id)
+    fields = args.model_dump(mode="json", exclude_none=True, exclude={"organization_id"})
+    return await _store(ctx, await actions.propose_opportunity(_reader(ctx), fields, org))
+
+
+async def propose_create_organization(
+    ctx: ToolContext, args: ProposeCreateOrganization
+) -> dict[str, Any]:
+    fields = args.model_dump(exclude_none=True, exclude={"create_anyway"})
+    proposal = await actions.propose_organization(
+        _reader(ctx), fields, create_anyway=args.create_anyway
+    )
+    return await _store(ctx, proposal)
+
+
+async def propose_create_contact(ctx: ToolContext, args: ProposeCreateContact) -> dict[str, Any]:
+    org = await _target(ctx, "organization", args.organization_id) if args.organization_id else None
+    fields = args.model_dump(exclude_none=True, exclude={"organization_id"})
+    return await _store(ctx, await actions.propose_contact(_reader(ctx), fields, org))
+
+
+async def propose_update(ctx: ToolContext, args: ProposeUpdate) -> dict[str, Any]:
+    target = await _target(ctx, args.entity_type, args.id)
+    return await _store(ctx, await actions.propose_update(_reader(ctx), target, args.changes))
+
+
+async def propose_archive_or_restore(
+    ctx: ToolContext, args: ProposeArchiveOrRestore
+) -> dict[str, Any]:
+    target = await _target(ctx, args.entity_type, args.id)
+    return await _store(
+        ctx, await actions.propose_archive_or_restore(_reader(ctx), target, args.step)
+    )
+
+
+async def propose_lead_step(ctx: ToolContext, args: ProposeLeadStep) -> dict[str, Any]:
+    target = await _target(ctx, "lead", args.lead_id)
+    proposal = await actions.propose_lead_step(
+        _reader(ctx), target, args.step, reason=args.reason, note=args.note
+    )
+    return await _store(ctx, proposal)
+
+
+async def propose_opportunity_step(
+    ctx: ToolContext, args: ProposeOpportunityStep
+) -> dict[str, Any]:
+    target = await _target(ctx, "opportunity", args.opportunity_id)
+    proposal = await actions.propose_opportunity_step(
+        _reader(ctx),
+        target,
+        args.step,
+        stage_name=args.stage,
+        loss_reason=args.loss_reason,
+        competitor=args.competitor,
+        close_date=args.close_date.isoformat() if args.close_date else None,
+    )
+    return await _store(ctx, proposal)
+
+
+async def propose_assign(ctx: ToolContext, args: ProposeAssign) -> dict[str, Any]:
+    target = await _target(ctx, args.entity_type, args.id)
+    return await _store(ctx, await actions.propose_assign(_reader(ctx), target, args.owner_name))
+
+
+async def propose_task_step(ctx: ToolContext, args: ProposeTaskStep) -> dict[str, Any]:
+    target = await _target(ctx, "activity", args.activity_id)
+    return await _store(ctx, await actions.propose_task_step(_reader(ctx), target, args.step))
+
+
+async def propose_profile_update(ctx: ToolContext, args: ProposeProfileUpdate) -> dict[str, Any]:
+    proposal = await actions.propose_profile(_reader(ctx), args.full_name, args.locale)
+    return await _store(ctx, proposal)
+
+
+async def propose_admin_action(ctx: ToolContext, args: ProposeAdminAction) -> dict[str, Any]:
+    return await _store(ctx, await actions.propose_admin(_reader(ctx), args.action, args.params))
+
+
 # --- Registry ------------------------------------------------------------------------------
 
 
@@ -664,9 +974,117 @@ TOOLS: dict[str, Tool] = {
     )
 }
 
+_NOT_YET = " Proposes it as a card; nothing changes until the user confirms."
+PROPOSAL_TOOLS: dict[str, Tool] = {
+    tool.name: tool
+    for tool in (
+        Tool(
+            "propose_create_activity",
+            "Create a task (with due date and assignee) or log a note, call, meeting or email, "
+            "optionally linked to a lead, opportunity, organization or contact." + _NOT_YET,
+            ProposeCreateActivity,
+            propose_create_activity,
+        ),
+        Tool(
+            "propose_create_lead",
+            "Create a lead." + _NOT_YET,
+            ProposeCreateLead,
+            propose_create_lead,
+        ),
+        Tool(
+            "propose_create_opportunity",
+            "Create an opportunity for an organization (find its ID first)." + _NOT_YET,
+            ProposeCreateOpportunity,
+            propose_create_opportunity,
+        ),
+        Tool(
+            "propose_create_organization",
+            "Create an organization; possible duplicates are reported first." + _NOT_YET,
+            ProposeCreateOrganization,
+            propose_create_organization,
+        ),
+        Tool(
+            "propose_create_contact",
+            "Create a contact, optionally at an organization." + _NOT_YET,
+            ProposeCreateContact,
+            propose_create_contact,
+        ),
+        Tool(
+            "propose_update",
+            "Change fields of an organization, contact, lead, opportunity or activity (find its "
+            "ID first). Not for owner, stage or status: use the step and assign tools." + _NOT_YET,
+            ProposeUpdate,
+            propose_update,
+        ),
+        Tool(
+            "propose_archive_or_restore",
+            "Archive a record, or restore an archived one (managers)." + _NOT_YET,
+            ProposeArchiveOrRestore,
+            propose_archive_or_restore,
+        ),
+        Tool(
+            "propose_lead_step",
+            "Mark a lead contacted, qualify, disqualify (with a reason), reopen (managers) or "
+            "convert it into an opportunity." + _NOT_YET,
+            ProposeLeadStep,
+            propose_lead_step,
+        ),
+        Tool(
+            "propose_opportunity_step",
+            "Move an opportunity to another open stage, close it as won or lost (with a loss "
+            "reason), or reopen it (managers)." + _NOT_YET,
+            ProposeOpportunityStep,
+            propose_opportunity_step,
+        ),
+        Tool(
+            "propose_assign",
+            "Give a lead or opportunity to another owner, or take it over ('me')." + _NOT_YET,
+            ProposeAssign,
+            propose_assign,
+        ),
+        Tool(
+            "propose_task_step",
+            "Mark a task as done, or reopen it." + _NOT_YET,
+            ProposeTaskStep,
+            propose_task_step,
+        ),
+        Tool(
+            "propose_profile_update",
+            "Change the user's own display name or language." + _NOT_YET,
+            ProposeProfileUpdate,
+            propose_profile_update,
+        ),
+        Tool(
+            "propose_admin_action",
+            "Admins: create, edit, deactivate, activate or unlock users or sign them out "
+            "everywhere; change settings; add, edit or delete list values and pipeline stages."
+            + _NOT_YET,
+            ProposeAdminAction,
+            propose_admin_action,
+        ),
+    )
+}
+_CONTRIBUTORS = {RoleCode.ADMIN, RoleCode.SALES_MANAGER, RoleCode.SALES_REP}
 
-def schemas() -> list[dict[str, Any]]:
-    return [tool.schema() for tool in TOOLS.values()]
+
+def tools_for(role: RoleCode | None) -> dict[str, Tool]:
+    """Reading tools for everyone; write proposals only for roles that can use them."""
+    offered = dict(TOOLS)
+    for name, tool in PROPOSAL_TOOLS.items():
+        if name == "propose_profile_update":
+            offered[name] = tool
+        elif name == "propose_admin_action":
+            if role is RoleCode.ADMIN:
+                offered[name] = tool
+        elif role in _CONTRIBUTORS:
+            offered[name] = tool
+    return offered
+
+
+def schemas(role: RoleCode | None = None) -> list[dict[str, Any]]:
+    """Without a role: the reading tools only."""
+    offered = TOOLS if role is None else tools_for(role)
+    return [tool.schema() for tool in offered.values()]
 
 
 async def run(
@@ -674,9 +1092,12 @@ async def run(
 ) -> dict[str, Any]:
     """Run one tool call from the model. Failures become a short error the model can read;
     they never raise, and never include anything but a code."""
-    tool = TOOLS.get(name)
+    offered = tools_for(ctx.principal.role)
+    tool = offered.get(name)
     if tool is None:
-        return {"error": "unknown_tool", "available": list(TOOLS)}
+        if name in PROPOSAL_TOOLS:
+            return {"error": "not_allowed_for_role"}
+        return {"error": "unknown_tool", "available": list(offered)}
     try:
         args = (
             tool.arguments.model_validate_json(raw_arguments or "{}")
@@ -692,6 +1113,9 @@ async def run(
         # Tools act as the signed-in user, through the same policy as the API (FR-AI-02 AC1).
         check_access(ctx.principal, AccessLevel.SIGNED_IN)
         return await tool.run(ctx, args)
+    except actions.ActionError as error:
+        await ctx.session.rollback()
+        return error.payload()
     except OwnerNotFoundError:
         return {"error": "owner_not_found", "hint": "No user has that name; ask who is meant."}
     except AppError as error:

@@ -69,6 +69,46 @@ class ConversationOut(BaseModel):
     updated_at: datetime
 
 
+class ActionDetail(BaseModel):
+    label: str
+    value: str
+
+
+class ActionLink(BaseModel):
+    entity_type: str
+    entity_id: UUID
+    label: str
+    url: str | None
+
+
+class ActionOut(BaseModel):
+    """FR-AI-09 (API spec 17.1): a proposed action, shown as a card."""
+
+    id: UUID
+    action: str
+    title: str
+    details: list[ActionDetail]
+    target: ActionLink | None
+    destructive: bool
+    status: Literal["proposed", "confirmed", "cancelled", "expired", "failed"]
+    error_code: str | None
+    result: ActionLink | None
+    expires_at: datetime
+    created_at: datetime
+
+
+class OneTimeLink(BaseModel):
+    url: str
+    expires_at: datetime
+
+
+class ActionConfirmed(BaseModel):
+    action: ActionOut
+    set_password: OneTimeLink | None = Field(
+        default=None, description="Only when a user was created; shown once, never stored"
+    )
+
+
 class MessageOut(BaseModel):
     id: UUID
     role: MessageRole
@@ -77,6 +117,7 @@ class MessageOut(BaseModel):
     error_code: str | None
     tools_used: list[str] = Field(description="Tools the assistant called; never their results")
     record_refs: list[RecordRef]
+    actions: list[ActionOut] = Field(default_factory=list, description="Proposed actions (R1.1)")
     prompt_tokens: int
     completion_tokens: int
     created_at: datetime

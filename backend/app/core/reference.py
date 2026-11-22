@@ -150,6 +150,85 @@ Events = Annotated[EventBus, Depends(get_event_bus)]
 Now = Annotated[Clock, Depends(get_clock)]
 
 
+async def add_value(
+    session: AsyncSession,
+    events: EventBus,
+    now: datetime,
+    principal: Principal,
+    ref: ReferenceList,
+    body: ReferenceItemCreate,
+) -> ReferenceItem:
+    """Add a value at the end of the list (also used by assistant actions, ADR 0030)."""
+    existing = (
+        await session.execute(select(ref.model).where(ref.model.code == body.code))
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise AppError(
+            ErrorCode.CONFLICT_DUPLICATE,
+            HTTPStatus.CONFLICT,
+            errors=[FieldError("code", "reference.code_taken")],
+        )
+    position = (
+        await session.execute(select(func.coalesce(func.max(ref.model.position), 0)))
+    ).scalar_one()
+    item = ref.model(**body.model_dump(), position=position + 1)
+    session.add(item)
+    await session.flush()
+    await _publish(session, events, ref, "created", principal, now, item.id, after=_view(item))
+    await session.commit()
+    await session.refresh(item)
+    return ReferenceItem.model_validate(item)
+
+
+async def change_value(
+    session: AsyncSession,
+    events: EventBus,
+    now: datetime,
+    principal: Principal,
+    ref: ReferenceList,
+    item_id: UUID,
+    body: ReferenceItemUpdate,
+) -> ReferenceItem:
+    """Rename, activate or deactivate a value."""
+    item = await _get(session, ref, item_id)
+    before = _view(item)
+    for key, value in body.model_dump(exclude_none=True).items():
+        setattr(item, key, value)
+    after = _view(item)
+    if after != before:
+        await _publish(
+            session, events, ref, "updated", principal, now, item.id, before=before, after=after
+        )
+    await session.commit()
+    await session.refresh(item)
+    return ReferenceItem.model_validate(item)
+
+
+async def remove_value(
+    session: AsyncSession,
+    events: EventBus,
+    now: datetime,
+    principal: Principal,
+    ref: ReferenceList,
+    item_id: UUID,
+) -> None:
+    """Delete a value that was never used; one in use is `409 reference.in_use`."""
+    item = await _get(session, ref, item_id)
+    if await ref.usage(session, item_id) > 0:
+        raise AppError(ErrorCode.REFERENCE_IN_USE, HTTPStatus.CONFLICT)
+    before = _view(item)
+    await session.delete(item)
+    await _publish(session, events, ref, "deleted", principal, now, item_id, before=before)
+    await session.commit()
+
+
+async def all_items(session: AsyncSession, ref: ReferenceList) -> list[ReferenceItem]:
+    """Every value, active or not, in list order."""
+    return [
+        ReferenceItem.model_validate(i) for i in await _items(session, ref, include_inactive=True)
+    ]
+
+
 async def find_item(session: AsyncSession, ref: ReferenceList, text: str) -> UUID | None:
     """An active value of the list by code, English or Bulgarian name (case-insensitive),
     for imports (FR-IMP-01)."""
@@ -191,26 +270,7 @@ async def create_item(
     body: ReferenceItemCreate,
 ) -> ReferenceItem:
     ref = _resolve(request, list_name)
-    existing = (
-        await session.execute(select(ref.model).where(ref.model.code == body.code))
-    ).scalar_one_or_none()
-    if existing is not None:
-        raise AppError(
-            ErrorCode.CONFLICT_DUPLICATE,
-            HTTPStatus.CONFLICT,
-            errors=[FieldError("code", "reference.code_taken")],
-        )
-    position = (
-        await session.execute(select(func.coalesce(func.max(ref.model.position), 0)))
-    ).scalar_one()
-    item = ref.model(**body.model_dump(), position=position + 1)
-    session.add(item)
-    await session.flush()
-    await _publish(
-        session, events, ref, "created", principal, clock.now(), item.id, after=_view(item)
-    )
-    await session.commit()
-    await session.refresh(item)
+    item = await add_value(session, events, clock.now(), principal, ref, body)
     response.headers["Location"] = f"/api/v1/reference/{ref.name}/{item.id}"
     return ReferenceItem.model_validate(item)
 
@@ -229,26 +289,7 @@ async def update_item(
     body: ReferenceItemUpdate,
 ) -> ReferenceItem:
     ref = _resolve(request, list_name)
-    item = await _get(session, ref, item_id)
-    before = _view(item)
-    for key, value in body.model_dump(exclude_none=True).items():
-        setattr(item, key, value)
-    after = _view(item)
-    if after != before:
-        await _publish(
-            session,
-            events,
-            ref,
-            "updated",
-            principal,
-            clock.now(),
-            item.id,
-            before=before,
-            after=after,
-        )
-    await session.commit()
-    await session.refresh(item)
-    return ReferenceItem.model_validate(item)
+    return await change_value(session, events, clock.now(), principal, ref, item_id, body)
 
 
 @router.put(
@@ -302,10 +343,4 @@ async def delete_item(
     item_id: UUID,
 ) -> None:
     ref = _resolve(request, list_name)
-    item = await _get(session, ref, item_id)
-    if await ref.usage(session, item_id) > 0:
-        raise AppError(ErrorCode.REFERENCE_IN_USE, HTTPStatus.CONFLICT)
-    before = _view(item)
-    await session.delete(item)
-    await _publish(session, events, ref, "deleted", principal, clock.now(), item_id, before=before)
-    await session.commit()
+    await remove_value(session, events, clock.now(), principal, ref, item_id)

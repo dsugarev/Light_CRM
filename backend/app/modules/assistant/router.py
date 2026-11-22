@@ -14,6 +14,7 @@ from app.core.listing import ListQuery, Page, list_query
 from app.modules.activity.schemas import ActivityOut
 from app.modules.assistant import service
 from app.modules.assistant.schemas import (
+    ActionConfirmed,
     AssistantStatus,
     ConversationCreate,
     ConversationDetail,
@@ -39,6 +40,14 @@ async def context(request: Request, session: DbSession) -> service.Context:
         engine=state.engine,
         session_factory=state.session_factory,
         organization_stats=state.organization_stats,
+        reference_lists=getattr(state, "reference_lists", {}),
+        mailer=getattr(state, "mailer", None),
+        ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        external_filter=getattr(state, "external_filter", None),
+        organization_archive_guards=getattr(state, "organization_archive_guards", ()),
+        personal_data_providers=getattr(state, "personal_data_providers", ()),
+        contact_anonymizers=getattr(state, "contact_anonymizers", ()),
     )
 
 
@@ -163,3 +172,22 @@ async def save_as_note(
     message_id: UUID, body: SaveAsNote, ctx: Ctx, principal: CurrentPrincipal
 ) -> ActivityOut:
     return await service.save_as_note(ctx, principal, message_id, body)
+
+
+@router.post(
+    "/actions/{action_id}/confirm",
+    summary="Execute a proposed action exactly as shown (FR-AI-09)",
+    **endpoint(AccessLevel.SIGNED_IN_OWN),
+)
+async def confirm_action(action_id: UUID, ctx: Ctx, principal: CurrentPrincipal) -> ActionConfirmed:
+    return await service.confirm_action(ctx, principal, action_id)
+
+
+@router.post(
+    "/actions/{action_id}/cancel",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Discard a proposed action (FR-AI-09)",
+    **endpoint(AccessLevel.SIGNED_IN_OWN),
+)
+async def cancel_action(action_id: UUID, ctx: Ctx, principal: CurrentPrincipal) -> None:
+    await service.cancel_action(ctx, principal, action_id)

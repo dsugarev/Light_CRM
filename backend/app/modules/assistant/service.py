@@ -27,14 +27,23 @@ from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.events import DomainEvent, EventBus
 from app.core.listing import ListQuery, Page, fetch_page
-from app.core.principal import Principal
+from app.core.principal import Principal, RoleCode
 from app.llm.types import LLM, Completed, LLMUnavailableError, TextDelta, ToolCall
 from app.modules.activity import service as activity
 from app.modules.activity.schemas import ActivityCreate, ActivityOut
-from app.modules.assistant import repository, tools
-from app.modules.assistant.models import AssistantUsage, ChatConversation, ChatMessage
+from app.modules.assistant import actions, repository, tools
+from app.modules.assistant.models import (
+    AssistantAction,
+    AssistantUsage,
+    ChatConversation,
+    ChatMessage,
+)
 from app.modules.assistant.prompt import reply_language, system_prompt
 from app.modules.assistant.schemas import (
+    ActionConfirmed,
+    ActionDetail,
+    ActionLink,
+    ActionOut,
     AssistantStatus,
     ConversationCreate,
     ConversationDetail,
@@ -42,6 +51,7 @@ from app.modules.assistant.schemas import (
     ConversationRename,
     MessageCreate,
     MessageOut,
+    OneTimeLink,
     RecordContext,
     RecordRef,
     SaveAsNote,
@@ -68,6 +78,15 @@ class Context:
     engine: AsyncEngine
     session_factory: async_sessionmaker[AsyncSession]
     organization_stats: Sequence[Any] = ()
+    # FR-AI-09: what confirmed actions need, as the REST routes pass it (ADR 0030).
+    reference_lists: Mapping[str, Any] = field(default_factory=dict)
+    mailer: Any = None
+    ip: str | None = None
+    user_agent: str | None = None
+    external_filter: Any = None
+    organization_archive_guards: Sequence[Any] = ()
+    personal_data_providers: Sequence[Any] = ()
+    contact_anonymizers: Sequence[Any] = ()
 
 
 def _not_found() -> AppError:
@@ -142,7 +161,42 @@ def _conversation_out(conversation: ChatConversation) -> ConversationOut:
     )
 
 
-def _message_out(message: ChatMessage) -> MessageOut:
+def action_out(row: AssistantAction, now: datetime) -> ActionOut:
+    status = row.status
+    if status == "proposed" and now >= row.expires_at:
+        status = "expired"
+    target = None
+    if row.target_type and row.target_id:
+        target = ActionLink(
+            entity_type=row.target_type,
+            entity_id=row.target_id,
+            label=row.target_label or "",
+            url=actions.url_of(row.target_type, row.target_id),
+        )
+    result = None
+    if row.result:
+        result = ActionLink(
+            entity_type=row.result["entity_type"],
+            entity_id=UUID(row.result["entity_id"]),
+            label=row.result.get("label", ""),
+            url=actions.url_of(row.result["entity_type"], row.result["entity_id"]),
+        )
+    return ActionOut(
+        id=row.id,
+        action=row.action,
+        title=row.card.get("title", row.action),
+        details=[ActionDetail.model_validate(d) for d in row.card.get("details", [])],
+        target=target,
+        destructive=row.destructive,
+        status=status,  # type: ignore[arg-type]
+        error_code=row.error_code,
+        result=result,
+        expires_at=row.expires_at,
+        created_at=row.created_at,
+    )
+
+
+def _message_out(message: ChatMessage, proposals: Sequence[ActionOut] = ()) -> MessageOut:
     return MessageOut(
         id=message.id,
         role=message.role,  # type: ignore[arg-type]
@@ -151,6 +205,7 @@ def _message_out(message: ChatMessage) -> MessageOut:
         error_code=message.error_code,
         tools_used=[call["tool"] for call in message.tool_calls or []],
         record_refs=[RecordRef.model_validate(ref) for ref in message.record_refs or []],
+        actions=list(proposals),
         prompt_tokens=message.prompt_tokens,
         completion_tokens=message.completion_tokens,
         created_at=message.created_at,
@@ -167,7 +222,11 @@ async def _own(ctx: Context, principal: Principal, conversation_id: UUID) -> Cha
 
 
 def _tool_context(
-    ctx: Context, session: AsyncSession, principal: Principal, locale: str
+    ctx: Context,
+    session: AsyncSession,
+    principal: Principal,
+    locale: str,
+    turn: PreparedTurn | None = None,
 ) -> tools.ToolContext:
     return tools.ToolContext(
         session=session,
@@ -177,6 +236,11 @@ def _tool_context(
         principal=principal,
         locale="bg" if locale == "bg" else "en",
         organization_stats=ctx.organization_stats,
+        conversation_id=turn.conversation_id if turn else None,
+        message_id=turn.message_id if turn else None,
+        reference_lists=ctx.reference_lists,
+        context_type=turn.context.entity_type if turn and turn.context else None,
+        context_id=turn.context.entity_id if turn and turn.context else None,
     )
 
 
@@ -238,9 +302,12 @@ async def get_conversation(
     _require_enabled(ctx)
     conversation = await _own(ctx, principal, conversation_id)
     messages = await repository.messages_of(ctx.session, conversation.id)
+    by_message: dict[UUID, list[ActionOut]] = {}
+    for row in await repository.actions_of(ctx.session, [m.id for m in messages]):
+        by_message.setdefault(row.message_id, []).append(action_out(row, ctx.now))
     return ConversationDetail(
         **_conversation_out(conversation).model_dump(),
-        messages=[_message_out(m) for m in messages],
+        messages=[_message_out(m, by_message.get(m.id, [])) for m in messages],
     )
 
 
@@ -467,7 +534,7 @@ async def stream_answer(
         {"message_id": str(turn.message_id), "conversation_id": str(turn.conversation_id)},
     )
     async with ctx.session_factory() as session:
-        tctx = _tool_context(ctx, session, principal, turn.locale)
+        tctx = _tool_context(ctx, session, principal, turn.locale, turn)
         refs: list[dict[str, Any]] = []
         try:
             prompt = list(turn.prompt)
@@ -517,7 +584,7 @@ async def _answer(
     result: _Turn,
 ) -> AsyncIterator[str]:
     """The tool loop. Fills `result` as it goes; yields `delta` and `tool_call` events."""
-    schemas = tools.schemas()
+    schemas = tools.schemas(tctx.principal.role)
     checked_at = time.monotonic()
     while True:
         offer_tools = result.rounds < MAX_TOOL_ROUNDS
@@ -579,8 +646,11 @@ async def _answer(
         )
         for call in calls:
             yield _sse("tool_call", {"tool": call.name, "status": "running"})
+            already = len(tctx.proposed)
             output = await tools.run(tctx, call.name, call.arguments)
             result.tool_calls.append({"tool": call.name, "arguments": _arguments(call.arguments)})
+            for row in tctx.proposed[already:]:
+                yield _sse("action_proposed", action_out(row, tctx.now).model_dump(mode="json"))
             prompt.append(
                 {
                     "role": "tool",
@@ -593,7 +663,7 @@ async def _answer(
 
 _ECHO_KEYS = frozenset({"items", "total", "shown", "error", "hint"}) | {
     key
-    for schema in tools.schemas()
+    for schema in tools.schemas(RoleCode.ADMIN)
     for key in schema["function"]["parameters"].get("properties", {})
 }
 
@@ -729,3 +799,75 @@ async def personal_data(session: AsyncSession, subject: party.DataSubject) -> Ma
             for message, user_id in found
         ]
     }
+
+
+# --- Actions with confirmation (FR-AI-09, ADR 0030) -------------------------------------------
+
+
+async def _pending(ctx: Context, principal: Principal, action_id: UUID) -> AssistantAction:
+    row = await repository.own_action(ctx.session, action_id, principal.user_id, lock=True)
+    if row is None:
+        raise _not_found()
+    if row.status == "proposed" and ctx.now >= row.expires_at:
+        row.status, row.decided_at = "expired", ctx.now
+        await ctx.session.commit()
+    if row.status != "proposed":
+        raise AppError(ErrorCode.ASSISTANT_ACTION_NOT_PENDING, HTTPStatus.CONFLICT)
+    return row
+
+
+def _executor(ctx: Context) -> actions.Executor:
+    return actions.Executor(
+        session=ctx.session,
+        events=actions.ViaAssistantBus(ctx.events),
+        settings=ctx.settings,
+        now=ctx.now,
+        mailer=ctx.mailer,
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        external_filter=ctx.external_filter,
+        organization_stats=ctx.organization_stats,
+        organization_archive_guards=ctx.organization_archive_guards,
+        personal_data_providers=ctx.personal_data_providers,
+        contact_anonymizers=ctx.contact_anonymizers,
+        reference_lists=ctx.reference_lists,
+    )
+
+
+async def confirm_action(ctx: Context, principal: Principal, action_id: UUID) -> ActionConfirmed:
+    """Run a proposed action exactly as shown, as the confirming user. Failures come back
+    as the service raised them; the action is then `failed` with that code."""
+    _require_enabled(ctx)
+    row = await _pending(ctx, principal, action_id)
+    run = actions.EXECUTORS.get(row.action)
+    if run is None:
+        raise _not_found()
+    try:
+        outcome = await run(_executor(ctx), principal, row)
+    except (AppError, actions.ActionError) as error:
+        await ctx.session.rollback()
+        failed = await repository.own_action(ctx.session, action_id, principal.user_id, lock=True)
+        if failed is not None and failed.status == "proposed":
+            failed.status, failed.decided_at = "failed", ctx.now
+            failed.error_code = (error.code.value if isinstance(error, AppError) else error.code)[
+                :60
+            ]
+            await ctx.session.commit()
+        if isinstance(error, actions.ActionError):
+            raise AppError(ErrorCode.RESOURCE_NOT_FOUND, HTTPStatus.NOT_FOUND) from error
+        raise
+    done = await repository.own_action(ctx.session, action_id, principal.user_id, lock=True)
+    assert done is not None  # noqa: S101 - the caller's own row, locked above
+    done.status, done.decided_at, done.result = "confirmed", ctx.now, outcome.result()
+    await ctx.session.commit()
+    link = None
+    if outcome.once and "set_password" in outcome.once:
+        link = OneTimeLink.model_validate(outcome.once["set_password"])
+    return ActionConfirmed(action=action_out(done, ctx.now), set_password=link)
+
+
+async def cancel_action(ctx: Context, principal: Principal, action_id: UUID) -> None:
+    _require_enabled(ctx)
+    row = await _pending(ctx, principal, action_id)
+    row.status, row.decided_at = "cancelled", ctx.now
+    await ctx.session.commit()

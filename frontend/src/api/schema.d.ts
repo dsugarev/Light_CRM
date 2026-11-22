@@ -123,6 +123,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assistant/actions/{action_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard a proposed action (FR-AI-09) */
+        post: operations["cancel_action_api_v1_assistant_actions__action_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/actions/{action_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute a proposed action exactly as shown (FR-AI-09) */
+        post: operations["confirm_action_api_v1_assistant_actions__action_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assistant/conversations": {
         parameters: {
             query?: never;
@@ -2061,6 +2095,71 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActionConfirmed */
+        ActionConfirmed: {
+            action: components["schemas"]["ActionOut"];
+            /** @description Only when a user was created; shown once, never stored */
+            set_password?: components["schemas"]["OneTimeLink"] | null;
+        };
+        /** ActionDetail */
+        ActionDetail: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** ActionLink */
+        ActionLink: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Label */
+            label: string;
+            /** Url */
+            url: string | null;
+        };
+        /**
+         * ActionOut
+         * @description FR-AI-09 (API spec 17.1): a proposed action, shown as a card.
+         */
+        ActionOut: {
+            /** Action */
+            action: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Destructive */
+            destructive: boolean;
+            /** Details */
+            details: components["schemas"]["ActionDetail"][];
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            result: components["schemas"]["ActionLink"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "confirmed" | "cancelled" | "expired" | "failed";
+            target: components["schemas"]["ActionLink"] | null;
+            /** Title */
+            title: string;
+        };
         /** ActivityCreate */
         ActivityCreate: {
             /**
@@ -3335,6 +3434,11 @@ export interface components {
         };
         /** MessageOut */
         MessageOut: {
+            /**
+             * Actions
+             * @description Proposed actions (R1.1)
+             */
+            actions?: components["schemas"]["ActionOut"][];
             /** Completion Tokens */
             completion_tokens: number;
             /** Content */
@@ -3411,6 +3515,16 @@ export interface components {
             stage_id: string;
             /** Version */
             version: number;
+        };
+        /** OneTimeLink */
+        OneTimeLink: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Url */
+            url: string;
         };
         /** OpportunityCreate */
         OpportunityCreate: {
@@ -5235,6 +5349,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_action_api_v1_assistant_actions__action_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_action_api_v1_assistant_actions__action_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionConfirmed"];
                 };
             };
             /** @description Validation Error */
