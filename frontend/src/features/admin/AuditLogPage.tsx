@@ -307,6 +307,7 @@ export function AuditLogPage() {
       ) : entries.data ? (
         <>
           <DataTable
+            busy={entries.isPlaceholderData}
             caption={t('audit.title')}
             columns={columns}
             rows={entries.data.items}

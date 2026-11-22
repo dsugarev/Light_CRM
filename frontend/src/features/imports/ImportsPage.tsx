@@ -81,6 +81,7 @@ export function ImportsPage() {
       {batches.data ? (
         <>
           <DataTable
+            busy={batches.isPlaceholderData}
             caption={t('list.title')}
             columns={columns}
             rows={batches.data.items}

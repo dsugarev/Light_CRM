@@ -144,6 +144,7 @@ export function OrganizationsPage() {
       {organizations.data ? (
         <>
           <DataTable
+            busy={organizations.isPlaceholderData}
             caption={t('organizations.title')}
             columns={columns}
             rows={organizations.data.items}

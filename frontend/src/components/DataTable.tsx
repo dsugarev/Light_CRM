@@ -35,6 +35,12 @@ interface DataTableProps<T> {
   /** UX-08: a "…" menu at the end of each row; `rowLabel` names the row in its label. */
   rowActions?: ((row: T) => RowAction[]) | undefined
   rowLabel?: ((row: T) => string) | undefined
+  /**
+   * Loop 2: the rows shown are the previous result while a new page, sort or filter loads
+   * (TanStack Query `isPlaceholderData`). The table is marked busy, the rows dim and a thin
+   * bar moves above them, all after 200 ms so quick answers do not flicker.
+   */
+  busy?: boolean | undefined
 }
 
 function sortState(active: boolean, descending: boolean): 'ascending' | 'descending' | 'none' {
@@ -78,80 +84,95 @@ export function DataTable<T>({
   caption,
   rowActions,
   rowLabel,
+  busy = false,
 }: DataTableProps<T>) {
   const { t } = useTranslation()
   const span = columns.length + (rowActions ? 1 : 0)
   const descending = sort.startsWith('-')
   const active = sort.replace(/^-/, '')
   return (
-    <Table>
-      {caption ? <caption className="sr-only">{caption}</caption> : null}
-      <TableHeader>
-        <TableRow>
-          {columns.map((column) => {
-            const isActive = column.sortKey !== undefined && column.sortKey === active
-            const ariaSort = sortState(isActive, descending)
-            return (
-              <TableHead
-                key={column.key}
-                className={column.className}
-                aria-sort={column.sortKey ? ariaSort : undefined}
-              >
-                {column.sortKey ? (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 font-medium hover:underline"
-                    onClick={() => {
-                      const key = column.sortKey ?? ''
-                      onSort(isActive && !descending ? `-${key}` : key)
-                    }}
-                  >
-                    {column.header}
-                    <span aria-hidden="true" className="text-muted-foreground">
-                      {isActive ? (descending ? '↓' : '↑') : '↕'}
-                    </span>
-                  </button>
-                ) : (
-                  column.header
-                )}
-              </TableHead>
-            )
-          })}
-          {rowActions ? (
-            <TableHead className="w-12">
-              <span className="sr-only">{t('table.actions')}</span>
-            </TableHead>
-          ) : null}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.length === 0 ? (
+    <div className="relative">
+      {busy ? (
+        <div
+          data-testid="table-busy"
+          aria-hidden="true"
+          className="busy-track absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden rounded-full bg-info/15"
+        >
+          <div className="busy-bar h-full w-2/5 rounded-full bg-info" />
+        </div>
+      ) : null}
+      <Table aria-busy={busy || undefined}>
+        {caption ? <caption className="sr-only">{caption}</caption> : null}
+        <TableHeader>
           <TableRow>
-            <TableCell colSpan={span}>
-              {typeof empty === 'string' || empty === undefined ? (
-                <EmptyState message={empty} />
-              ) : (
-                empty
-              )}
-            </TableCell>
+            {columns.map((column) => {
+              const isActive = column.sortKey !== undefined && column.sortKey === active
+              const ariaSort = sortState(isActive, descending)
+              return (
+                <TableHead
+                  key={column.key}
+                  className={column.className}
+                  aria-sort={column.sortKey ? ariaSort : undefined}
+                >
+                  {column.sortKey ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 font-medium hover:underline"
+                      onClick={() => {
+                        const key = column.sortKey ?? ''
+                        onSort(isActive && !descending ? `-${key}` : key)
+                      }}
+                    >
+                      {column.header}
+                      <span aria-hidden="true" className="text-muted-foreground">
+                        {isActive ? (descending ? '↓' : '↑') : '↕'}
+                      </span>
+                    </button>
+                  ) : (
+                    column.header
+                  )}
+                </TableHead>
+              )
+            })}
+            {rowActions ? (
+              <TableHead className="w-12">
+                <span className="sr-only">{t('table.actions')}</span>
+              </TableHead>
+            ) : null}
           </TableRow>
-        ) : (
-          rows.map((row) => (
-            <TableRow key={rowKey(row)}>
-              {columns.map((column) => (
-                <TableCell key={column.key} className={column.className}>
-                  {column.cell(row)}
-                </TableCell>
-              ))}
-              {rowActions ? (
-                <TableCell className="w-12 text-right">
-                  <RowActions name={rowLabel?.(row) ?? rowKey(row)} actions={rowActions(row)} />
-                </TableCell>
-              ) : null}
+        </TableHeader>
+        <TableBody
+          data-busy={busy || undefined}
+          className="transition-opacity duration-200 data-busy:opacity-60 data-busy:delay-200"
+        >
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={span}>
+                {typeof empty === 'string' || empty === undefined ? (
+                  <EmptyState message={empty} />
+                ) : (
+                  empty
+                )}
+              </TableCell>
             </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
+          ) : (
+            rows.map((row) => (
+              <TableRow key={rowKey(row)}>
+                {columns.map((column) => (
+                  <TableCell key={column.key} className={column.className}>
+                    {column.cell(row)}
+                  </TableCell>
+                ))}
+                {rowActions ? (
+                  <TableCell className="w-12 text-right">
+                    <RowActions name={rowLabel?.(row) ?? rowKey(row)} actions={rowActions(row)} />
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

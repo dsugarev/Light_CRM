@@ -158,6 +158,7 @@ export function ContactsPage() {
       {contacts.data ? (
         <>
           <DataTable
+            busy={contacts.isPlaceholderData}
             caption={t('contacts.title')}
             columns={columns}
             rows={contacts.data.items}

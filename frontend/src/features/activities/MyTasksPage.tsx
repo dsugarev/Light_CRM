@@ -101,6 +101,7 @@ export function MyTasksPage() {
       {tasks.data ? (
         <>
           <DataTable
+            busy={tasks.isPlaceholderData}
             caption={t('tasks.title')}
             columns={columns}
             rows={tasks.data.items}

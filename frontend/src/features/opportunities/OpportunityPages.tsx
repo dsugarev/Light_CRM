@@ -214,6 +214,7 @@ export function OpportunitiesPage() {
       {opportunities.data ? (
         <>
           <DataTable
+            busy={opportunities.isPlaceholderData}
             caption={t('list.title')}
             columns={columns}
             rows={opportunities.data.items}

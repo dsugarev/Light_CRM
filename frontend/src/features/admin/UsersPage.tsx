@@ -177,6 +177,7 @@ export function UsersPage({ creating = false }: { creating?: boolean }) {
         <>
           <div className="overflow-x-auto">
             <DataTable
+              busy={users.isPlaceholderData}
               caption={t('users.title')}
               columns={columns}
               rows={users.data.items}

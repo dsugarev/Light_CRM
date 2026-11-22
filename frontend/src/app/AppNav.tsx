@@ -5,7 +5,7 @@ import { NavLink } from 'react-router'
 import { useCan } from '@/lib/permissions'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `block rounded-md px-3 py-1.5 text-sm ${
+  `block rounded-md px-3 py-1.5 text-sm transition-colors duration-150 pointer-coarse:py-2.5 ${
     isActive ? 'bg-secondary font-medium text-secondary-foreground' : 'hover:bg-muted'
   }`
 

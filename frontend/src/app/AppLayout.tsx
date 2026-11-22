@@ -32,7 +32,8 @@ export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const webhookHealth = useWebhookHealth(show.users)
   const webhookProblems = webhookHealth.failing + webhookHealth.suspended
-  const inAdminArea = useLocation().pathname.startsWith('/admin')
+  const { pathname } = useLocation()
+  const inAdminArea = pathname.startsWith('/admin')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const signOut = useMutation({
@@ -123,7 +124,15 @@ export function AppLayout() {
         ) : null}
         <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 outline-none lg:px-6">
           {show.users && inAdminArea ? <WebhookAlert {...webhookHealth} /> : null}
-          <Outlet />
+          {/* Loop 2: each page fades in briefly (200 ms) when the address changes, so the
+              switch reads as navigation; search and filter changes keep the same page. */}
+          <div
+            key={pathname}
+            data-testid="page-transition"
+            className="animate-in duration-200 fade-in-0"
+          >
+            <Outlet />
+          </div>
         </main>
       </div>
       {me ? (

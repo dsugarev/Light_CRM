@@ -197,6 +197,7 @@ export function LeadsPage() {
       {leads.data ? (
         <>
           <DataTable
+            busy={leads.isPlaceholderData}
             caption={t('list.title')}
             columns={columns}
             rows={leads.data.items}
