@@ -268,7 +268,7 @@ As built (Phase 7a, ADR 0026): the rest of the backend depends only on the `LLM`
 
 ### 8.3 Tools (reading; and since R1.1, proposals the user confirms)
 
-`search_leads`, `search_opportunities`, `search_organizations`, `search_contacts`, `get_record` (by type and ID), `list_activities`, `pipeline_summary`, `forecast_summary`, `win_loss_summary`, `lead_conversion_summary`, `my_tasks` (extended 2026-11-22; API spec 17 lists the arguments). Each has a strict JSON schema, bounded result sizes (maximum 25 rows), and returns record IDs so the answer can link to records.
+`search_leads`, `search_opportunities`, `search_organizations`, `search_contacts`, `get_record` (by type and ID), `list_activities`, `pipeline_summary`, `forecast_summary`, `win_loss_summary`, `lead_conversion_summary`, `my_tasks`, and since ADR 0032 `list_users`, `get_settings` and `list_values` (API spec 17 lists the arguments). Each tool gives the user the same access as the screens: the user list and settings only to Admins. Each has a strict JSON schema, bounded result sizes (maximum 25 rows), and returns record IDs so the answer can link to records.
 
 The model never receives database access, never writes SQL, and has no tool that changes data. Since R1.1 (Phase 9, ADR 0030) it also has `propose_*` tools: they validate an action and store it as a proposal; the user's **Confirm** runs it through the same service function as the REST endpoint, with the user's permissions and the record version captured when proposing. Write tools are offered only to roles that can use them.
 

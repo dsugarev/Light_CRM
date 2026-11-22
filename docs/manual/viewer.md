@@ -154,7 +154,7 @@ As a Viewer you can't move cards; select a card's name to open the opportunity. 
 
 ## 6. The AI assistant
 
-If your Admin has switched it on, select **Assistant** in the top bar. Ask in English or Bulgarian, for example: *What is the pipeline value by stage?* or *Which opportunities close this month?*
+If your Admin has switched it on, select **Assistant** in the top bar. Ask in English or Bulgarian, for example: *What is the pipeline value by stage?*, *Which opportunities close this month?* or *Which tasks of the team are overdue?*
 
 ![The assistant answering with a table of open pipeline by stage.](images/common/assistant-answer.png)
 *Figure 12. An answer from the assistant. (Example from a test system; your figures will differ.)*

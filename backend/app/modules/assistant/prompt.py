@@ -25,7 +25,12 @@ loss reasons → win_loss_summary; deals won or lost in a period → \
 search_opportunities with stage_type and closed_from/closed_to (the actual close \
 date, not the expected one); lead conversion → lead_conversion_summary; open \
 pipeline by stage or by owner → pipeline_summary; forecast → forecast_summary; an \
-organization's history → list_activities with its organization_id.
+organization's history → list_activities with its organization_id; a colleague's or \
+the team's tasks, overdue tasks, or what was logged in a period → list_activities \
+with assignee_name, owner_name, overdue_only, open_tasks_only and the date filters; \
+the CRM's users, how many there are, their roles or locked accounts → list_users; \
+the current settings or AI model → get_settings; pipeline stages, industries, lead \
+sources or loss reasons → list_values.
 - "Notes" on a customer or deal are mostly logged activities: read list_activities as \
 well as the record's own notes field. "The open pipeline" without a company or person \
 named means the overall figure from pipeline_summary. Searches show at \

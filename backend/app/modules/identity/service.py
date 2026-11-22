@@ -938,6 +938,21 @@ async def user_names(session: AsyncSession, user_ids: set[UUID]) -> dict[UUID, s
     return {u.id: u.full_name for u in await repository.get_users(session, user_ids)}
 
 
+async def all_users(session: AsyncSession, now: datetime, limit: int = 1000) -> list[UserOut]:
+    """Every human user with role, status and lock state, as the Admin's user list shows
+    them. The caller checks that the principal may see it (Admins)."""
+    users, _ = await repository.list_users(
+        session,
+        q=None,
+        role_code=None,
+        is_active=None,
+        include_service=False,
+        offset=0,
+        limit=limit,
+    )
+    return [_user_out(u, now) for u in users]
+
+
 async def people_named(session: AsyncSession, name: str, limit: int = 10) -> list[tuple[UUID, str]]:
     """Human users (active or not) whose name or email matches, as (id, full name), for
     filters such as "Elena's opportunities" in the assistant. No email addresses leave."""

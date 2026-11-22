@@ -10,6 +10,7 @@
 - **Kept on the screens:** password links, API keys, GDPR tools and imports.
 - **Better answers:** the assistant finds contacts, a colleague's records, win/loss and conversion figures and an organization's full history (PR #28). An answer built on a tool call the model only imagined is never shown.
 - **The model in use is shown** under the question box (Phase 10).
+- **The assistant answers more questions** (ADR 0032): the team's and a colleague's tasks (open, overdue, due or logged in a period), the pipeline stages and the lists. Admins can also ask about users (how many, roles, locked or deactivated accounts) and the current settings and AI model.
 
 ### For administrators
 - **Choose the AI model for everyone** in **Settings → AI assistant** (Phase 10, FR-AI-10, ADR 0031):

@@ -102,6 +102,15 @@ async def _items(session: AsyncSession, ref: ReferenceList, *, include_inactive:
     return list((await session.execute(statement)).scalars())
 
 
+async def list_values(
+    session: AsyncSession, ref: ReferenceList, *, include_inactive: bool = False
+) -> list[ReferenceItem]:
+    """A list's values in order, as GET /reference/{list} returns them (the assistant
+    reads them too)."""
+    items = await _items(session, ref, include_inactive=include_inactive)
+    return [ReferenceItem.model_validate(i) for i in items]
+
+
 async def _get(session: AsyncSession, ref: ReferenceList, item_id: UUID) -> Any:
     item = await session.get(ref.model, item_id, with_for_update=True)
     if item is None:

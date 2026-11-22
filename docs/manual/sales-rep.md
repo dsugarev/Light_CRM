@@ -397,7 +397,7 @@ If your Admin has switched it on, select **Assistant** in the top bar. A chat op
 ![The assistant drawer opened on an opportunity page.](images/common/assistant.png)
 *Figure 29. The assistant, opened on an opportunity: it offers to answer about this record.*
 
-- Ask in **English or Bulgarian**, for example: *Which of my opportunities close this month?*, *What is the pipeline value by stage?*, *Summarize the history with Sunrise Foods*, *Draft a follow-up email for this opportunity*.
+- Ask in **English or Bulgarian**, for example: *Which of my opportunities close this month?*, *What is the pipeline value by stage?*, *Summarize the history with Sunrise Foods*, *Draft a follow-up email for this opportunity*, *What open tasks does Ivan have?*, *What are the stages of our pipeline?*, *Which loss reasons can I choose?*
 - On a lead, opportunity or organization page it offers to answer **about that record**.
 - Records in answers are **links**. **Copy** copies an answer; **Save as note** saves a draft as a note on the record, after you have checked it.
 - Earlier chats are under **Conversations**; **New conversation** starts afresh.

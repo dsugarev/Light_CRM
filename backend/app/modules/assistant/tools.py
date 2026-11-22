@@ -1,22 +1,28 @@
-"""The assistant's tools (architecture 8.3). All read-only (FR-AI-05).
+"""The assistant's tools (architecture 8.3).
 
 Each tool validates its arguments against a strict schema, checks the caller's access
 through the shared policy, calls the same service functions as the REST endpoints, and
 returns compact JSON: only the fields an answer needs, at most 25 rows, and every
 record with its type, ID and in-app URL so the answer can link to it (FR-AI-02 AC2).
-There is no tool that creates, changes or deletes anything, and none that reaches
-users, sessions, settings, the audit log or other people's conversations.
+
+Reading tools read; `propose_*` tools only store a proposal that the user confirms
+(FR-AI-09, ADR 0030). Since ADR 0032 Admins can also read the user list and the
+settings, and everyone the configurable lists and stages, with the same access as the
+screens. No tool reaches sessions, passwords, API keys, the audit log or other people's
+conversations, and no email address or sign-in detail is sent to the model.
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Annotated, Any, Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import reference, runtime_settings
 from app.core.access import AccessLevel
 from app.core.config import Settings
 from app.core.errors import AppError
@@ -24,6 +30,7 @@ from app.core.events import EventBus
 from app.core.listing import ListQuery
 from app.core.policy import check_access
 from app.core.principal import Principal, RoleCode
+from app.llm import models
 from app.modules.activity import service as activity
 from app.modules.assistant import actions
 from app.modules.assistant.models import AssistantAction
@@ -32,6 +39,7 @@ from app.modules.party import service as party
 from app.modules.reporting import service as reporting
 from app.modules.sales import service as sales
 
+SOFIA = ZoneInfo("Europe/Sofia")
 MAX_ROWS = 25
 _TEXT_LIMIT = 600
 EntityType = Literal["lead", "opportunity", "organization", "contact"]
@@ -171,6 +179,22 @@ class ListActivities(_Args):
     organization_id: UUID | None = None
     contact_id: UUID | None = None
     types: list[Literal["note", "call", "meeting", "email", "task"]] = []
+    owner_name: OwnerName = None
+    assignee_name: Annotated[
+        str | None,
+        Field(
+            default=None,
+            min_length=2,
+            max_length=100,
+            description="Tasks assigned to this person (name or part of it)",
+        ),
+    ] = None
+    open_tasks_only: bool = Field(default=False, description="Only tasks not done yet")
+    overdue_only: bool = Field(default=False, description="Only open tasks past their due date")
+    due_from: date | None = Field(default=None, description="Tasks due on or after this date")
+    due_to: date | None = Field(default=None, description="Tasks due on or before this date")
+    occurred_from: date | None = Field(default=None, description="Logged on or after this date")
+    occurred_to: date | None = Field(default=None, description="Logged on or before this date")
     limit: Limit = 10
 
 
@@ -210,6 +234,27 @@ class LeadConversionSummary(_Args):
 class MyTasks(_Args):
     include_done: bool = False
     limit: Limit = 10
+
+
+class ListUsers(_Args):
+    query: Query | None = Field(default=None, description="Part of a name")
+    role: Literal["admin", "sales_manager", "sales_rep", "viewer"] | None = None
+    status: Literal["active", "deactivated", "locked", "any"] = "any"
+    limit: Limit = 25
+
+
+class GetSettings(_Args):
+    pass
+
+
+ListName = Literal[
+    "pipeline-stages", "industries", "lead-sources", "disqualification-reasons", "loss-reasons"
+]
+
+
+class ListValues(_Args):
+    list: ListName
+    include_inactive: bool = Field(default=False, description="Admins: inactive values too")
 
 
 # --- Helpers -------------------------------------------------------------------------------
@@ -467,18 +512,52 @@ async def get_record(ctx: ToolContext, args: GetRecord) -> dict[str, Any]:
             return _contact(ctx, await party.get_contact(ctx.party(), args.id))
 
 
+def _start(day: date | None) -> datetime | None:
+    return None if day is None else datetime.combine(day, time.min, tzinfo=SOFIA)
+
+
+def _end(day: date | None) -> datetime | None:
+    return None if day is None else datetime.combine(day, time.max, tzinfo=SOFIA)
+
+
 async def list_activities(ctx: ToolContext, args: ListActivities) -> dict[str, Any]:
-    if args.organization_id and not (args.lead_id or args.opportunity_id or args.contact_id):
+    tasks_only = bool(
+        args.assignee_name
+        or args.open_tasks_only
+        or args.overdue_only
+        or args.due_from
+        or args.due_to
+    )
+    narrowed = tasks_only or bool(args.owner_name or args.occurred_from or args.occurred_to)
+    if (
+        args.organization_id
+        and not (args.lead_id or args.opportunity_id or args.contact_id)
+        and not narrowed
+    ):
+        # The organization's whole history (its contacts, leads and deals too).
         return await _organization_history(ctx, args)
+    owners = await _owners(ctx, "anyone", args.owner_name)
+    assignees = await _owners(ctx, "anyone", args.assignee_name)
+    due_to = _end(args.due_to)
+    if args.overdue_only:
+        due_to = min(due_to, ctx.now) if due_to else ctx.now
     filters = activity.ActivityFilters(
-        types=tuple(args.types),
+        types=("task",) if tasks_only else tuple(args.types),
         lead_ids=(args.lead_id,) if args.lead_id else (),
         opportunity_ids=(args.opportunity_id,) if args.opportunity_id else (),
         organization_ids=(args.organization_id,) if args.organization_id else (),
         contact_ids=(args.contact_id,) if args.contact_id else (),
+        owner_ids=owners,
+        assignee_ids=assignees,
+        is_done=False if (args.open_tasks_only or args.overdue_only) else None,
+        due_from=_start(args.due_from),
+        due_to=due_to,
+        occurred_from=_start(args.occurred_from),
+        occurred_to=_end(args.occurred_to),
     )
+    sort = "due_at" if tasks_only else "-occurred_at"
     page = await activity.list_activities(
-        ctx.activity(), _query("activities", args.limit, "-occurred_at"), filters
+        ctx.activity(), _query("activities", args.limit, sort), filters
     )
     return _page([_activity(ctx, a) for a in page.items], getattr(page, "total", 0))
 
@@ -558,6 +637,102 @@ async def my_tasks(ctx: ToolContext, args: MyTasks) -> dict[str, Any]:
         ctx.activity(), ctx.principal, _query("my-tasks", args.limit, "due_at"), args.include_done
     )
     return _page([_activity(ctx, a) for a in page.items], page.total)
+
+
+def _status(user: Any) -> str:
+    if not user.is_active:
+        return "deactivated"
+    return "locked" if user.is_locked else "active"
+
+
+async def list_users(ctx: ToolContext, args: ListUsers) -> dict[str, Any]:
+    """Admins: the user list with counts by role and status (as Admin > Users shows it).
+    Others: active colleagues' names only (as the owner pickers show them)."""
+    users = await identity.all_users(ctx.session, ctx.now)
+    needle = (args.query or "").casefold()
+    if ctx.principal.role is not RoleCode.ADMIN:
+        active = [u for u in users if u.is_active]
+        shown = [u for u in active if needle in u.full_name.casefold()][: args.limit]
+        return {
+            "active_users": len(active),
+            "items": [{"name": u.full_name} for u in shown],
+            "note": "Roles and account status are visible to Admins only.",
+        }
+    by_role: dict[str, int] = {}
+    by_status: dict[str, int] = {"active": 0, "locked": 0, "deactivated": 0}
+    for user in users:
+        by_status[_status(user)] += 1
+        if user.is_active:
+            by_role[user.role.value] = by_role.get(user.role.value, 0) + 1
+    matching = [
+        u
+        for u in users
+        if (args.role is None or u.role.value == args.role)
+        and (args.status == "any" or _status(u) == args.status)
+        and needle in u.full_name.casefold()
+    ]
+    return {
+        "total_users": len(users),
+        "by_status": by_status,
+        "active_by_role": by_role,
+        "matching": len(matching),
+        "items": [
+            {
+                "name": u.full_name,
+                "role": u.role.value,
+                "status": _status(u),
+                "last_sign_in": _day(u.last_login_at),
+            }
+            for u in matching[: args.limit]
+        ],
+    }
+
+
+async def get_settings(ctx: ToolContext, args: GetSettings) -> dict[str, Any]:
+    """Admins: the values on Admin > Settings, with the AI model in use."""
+    if ctx.principal.role is not RoleCode.ADMIN:
+        return {"error": "not_allowed_for_role"}
+    current = await runtime_settings.load(ctx.session)
+    out = current.model_dump(mode="json")
+    out["ai_model_label"] = models.label_of(current.ai_model)
+    out["ai_models_available"] = [
+        o.label for o in models.CATALOG if models.available(o, ctx.settings)
+    ]
+    return out
+
+
+async def list_values(ctx: ToolContext, args: ListValues) -> dict[str, Any]:
+    """Pipeline stages and the configurable lists, as the forms offer them."""
+    inactive = args.include_inactive and ctx.principal.role is RoleCode.ADMIN
+    if args.list == "pipeline-stages":
+        pipelines = await sales.list_pipelines(ctx.sales())
+        return {
+            "stages": [
+                {
+                    "name": stage.name_bg if ctx.locale == "bg" else stage.name_en,
+                    "stage_type": stage.stage_type,
+                    "default_probability": stage.default_probability,
+                    "is_active": stage.is_active,
+                }
+                for pipeline in pipelines
+                for stage in pipeline.stages
+                if inactive or stage.is_active
+            ]
+        }
+    ref = ctx.reference_lists.get(args.list)
+    if ref is None:
+        return {"error": "unknown_list"}
+    values = await reference.list_values(ctx.session, ref, include_inactive=inactive)
+    return {
+        "values": [
+            {
+                "name": v.name_bg if ctx.locale == "bg" else v.name_en,
+                "code": v.code,
+                "is_active": v.is_active,
+            }
+            for v in values
+        ]
+    }
 
 
 # --- Proposal tools (FR-AI-09, ADR 0030): validate and store; never execute ------------------
@@ -981,6 +1156,29 @@ TOOLS: dict[str, Tool] = {
             "The user's own tasks, overdue first.",
             MyTasks,
             my_tasks,
+        ),
+        Tool(
+            "list_users",
+            "The CRM's users. Admins get counts by status and role and each user's role, "
+            "status (active, locked, deactivated) and last sign-in date; others get active "
+            "colleagues' names. Use it for 'how many users', 'who are the sales reps', "
+            "'which accounts are locked'.",
+            ListUsers,
+            list_users,
+        ),
+        Tool(
+            "get_settings",
+            "Admins: the current settings (session timeouts, stale-deal threshold, two-factor "
+            "rule for Admins, the AI model in use and the models that can be chosen).",
+            GetSettings,
+            get_settings,
+        ),
+        Tool(
+            "list_values",
+            "The pipeline stages (with type and default probability) or a configurable list: "
+            "industries, lead sources, disqualification reasons, loss reasons.",
+            ListValues,
+            list_values,
         ),
     )
 }

@@ -41,6 +41,12 @@ const TOOL_KEYS = [
   'pipeline_summary',
   'forecast_summary',
   'my_tasks',
+  'search_contacts',
+  'win_loss_summary',
+  'lead_conversion_summary',
+  'list_users',
+  'get_settings',
+  'list_values',
 ] as const
 
 function useToolLabel() {
