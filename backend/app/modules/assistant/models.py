@@ -76,3 +76,49 @@ class AssistantUsage(IdMixin, Base):
     completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     tool_rounds: Mapped[int] = mapped_column(Integer, nullable=False)
     outcome: Mapped[str] = mapped_column(String(10), nullable=False)
+
+
+ACTION_STATUSES = ("proposed", "confirmed", "cancelled", "expired", "failed")
+
+
+class AssistantAction(IdMixin, Base):
+    """FR-AI-09 (ADR 0030): an action the assistant proposed. It changes nothing until its
+    user confirms it; then exactly `request` runs through the service of that action."""
+
+    __tablename__ = "assistant_action"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('proposed', 'confirmed', 'cancelled', 'expired', 'failed')",
+            name="status",
+        ),
+        Index("ix_assistant_action_message", "message_id"),
+        Index("ix_assistant_action_user_created", "user_id", "created_at"),
+    )
+
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("app_user.id", ondelete="CASCADE"), nullable=False
+    )
+    conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("chat_conversation.id", ondelete="CASCADE"), nullable=False
+    )
+    message_id: Mapped[UUID] = mapped_column(
+        ForeignKey("chat_message.id", ondelete="CASCADE"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(40), nullable=False)
+    target_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    target_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    target_label: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # The record's version when proposed: confirmation runs against exactly that version.
+    target_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The validated request the action runs: {"body": {...}, ...ids}. Never a secret.
+    request: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    # What the card shows: {"title", "details": [{"label", "value"}]} in the reply language.
+    card: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    destructive: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="proposed")
+    error_code: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    # The record created or changed: {"entity_type", "entity_id", "label"}.
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
