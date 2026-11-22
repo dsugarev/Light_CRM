@@ -124,12 +124,14 @@ export function AppLayout() {
         ) : null}
         <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 outline-none lg:px-6">
           {show.users && inAdminArea ? <WebhookAlert {...webhookHealth} /> : null}
-          {/* Loop 2: each page fades in briefly (200 ms) when the address changes, so the
-              switch reads as navigation; search and filter changes keep the same page. */}
+          {/* Loop 2: each page rises 4 px over 200 ms when the address changes, so the
+              switch reads as navigation; search and filter changes keep the same page.
+              Movement only, no fade: text stays at full contrast throughout (an opacity
+              fade let axe catch muted text at 4.35:1 mid-animation). */}
           <div
             key={pathname}
             data-testid="page-transition"
-            className="animate-in duration-200 fade-in-0"
+            className="animate-in duration-200 slide-in-from-bottom-1"
           >
             <Outlet />
           </div>

@@ -94,7 +94,7 @@ describe('UX-04 busy lists (loop 2)', () => {
 })
 
 describe('UX-04 page transitions (loop 2)', () => {
-  it('UX-04 a new page fades in when the address changes, not when only the search changes', async () => {
+  it('UX-04 a new page enters when the address changes, not when only the search changes', async () => {
     leadLists()
     signedInAs(REP_ME)
     server.use(
@@ -107,7 +107,9 @@ describe('UX-04 page transitions (loop 2)', () => {
     await screen.findByRole('table', { name: 'Leads' })
     const first = screen.getByTestId('page-transition')
     expect(first.className).toMatch(/\banimate-in\b/)
-    expect(first.className).toMatch(/\bfade-in-0\b/)
+    expect(first.className).toMatch(/\bslide-in-from-bottom-1\b/)
+    // Movement only: a fade would lower text contrast while it runs (NFR-10).
+    expect(first.className).not.toMatch(/\bfade-in/)
 
     await router.navigate('/leads?q=acme')
     await screen.findByRole('table', { name: 'Leads' })
