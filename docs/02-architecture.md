@@ -258,7 +258,7 @@ As built (Phase 7a, ADR 0026): the rest of the backend depends only on the `LLM`
 
 ### 8.3 Tools in R1 (all read-only)
 
-`search_leads`, `search_opportunities`, `search_organizations`, `get_record` (by type and ID), `list_activities`, `pipeline_summary`, `forecast_summary`, `my_tasks`. Each has a strict JSON schema, bounded result sizes (maximum 25 rows), and returns record IDs so the answer can link to records.
+`search_leads`, `search_opportunities`, `search_organizations`, `search_contacts`, `get_record` (by type and ID), `list_activities`, `pipeline_summary`, `forecast_summary`, `win_loss_summary`, `lead_conversion_summary`, `my_tasks` (extended 2026-11-22; API spec 17 lists the arguments). Each has a strict JSON schema, bounded result sizes (maximum 25 rows), and returns record IDs so the answer can link to records.
 
 The model never receives database access, never writes SQL, and has no tool that changes data.
 

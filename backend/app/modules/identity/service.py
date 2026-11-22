@@ -938,6 +938,21 @@ async def user_names(session: AsyncSession, user_ids: set[UUID]) -> dict[UUID, s
     return {u.id: u.full_name for u in await repository.get_users(session, user_ids)}
 
 
+async def people_named(session: AsyncSession, name: str, limit: int = 10) -> list[tuple[UUID, str]]:
+    """Human users (active or not) whose name or email matches, as (id, full name), for
+    filters such as "Elena's opportunities" in the assistant. No email addresses leave."""
+    users, _ = await repository.list_users(
+        session,
+        q=name.strip(),
+        role_code=None,
+        is_active=None,
+        include_service=False,
+        offset=0,
+        limit=limit,
+    )
+    return [(u.id, u.full_name) for u in users]
+
+
 async def is_assignable_owner(session: AsyncSession, user_id: UUID) -> bool:
     """Records may be owned only by active human users (FR-INT-03 AC4 relies on this too)."""
     user = await repository.get_user(session, user_id)
