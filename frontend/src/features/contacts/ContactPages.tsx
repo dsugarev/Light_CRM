@@ -29,6 +29,7 @@ import { ExternalReferences } from '@/features/integrations/ExternalReferences'
 import { ExportMenu } from '@/features/reports/ExportMenu'
 import { useNotify } from '@/lib/notify'
 import { useTrackRecent } from '@/features/recent/useRecentRecords'
+import { detailListClass } from '@/components/detailList'
 
 import { ContactForm } from './ContactForm'
 import { contactDefaults, contactPayload, type ContactValues } from './contactValues'
@@ -425,7 +426,7 @@ export function ContactPage() {
       <FormMessage error={actionError instanceof ApiError ? actionError.code : null} />
       <Card>
         <CardContent>
-          <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+          <dl className={detailListClass()}>
             {rows.map(([label, value]) => (
               <div key={label} className="contents">
                 <dt className="text-muted-foreground">{label}</dt>

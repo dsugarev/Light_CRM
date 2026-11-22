@@ -144,6 +144,26 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Loop 2: a soft shadow on the edge of a sideways-scrolling table shows that more columns
+   are off-screen. The covers scroll with the content and hide the shadow at either end. */
+@utility scroll-shadow-x {
+  background:
+    linear-gradient(to right, var(--card) 30%, transparent) left / 2.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--card) 30%, transparent) right / 2.5rem 100% no-repeat local,
+    radial-gradient(
+        farthest-side at 0 50%,
+        color-mix(in oklch, var(--foreground) 18%, transparent),
+        transparent
+      )
+      left / 0.875rem 100% no-repeat scroll,
+    radial-gradient(
+        farthest-side at 100% 50%,
+        color-mix(in oklch, var(--foreground) 18%, transparent),
+        transparent
+      )
+      right / 0.875rem 100% no-repeat scroll;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring;

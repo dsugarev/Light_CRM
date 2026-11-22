@@ -27,6 +27,7 @@ import { useCan } from '@/lib/permissions'
 import { useLocale } from '@/lib/useLocale'
 import { useNotify } from '@/lib/notify'
 import { useTrackRecent } from '@/features/recent/useRecentRecords'
+import { detailListClass } from '@/components/detailList'
 
 type Contact = Schemas['ContactOut']
 
@@ -211,7 +212,7 @@ export function OrganizationPage() {
             <CardTitle>{t('organization.detail.details')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+            <dl className={detailListClass()}>
               {details.map(([label, value]) => (
                 <div key={label} className="contents">
                   <dt className="text-muted-foreground">{label}</dt>

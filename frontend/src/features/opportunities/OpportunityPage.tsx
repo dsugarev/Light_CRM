@@ -23,6 +23,7 @@ import { formatDate, formatDateTime, formatDay, formatMoney } from '@/lib/format
 import { useCan } from '@/lib/permissions'
 import { useLocale } from '@/lib/useLocale'
 import { useTrackRecent } from '@/features/recent/useRecentRecords'
+import { detailListClass } from '@/components/detailList'
 
 import { CloseForm } from './CloseForm'
 import { stageName, type Opportunity } from './opportunityValues'
@@ -117,7 +118,7 @@ export function OpportunityPage() {
             <CardTitle>{t('detail.details')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+            <dl className={detailListClass()}>
               {rows.map(([label, value]) => (
                 <div key={label} className="contents">
                   <dt className="text-muted-foreground">{label}</dt>

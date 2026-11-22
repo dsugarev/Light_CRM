@@ -40,6 +40,7 @@ import { describeUserAgent } from '@/lib/userAgent'
 import { storeLocale } from '@/lib/locale'
 import { useNotify } from '@/lib/notify'
 import { useLocale } from '@/lib/useLocale'
+import { detailListClass } from '@/components/detailList'
 
 import { MfaCard } from './MfaCard'
 
@@ -110,7 +111,7 @@ function DetailsCard({ me }: { me: Me }) {
           }}
         >
           <FormMessage success={save.isSuccess ? tc('states.saved') : null} />
-          <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
+          <dl className={detailListClass('compact')}>
             <dt className="text-muted-foreground">{t('details.email')}</dt>
             <dd>{me.email}</dd>
             <dt className="text-muted-foreground">{t('details.role')}</dt>
