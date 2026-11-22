@@ -171,6 +171,11 @@ Each requirement has an ID. Acceptance criteria (AC) are written to be directly 
 - AC3: Instructions inside CRM data can at most produce a visible card, never a change.
 - AC4: Confirmed actions are audited by the user with `via: assistant`; proposals expire after 30 minutes; at most 5 per answer.
 
+**FR-AI-10 (S, R1.1) The Admin chooses the AI model.** An Admin setting selects the assistant's model for all users from a fixed catalog (gpt-oss-120b via Cerebras, a free open-source model, Gemini). Owner decision 2026-11-22; ADR 0031.
+- AC1: The choice applies to every user's next question without a restart and is audited.
+- AC2: A model without a configured API key cannot be chosen; options whose provider may keep prompts are labelled so.
+- AC3: Users can see which model answers.
+
 **FR-AI-06 (M) Language.** The assistant replies in the language of the user's message, English or Bulgarian.
 
 **FR-AI-07 (M) Resilience.** If the LLM provider is unavailable or slow, the chat shows a clear error and the rest of the CRM is unaffected. An Admin setting (`AI_ENABLED`) switches the assistant off entirely.

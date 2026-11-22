@@ -32,3 +32,4 @@ One file per decision: `NNNN-title.md` with context, decision and consequences. 
 - [0028 Owner answers to the requirements' open questions, and the options kept open](0028-owner-answers-to-open-questions.md)
 - [0029 Exports follow the role matrix](0029-exports-follow-the-role-matrix.md)
 - [0030 The assistant proposes actions; the user confirms them](0030-assistant-actions-with-confirmation.md)
+- [0031 The Admin chooses the assistant's AI model](0031-admin-chooses-the-ai-model.md)
