@@ -2546,3 +2546,36 @@ main [data-slot='table-container']:not([data-slot='card'] *) {
 ```
 
 Deviation found and fixed: uppercase table headers made four Bulgarian tables scroll at 768 px (UX-13), so the headers are not uppercase.
+- **Iteration 2, interactivity:**
+  - a clickable **sales path** on the opportunity page (`StagePath.tsx`), which uses the existing move call; the "Stage" list stays;
+  - **clickable rows** through a `DataTable` `rowHref` prop on six lists (Ctrl-click or Cmd-click opens a new tab; links, buttons, menus and text selection keep their own behaviour);
+  - **KPI cards** as entry points with a stretched link and a hover lift;
+  - **board** feedback: hover lift, a tilt while dragging, and a peach drop column and green or red drop areas.
+  - User guides (en, bg) describe the path, row clicks and KPI cards.
+
+```tsx
+// OpportunityPage.tsx (OpportunityActions)
+<StagePath
+  opportunity={o}
+  stages={openStages}
+  onMove={editable && isOpen ? (stageId) => { move.mutate(stageId) } : undefined}
+  pending={move.isPending}
+/>
+```
+
+```tsx
+// DataTable.tsx: a row with rowHref opens the record unless the click was on a control
+function LinkedRow({ href, children }: { href: string; children: ReactNode }) {
+  const navigate = useNavigate()
+  const open = (event: MouseEvent<HTMLTableRowElement>) => {
+    if (event.target instanceof Element && event.target.closest(INTERACTIVE)) return
+    if (window.getSelection()?.toString()) return
+    if (event.metaKey || event.ctrlKey) { window.open(href, '_blank', 'noopener'); return }
+    void navigate(href)
+  }
+  return <TableRow data-href={href} className="cursor-pointer" onClick={open}>{children}</TableRow>
+}
+```
+
+End-to-end (2026-11-22): Chromium 48/48 with axe clean; visual 4/4 twice after updating the board and opportunity baselines. Firefox is left to CI.
+

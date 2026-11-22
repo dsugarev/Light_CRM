@@ -337,3 +337,65 @@ Prompt: apply a **warm colour scheme** to the interface, **add interactivity** t
 - Chromium end-to-end (E2E stack with CI's sign-in limits): the first full run found the UX-13 defect above. After the fix, layout, accessibility (axe), shell and keyboard (focus contrast) passed 12/12.
 - Visual (UX-14): every baseline changed, as intended. They were updated with `--update-snapshots`, and the next run passed 4/4.
 - Firefox can't start in the sandbox and is left to CI.
+
+## Loop 3, iteration 2 — interactivity like leading CRMs (2026-11-22)
+
+**What leading CRMs do:**
+- Salesforce shows a clickable "Path" of stages on every opportunity.
+- HubSpot and Pipedrive open a record from anywhere on its row.
+- CRM home pages use their KPI tiles as entry points.
+- Kanban boards respond to hover and drag with lift and colour.
+
+This iteration adds each of these through endpoints that already exist.
+
+**Changes:**
+- **Sales path on the opportunity page** (new `features/opportunities/StagePath.tsx`, used in `OpportunityPage.tsx`):
+  - The active open stages run left to right in pipeline order, followed by an outcome step.
+  - Passed stages are peach with a tick and a screen-reader "(passed)". The current stage is filled terracotta and marked `aria-current="step"`. Upcoming stages are muted.
+  - The outcome step reads "Closed" (dashed) while the deal is open, and becomes "Closed Won" in green or "Closed Lost" in red when closed.
+  - For someone who may edit the deal, every other open stage is a button named "Move to {stage}". It calls the existing `POST /opportunities/{id}/move` with the version (FR-OPP-02); on success the toast, the history and the badge refresh as before.
+  - Viewers and non-owners see the path without buttons. Buttons are disabled while a move is pending.
+  - On touch screens the segments are 44 px high. On narrow screens the path scrolls sideways inside its own strip, and the page itself doesn't scroll sideways.
+  - The existing "Stage" list and **Move** button stay. They are the form way, and the journeys use them.
+- **Clickable rows** (`DataTable` prop `rowHref`; organizations, opportunities, leads, contacts, users, imports):
+  - A click anywhere on a row opens the record; Ctrl-click or Cmd-click opens it in a new tab.
+  - Clicks on links, buttons, form controls and the row menu keep their own action, and selecting text in a row doesn't navigate.
+  - The link in the row stays the keyboard and screen-reader way in, so there is no extra tab stop.
+  - The row logic sits in a child component, so `DataTable` still works outside a router.
+- **KPI cards as entry points** (`reports/Dashboard.tsx`):
+  - "Open pipeline" opens the board, "Lead conversion rate" the leads, "Win rate" the win/loss report, and "My open tasks" the tasks, as before.
+  - The label link is stretched over the card (`after:inset-0`), so each card is one tab stop named by its label.
+  - The card lifts 2 px with a deeper shadow and a terracotta edge on hover, and shows a focus ring when its link has keyboard focus.
+- **Livelier board** (`BoardPage.tsx`):
+  - Each column has a terracotta top edge.
+  - A card lifts and its border warms on hover, and the cursor changes to "grabbing" while dragging.
+  - A dragged card tilts 1° with a brand ring.
+  - The column under a dragged card turns peach. The Won and Lost drop areas fill green or red when a card is over them, and their labels are now in green or red text.
+
+**Tests:**
+- `src/components/interactivity.test.tsx` (7 cases):
+  - path order and passed, current and upcoming steps;
+  - clicking a stage sends `move` with the version, and the path follows;
+  - no buttons for a non-owner;
+  - a won deal has every stage passed and a green outcome;
+  - a row click opens the record;
+  - Ctrl-click opens a new tab without navigating;
+  - selecting text doesn't navigate.
+- `src/features/reports/reports.test.tsx` (+1): the KPI card links and their targets, the stretched link, and the hover and focus classes.
+
+**Runs:**
+- Frontend gate: lint, typecheck, Vitest 356/356, i18n 1212 keys (4 new `opportunities:path.*` keys in en and bg).
+- Chromium end-to-end: 48/48, including axe on every page (the opportunity page with the path), keyboard focus contrast, and the Bulgarian 768 px layout.
+- Visual: the board and opportunity baselines changed, as intended (8 images). They were updated, and the next two runs passed 4/4 each.
+  - One run before the update also reported the English forgot-password page. It passed on its own and in both later runs, so it was a one-off timing difference, not a change.
+- Checked by hand in Chromium: a row click on the opportunities list opened the record, and the path renders at 1440 and 768 px.
+- Firefox can't start in the sandbox and is left to CI.
+
+## Summary of loop 3
+
+| Iteration | Improvement | Where |
+|---|---|---|
+| 1 | Warm theme: warm stone neutrals, cream page with white panels, terracotta brand with a darker hover, warning off the brand hue, warm sidebar and active state, lettermark, warm charts | `index.css`, `AppLayout`, `AppNav`, `ui/table`, `ui/card`, `ui/button`, `ui/badge` |
+| 2 | Interactivity: clickable sales path, clickable list rows, KPI cards as entry points, livelier board | `StagePath`, `OpportunityPage`, `DataTable` + 6 lists, `Dashboard`, `BoardPage` |
+
+Owner items still open: logo and favicon (C-01, assets needed), dark mode (C-02).

@@ -51,6 +51,11 @@ Fixes:
 
 Primary buttons darken on hover rather than fading, so their text keeps contrast. The active navigation item is shown by `aria-current="page"`, by weight and by a leading bar, not by colour alone. Axe, keyboard focus-contrast and the Bulgarian 768 px layout check passed in Chromium on 2026-11-22.
 
+**Interactivity (UI loop 3).**
+- **Sales path:** an ordered list named "Sales path". The current stage has `aria-current="step"`, and passed stages carry a screen-reader "(passed)", so progress isn't shown by colour alone. Each stage button is named "Move to {stage}", which contains its visible text (WCAG 2.5.3).
+- **Clickable rows:** they add mouse convenience only. The link in the row stays the single keyboard and screen-reader target, so there are no extra tab stops.
+- **KPI cards:** each card is one link named by its label and stretched over the card. Keyboard focus rings the whole card.
+
 ## Keyboard walkthroughs (`frontend/e2e/keyboard.spec.ts`)
 
 Automated so they stay true: only Tab, Enter, Escape and typing, no clicks.
