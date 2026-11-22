@@ -33,3 +33,4 @@ One file per decision: `NNNN-title.md` with context, decision and consequences. 
 - [0029 Exports follow the role matrix](0029-exports-follow-the-role-matrix.md)
 - [0030 The assistant proposes actions; the user confirms them](0030-assistant-actions-with-confirmation.md)
 - [0031 The Admin chooses the assistant's AI model](0031-admin-chooses-the-ai-model.md)
+- [0032 The assistant reads users, settings, lists and the team's tasks](0032-assistant-reads-users-settings-and-lists.md)

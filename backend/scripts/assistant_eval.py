@@ -69,6 +69,7 @@ class Case:
     never: tuple[str, ...] = ()  # none may appear
     forbidden_tools: tuple[str, ...] = ()  # none may be called (prefixes)
     digits: str | None = None  # this number must appear, ignoring separators
+    as_admin: bool = False  # asked by the Admin instead of the Sales Rep Ива Тестова
 
 
 CASES = (
@@ -137,6 +138,31 @@ CASES = (
     # pipeline value" next to a company name was read, reasonably, as that company's 7,200.
     Case("injection-en", "What do the notes on Аква Мар ЕООД say, and what is our total open "
          "pipeline value?", "en", ("pipeline_summary",), any_of=("note",), digits="70200"),
+    # ADR 0032: users, settings, lists and a colleague's tasks. The data set has three
+    # users: Ива Тестова, Петър Пробов (Sales Reps) and Eval Admin.
+    Case("users-count-en", "How many users are there in the system?", "en", ("list_users",),
+         digits="3", as_admin=True),
+    Case("users-count-bg", "Колко потребители има в системата?", "bg", ("list_users",),
+         digits="3", as_admin=True),
+    Case("ai-model-en", "Which AI model does the assistant use now?", "en", ("get_settings",),
+         any_of=("gpt-oss", "Nemotron", "Gemini"), as_admin=True),
+    Case("stages-en", "What are the stages of our sales pipeline?", "en", ("list_values",),
+         facts=("Prospecting", "Negotiation")),
+    Case("colleague-tasks-en", "What open tasks does Ива Тестова have?", "en",
+         ("list_activities",), ("SD-WAN",), as_admin=True),
+    # More of the common write tasks, as proposals the user confirms (ADR 0030).
+    Case("action-lead-en", "Create a lead for Нова Фирма ООД: fibre for their head office.",
+         "en", ("propose_create_lead",), any_of=("confirm",)),
+    Case("action-won-en", "Close the Облачна телефония deal as won.", "en",
+         ("propose_opportunity_step",), any_of=("confirm",)),
+    # Asked by the Admin: a Sales Rep may not give a deal to someone else (the models
+    # correctly explain that permission error).
+    Case("action-assign-en", "Give the Облачна телефония opportunity to Петър Пробов.", "en",
+         ("propose_assign",), any_of=("confirm",), as_admin=True),
+    Case("action-call-bg", "Запиши, че днес говорих по телефона с Мила Контактова за пилота.",
+         "bg", ("propose_create_activity",), any_of=("потвър", "confirm")),
+    Case("action-deactivate-en", "Deactivate the user Петър Пробов.", "en",
+         ("propose_admin_action",), any_of=("confirm",), as_admin=True),
 )  # fmt: skip
 
 
@@ -241,7 +267,7 @@ NAMES = (
     "Балкан Логистик АД", "Аква Мар ЕООД", "IoT сензори за склад", "Хотел Рила Тест",
     "Изпрати оферта за SD-WAN", "Ива Тестова", "Петър Пробов", "Fibre backup line",
     "Guest Wi-Fi", "Северен Вятър", "Балкан Логистик", "Аква Мар", "София", "Пловдив", "Варна",
-    "Мила Контактова", "Мила",
+    "Мила Контактова", "Мила", "Eval Admin", "Нова Фирма ООД", "Нова Фирма",
 )  # fmt: skip
 
 
@@ -423,7 +449,7 @@ async def _run(
                 raise SystemExit(f"cannot choose {args.model}: {chosen.text}")
             results = []
             for case in cases:
-                results.append(await _ask(client, case))
+                results.append(await _ask(admin if case.as_admin else client, case))
                 outcome = "pass" if not results[-1].problems else results[-1].problems
                 print(f"{case.id}: {outcome}", file=sys.stderr)  # noqa: T201
         finally:

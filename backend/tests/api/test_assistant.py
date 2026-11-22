@@ -558,6 +558,9 @@ def test_FR_AI_05_only_read_only_tools_exist() -> None:
         "search_contacts",
         "win_loss_summary",
         "lead_conversion_summary",
+        "list_users",
+        "get_settings",
+        "list_values",
     }
     for schema in tools.schemas():
         assert schema["function"]["parameters"]["additionalProperties"] is False

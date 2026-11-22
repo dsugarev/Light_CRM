@@ -44,6 +44,12 @@
     "pipeline_summary": "Обобщава фунията…",
     "forecast_summary": "Изчислява прогнозата…",
     "my_tasks": "Чете вашите задачи…",
+    "search_contacts": "Търси контакти…",
+    "win_loss_summary": "Брои спечелените и загубените сделки…",
+    "lead_conversion_summary": "Изчислява конверсията…",
+    "list_users": "Чете потребителите…",
+    "get_settings": "Чете настройките…",
+    "list_values": "Чете списъците…",
     "other": "Търси данни в CRM…",
     "propose": "Подготвям действието…"
   },

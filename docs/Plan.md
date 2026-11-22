@@ -2757,3 +2757,30 @@ messages=(
 
 - Nemotron's evaluation needed OpenRouter's higher free cap: 50 free-model requests a day until 10 USD of credits had been bought, then 1,000. The owner bought the credits; the run passed 28/28.
 - Data protection: the free OpenRouter endpoint and Gemini's free tier may keep prompts. The UI, the admin manual and the operations guide say so; the DPO's approval is needed before using them with real customer data.
+
+### Phase 10 follow-up: the assistant reads users, settings, lists and the team's tasks (ADR 0032)
+
+The owner reported that every model answered "How many users are there in the system?" with "I don't have a tool to query the users", and asked that the assistant handle the most common read and write tasks. The models were right: the tools could read only CRM records, reports and the user's own tasks. Write actions already covered the ADR 0030 scope.
+
+| # | Task | Result |
+|---|---|---|
+| 10.7 | `list_users`, `get_settings`, `list_values`; `list_activities` filters for owner, assignee, open, overdue and date ranges | Done (`app/modules/assistant/tools.py`; `identity.all_users`, `reference.list_values`) |
+| 10.8 | Prompt: which tool answers which question | Done |
+| 10.9 | Tests (`tests/api/test_assistant_reads.py`) and 10 new evaluation cases (5 reads, 5 writes), with an Admin as the asker where needed | Done; run 7: gpt-oss 38/38, Gemini 38/38, Nemotron 37/38 (one provider error, 3/3 on rerun) |
+| 10.10 | Chat progress labels for the new tools; ADR 0032, architecture 8.3, API spec 17, manuals, user guides, release notes | Done |
+
+Access follows the screens:
+
+```python
+# app/modules/assistant/tools.py, list_users
+users = await identity.all_users(ctx.session, ctx.now)
+if ctx.principal.role is not RoleCode.ADMIN:
+    active = [u for u in users if u.is_active]
+    ...  # the number of active users and their names only
+    return {"active_users": len(active), "items": [{"name": u.full_name} for u in shown], ...}
+# Admins: totals by status, active users by role, name/role/status/last sign-in date
+```
+
+- `get_settings` gives other roles `not_allowed_for_role`. `list_values` and the activity filters are open to every signed-in user, as the API is.
+- No email address, session, key or audit entry reaches the model.
+

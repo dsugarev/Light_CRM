@@ -218,6 +218,8 @@ If your Admin has switched it on, select **Assistant** in the top bar. Ask in En
 - *What is the pipeline value by stage?*
 - *Which opportunities of the team close this month?*
 - *Summarize the history with Sunrise Foods.*
+- *Which tasks of the team are overdue?* or *What open tasks does Ivan have?*
+- *What did Elena log last week?*
 
 ![The assistant answering with the open pipeline by stage.](images/common/assistant-answer.png)
 *Figure 12. An answer from the assistant. (Example from a test system; your figures will differ.)*

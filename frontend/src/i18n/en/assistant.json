@@ -44,6 +44,12 @@
     "pipeline_summary": "Summing up the pipeline…",
     "forecast_summary": "Calculating the forecast…",
     "my_tasks": "Reading your tasks…",
+    "search_contacts": "Searching contacts…",
+    "win_loss_summary": "Counting won and lost deals…",
+    "lead_conversion_summary": "Calculating lead conversion…",
+    "list_users": "Reading the users…",
+    "get_settings": "Reading the settings…",
+    "list_values": "Reading the lists…",
     "other": "Looking up CRM data…",
     "propose": "Preparing the action…"
   },

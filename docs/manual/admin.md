@@ -315,6 +315,7 @@ The assistant is switched on or off on the server (`AI_ENABLED`, see the operati
 
 Points to share with users:
 - It **prepares changes that the user confirms** (FR-AI-09, ADR 0030): a card shows exactly what will happen, and only **Confirm** runs it, with the user's own permissions. Cards expire after 30 minutes. Audit entries of confirmed changes carry `via: assistant`.
+- **For Admins** it also answers questions about the system (ADR 0032): *How many users are there?*, *Which accounts are locked?*, *Who are our Sales Managers?*, *Which AI model do we use?*, *What are the session timeouts?* It sees what Admin → Users and Settings show, except email addresses. Other users get only the names of active colleagues. Everyone can ask about the pipeline stages and the lists (industries, lead sources, loss reasons) and about anyone's tasks.
 - **For Admins** it can also prepare administration as cards:
   - create, edit, deactivate, activate and unlock users, and sign them out everywhere. A new user's one-time link is shown once in the card and never stored in the chat;
   - change settings;
