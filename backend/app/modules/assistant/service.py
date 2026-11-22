@@ -69,6 +69,12 @@ TOOL_TEXT_RETRY = (
     "Your last reply wrote a tool call as text instead of calling the tool. Call tools only "
     "through the function-calling interface, then answer only from their real results."
 )
+# Sent before the last call, which offers no tools: some models (Gemini) otherwise end a
+# long, fruitless search with an empty answer instead of saying nothing was found.
+FINAL_ROUND_NOTE = (
+    "You have used all tool calls for this question. Answer now, only from the tool results "
+    "above. If they do not contain what the user asked for, say that you could not find it."
+)
 STOP_CHECK_SECONDS = 0.5
 CONVERSATION_SORT = {"updated_at": ChatConversation.updated_at}
 _TITLE_CHARS = 80
@@ -602,6 +608,8 @@ async def _answer(
     retried_leak = False
     while True:
         offer_tools = result.rounds < MAX_TOOL_ROUNDS
+        if not offer_tools and prompt[-1].get("content") != FINAL_ROUND_NOTE:
+            prompt.append({"role": "system", "content": FINAL_ROUND_NOTE})
         calls: tuple[ToolCall, ...] = ()
         round_text = ""
         # Some models write their tool call (or a made-up tool result) as text before

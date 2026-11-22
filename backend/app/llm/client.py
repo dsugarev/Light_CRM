@@ -52,10 +52,35 @@ class Route:
     api_key: str
     api_base: str | None
     extra_body: dict[str, Any] | None
+    # On a call without tools, send earlier tool calls and results as plain text. Gemini
+    # otherwise answers with another call to a tool it saw earlier, and no text, even
+    # with tool_choice "none" (checked on gemini-3.5-flash, 2026-11-22).
+    flatten_without_tools: bool = False
 
 
 def _secret(value: Any) -> str | None:
     return value.get_secret_value() or None if value is not None else None
+
+
+def _as_text(messages: Sequence[Message]) -> list[Message]:
+    """The conversation with its tool calls and tool results turned into plain messages."""
+    calls: dict[str, tuple[str, str]] = {}
+    out: list[Message] = []
+    for message in messages:
+        if message.get("role") == "assistant" and message.get("tool_calls"):
+            for call in message["tool_calls"]:
+                function = call["function"]
+                calls[call["id"]] = (function["name"], function["arguments"])
+            if message.get("content"):
+                out.append({"role": "assistant", "content": message["content"]})
+        elif message.get("role") == "tool":
+            name, arguments = calls.get(message["tool_call_id"], ("tool", ""))
+            out.append(
+                {"role": "user", "content": f"[Result of {name} {arguments}]\n{message['content']}"}
+            )
+        else:
+            out.append(message)
+    return out
 
 
 class LiteLLMClient:
@@ -74,7 +99,11 @@ class LiteLLMClient:
             if key is None:
                 raise LLMUnavailableError("MissingApiKey")
             return Route(
-                model=option.litellm_model or "", api_key=key, api_base=None, extra_body=None
+                model=option.litellm_model or "",
+                api_key=key,
+                api_base=None,
+                extra_body=None,
+                flatten_without_tools=True,
             )
         key = _secret(settings.openrouter_api_key)
         if key is None:
@@ -101,7 +130,11 @@ class LiteLLMClient:
             async with asyncio.timeout(self._timeout):
                 response = await litellm.acompletion(
                     model=route.model,
-                    messages=list(messages),
+                    messages=(
+                        _as_text(messages)
+                        if route.flatten_without_tools and not tools
+                        else list(messages)
+                    ),
                     tools=list(tools) if tools else None,
                     stream=True,
                     stream_options={"include_usage": True},

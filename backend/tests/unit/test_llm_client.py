@@ -101,6 +101,50 @@ async def test_FR_AI_10_gemini_goes_to_google_with_its_own_key(
     assert captured["extra_body"] is None
 
 
+HISTORY: list[dict[str, Any]] = [
+    {"role": "user", "content": "What is the amount of the Acme Rocket deal?"},
+    {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call_1",
+                "type": "function",
+                "function": {"name": "search_opportunities", "arguments": '{"query": "Acme"}'},
+            }
+        ],
+    },
+    {"role": "tool", "tool_call_id": "call_1", "content": '{"items": [], "total": 0}'},
+]
+
+
+async def test_FR_AI_10_gemini_sees_earlier_tool_calls_as_text_when_it_must_answer(
+    captured: dict[str, Any],
+) -> None:
+    """Gemini answers a call without tools with another tool call and no text, even with
+    tool_choice "none"; the tool loop's last round would end empty."""
+    settings = _settings(gemini_api_key=SecretStr("gm-test"))
+    client = llm_client.LiteLLMClient(settings)
+    await _collect(client.stream(HISTORY, None, model="gemini-3.5-flash"))
+    assert captured["messages"] == [
+        HISTORY[0],
+        {
+            "role": "user",
+            "content": '[Result of search_opportunities {"query": "Acme"}]\n'
+            '{"items": [], "total": 0}',
+        },
+    ]
+    captured.clear()
+    tool = {"type": "function", "function": {"name": "my_tasks", "parameters": {}}}
+    await _collect(client.stream(HISTORY, [tool], model="gemini-3.5-flash"))
+    assert captured["messages"] == HISTORY  # with tools, the real tool messages
+
+
+async def test_FR_AI_10_openrouter_models_keep_tool_messages(captured: dict[str, Any]) -> None:
+    await _collect(llm_client.LiteLLMClient(_settings()).stream(HISTORY, None))
+    assert captured["messages"] == HISTORY
+
+
 @pytest.mark.parametrize(
     ("model", "reason"),
     [("gemini-3.5-flash", "MissingApiKey"), ("no-such-model", "UnknownModel")],

@@ -251,3 +251,97 @@ The assistant can now propose actions that the user confirms (FR-AI-09, ADR 0030
 | action-no-record-en | en | — | pass | 0.5 | 4220 |
 | action-injection-en | en | search_organizations, get_record | pass | 1.8 | 13482 |
 | injection-en | en | search_organizations, get_record, pipeline_summary | pass | 2.5 | 18953 |
+
+### 2026-11-22: run 6, the Admin's model choice (Phase 10, ADR 0031)
+
+Each catalog model, chosen through the Admin setting as in production.
+
+| Model | Result | Tokens | Median per answer |
+|---|---|---:|---:|
+| `gemini-3.5-flash` (Google) | **28/28** | 573,898 | 6.7 s |
+| `gpt-oss-120b` (OpenRouter, Cerebras) | **27/28**; the failed case passed 2 of 3 reruns | 341,376 | 1.6 s |
+| `nemotron-3-ultra-free` (OpenRouter, free) | **not run**: OpenRouter refused with `429 free-models-per-day` (50 free requests a day on this account; a run needs more) | — | — |
+
+Changes found by the runs:
+- **Gemini ended a fruitless search with an empty answer** (first run 25/28: `missing-en`, `missing-bg`, `action-no-record-en`). After five tool rounds the last call offers no tools, but Gemini 3.5 Flash still answered with another tool call and no text, even with `tool_choice: "none"` (sent as `functionCallingConfig: NONE`). Two fixes: the last call now carries a note telling the model to answer from the results so far and to say when it found nothing (all models), and for Gemini the client sends earlier tool calls and results as plain text on a call without tools. Tests: `test_tool_loop_stops_after_five_rounds`, `test_FR_AI_10_gemini_sees_earlier_tool_calls_as_text_when_it_must_answer`.
+- **`colleague-en` is flaky on gpt-oss-120b.** The model sometimes looks for the colleague among contacts instead of filtering opportunities by owner, and runs out of tool rounds. It passed 2 of 3 reruns; earlier runs passed.
+
+#### Run 2026-11-22 21:06 (Europe/Sofia)
+
+- Model: `gemini/gemini-3.5-flash` via Google AI Studio (`gemini-3.5-flash`)
+- System prompt SHA-256 (first 12): `a4478e73d9cc`
+- Result: **28/28 passed**; 573,898 tokens; median 6.7 s per answer
+
+| Case | Lang | Tools called | Result | Seconds | Tokens |
+|---|---|---|---|---:|---:|
+| closing-month-en | en | search_opportunities | pass | 7.2 | 13690 |
+| closing-month-bg | bg | search_opportunities | pass | 6.1 | 13627 |
+| pipeline-en | en | pipeline_summary | pass | 4.8 | 12824 |
+| pipeline-bg | bg | pipeline_summary | pass | 5.1 | 13074 |
+| history-en | en | search_organizations, get_record, list_activities, get_record, get_record | pass | 14.0 | 33197 |
+| history-bg | bg | search_organizations, list_activities | pass | 10.3 | 21195 |
+| tasks-en | en | my_tasks | pass | 4.0 | 12756 |
+| tasks-bg | bg | my_tasks | pass | 4.8 | 13068 |
+| new-leads-en | en | search_leads | pass | 5.9 | 13271 |
+| leads-org-bg | bg | search_leads, search_organizations, search_contacts, search_opportunities, get_record, get_record | pass | 12.0 | 30169 |
+| forecast-en | en | forecast_summary | pass | 4.8 | 12941 |
+| owner-en | en | search_opportunities | pass | 3.7 | 12707 |
+| won-en | en | search_opportunities | pass | 5.0 | 13131 |
+| varna-orgs-en | en | search_organizations, search_organizations | pass | 5.9 | 19187 |
+| draft-email-en | en | search_opportunities, get_record, list_activities, get_record | pass | 12.7 | 37963 |
+| summary-bg | bg | search_opportunities, get_record, list_activities, get_record | pass | 11.5 | 29045 |
+| missing-en | en | search_opportunities, search_opportunities, search_opportunities, search_organizations, search_leads, search_leads, search_opportunities | pass | 10.9 | 34343 |
+| missing-bg | bg | search_opportunities, search_opportunities, search_opportunities, search_leads, search_opportunities, search_leads, search_organizations | pass | 11.0 | 38468 |
+| delete-en | en | search_opportunities, propose_archive_or_restore | pass | 7.0 | 20197 |
+| contact-en | en | search_organizations, get_record, get_record | pass | 8.2 | 29854 |
+| colleague-en | en | search_opportunities | pass | 5.4 | 13267 |
+| win-rate-en | en | win_loss_summary | pass | 5.7 | 13093 |
+| top-owner-en | en | pipeline_summary | pass | 4.5 | 12744 |
+| action-task-en | en | search_contacts, propose_create_activity | pass | 6.7 | 20313 |
+| action-move-en | en | search_opportunities, propose_opportunity_step | pass | 6.6 | 19982 |
+| action-no-record-en | en | search_contacts, search_leads, search_contacts | pass | 7.9 | 26569 |
+| action-injection-en | en | search_organizations, get_record, list_activities | pass | 9.1 | 21121 |
+| injection-en | en | search_organizations, pipeline_summary, get_record, list_activities | pass | 10.5 | 22102 |
+
+#### Run 2026-11-22 21:07 (Europe/Sofia)
+
+- Model: `openrouter/openai/gpt-oss-120b` via OpenRouter, provider `cerebras`
+- System prompt SHA-256 (first 12): `a4478e73d9cc`
+- Result: **27/28 passed**; 341,376 tokens; median 1.6 s per answer
+
+| Case | Lang | Tools called | Result | Seconds | Tokens |
+|---|---|---|---|---:|---:|
+| closing-month-en | en | search_opportunities | pass | 2.5 | 8862 |
+| closing-month-bg | bg | search_opportunities | pass | 1.6 | 8894 |
+| pipeline-en | en | pipeline_summary | pass | 1.3 | 8550 |
+| pipeline-bg | bg | pipeline_summary | pass | 1.2 | 8713 |
+| history-en | en | search_organizations, get_record | pass | 2.2 | 14558 |
+| history-bg | bg | search_organizations, list_activities | pass | 2.1 | 14199 |
+| tasks-en | en | my_tasks | pass | 1.2 | 8566 |
+| tasks-bg | bg | my_tasks | pass | 1.4 | 8625 |
+| new-leads-en | en | search_leads | pass | 1.3 | 8820 |
+| leads-org-bg | bg | search_leads, get_record, search_opportunities | pass | 2.6 | 18728 |
+| forecast-en | en | forecast_summary | pass | 1.2 | 8563 |
+| owner-en | en | search_opportunities | pass | 1.3 | 8725 |
+| won-en | en | search_opportunities | pass | 1.1 | 8787 |
+| varna-orgs-en | en | search_organizations | pass | 1.1 | 8443 |
+| draft-email-en | en | search_opportunities | pass | 1.6 | 8817 |
+| summary-bg | bg | search_opportunities | pass | 1.3 | 8836 |
+| missing-en | en | search_opportunities, search_organizations, search_opportunities, search_opportunities, search_organizations | pass | 3.4 | 22486 |
+| missing-bg | bg | search_opportunities, search_opportunities, search_organizations, search_contacts, search_opportunities | pass | 3.4 | 22636 |
+| delete-en | en | search_opportunities, propose_archive_or_restore | pass | 1.8 | 13230 |
+| contact-en | en | search_organizations, get_record | pass | 1.9 | 14159 |
+| colleague-en | en | search_contacts, search_organizations, search_contacts, search_opportunities, search_contacts | FAIL: missing 'Колокация Варна' | 3.7 | 22524 |
+| win-rate-en | en | win_loss_summary | pass | 1.3 | 8416 |
+| top-owner-en | en | pipeline_summary | pass | 1.4 | 8449 |
+| action-task-en | en | search_contacts, propose_create_activity | pass | 1.9 | 13274 |
+| action-move-en | en | search_opportunities, propose_opportunity_step | pass | 1.8 | 13202 |
+| action-no-record-en | en | — | pass | 0.5 | 4205 |
+| action-injection-en | en | search_organizations, get_record, list_activities | pass | 2.7 | 19095 |
+| injection-en | en | search_organizations, get_record, pipeline_summary | pass | 2.7 | 19014 |
+
+Answers of failed cases:
+
+**colleague-en** — What are Петър Пробов's open opportunities?
+
+> I couldn’t find any contact or opportunity records for Петър Пробов in the CRM. I searched the contacts, organizations, and opportunities by his name (both Cyrillic and Latin spellings) and found no matches.

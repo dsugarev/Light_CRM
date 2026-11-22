@@ -2714,7 +2714,7 @@ The owner added a Gemini API key and asked for a free open-source model on OpenR
 | 10.2 | Model catalog and per-request routing; `GEMINI_API_KEY` | Done (`app/llm/models.py`, `LiteLLMClient.route`) |
 | 10.3 | Setting `ai_model` (migration `0013`), validation, `GET /settings/ai-models`, model in `/assistant/status` | Done (additive) |
 | 10.4 | Settings: AI model select with availability and the data note; model name in the chat | Done (en, bg) |
-| 10.5 | Tests and the live evaluation of each model | Tests done (Test_strategy section 26). Live evaluation of Nemotron and Gemini **open**: blocked by the providers' free daily quotas on 2026-11-22 |
+| 10.5 | Tests and the live evaluation of each model | Gemini 28/28, gpt-oss-120b 27/28 (one flaky case). Nemotron **open**: OpenRouter's free daily request cap (`docs/assistant-eval.md`, run 6) |
 | 10.6 | Admin manual, user guides, operations guide, architecture, README, release notes | Done |
 
 Choosing the free model: OpenRouter listed 11 free models with tool support. The NVIDIA Nemotron 3 Ultra endpoint (550B mixture of experts, open weights, served by NVIDIA) made correct tool calls on the owner's account; Google Gemma 4 31B (free) was rate-limited. Gemini: the approved "Gemini 2.5 Flash" is refused to new keys (`404 no longer available to new users`), and Gemini 3.6, 3.7, 3.8 Flash and `gemini-flash-latest` answered `503 high demand` or timed out. The option therefore uses `gemini-3.5-flash`, which answered with tool calls over several rounds.
@@ -2744,5 +2744,16 @@ Deviations and notes:
 - `/settings/ai-models` lives in `core/runtime_settings.py` next to the other settings routes; its data comes from `app.state.ai_models`.
 - Changing the model takes effect at once in the process that saved it, and within the 30-second settings cache elsewhere.
 - The evaluation script takes `--model` and chooses it through the Admin setting, as in production.
-- Open item: the 28-case live evaluation for `nemotron-3-ultra-free` and `gemini-3.5-flash` (ADR 0031, decision 6) must pass before either is used in production. On 2026-11-22 both providers refused further requests on the free daily quota.
+- **Gemini's empty answers** (found by the evaluation): on the last call of the tool loop, which offers no tools, Gemini 3.5 Flash still answered with a tool call and no text, even with `tool_choice: "none"`. The last call now carries a note to answer from the results so far (all models), and for Gemini the client sends earlier tool calls and results as plain text on a call without tools:
+
+```python
+# app/llm/client.py, LiteLLMClient.stream
+messages=(
+    _as_text(messages)  # tool calls and results as plain user/assistant messages
+    if route.flatten_without_tools and not tools
+    else list(messages)
+),
+```
+
+- Open item: the 28-case live evaluation for `nemotron-3-ultra-free` (ADR 0031, decision 6) must pass before it is used in production. OpenRouter allows this account 50 free-model requests a day (`429 free-models-per-day`); a run needs more. OpenRouter raises the cap to 1,000 a day once credits are bought.
 - Data protection: the free OpenRouter endpoint and Gemini's free tier may keep prompts. The UI, the admin manual and the operations guide say so; the DPO's approval is needed before using them with real customer data.

@@ -495,6 +495,9 @@ async def test_tool_loop_stops_after_five_rounds(test_app: TestApp, llm: Scripte
     assert len(llm.calls) == 6
     assert all(tools_offered is not None for _, tools_offered in llm.calls[:5])
     assert llm.calls[5][1] is None  # the sixth call must answer: no tools offered
+    # ... and is told so, or some models (Gemini) give an empty answer after a long search.
+    assert llm.calls[5][0][-1] == {"role": "system", "content": assistant_service.FINAL_ROUND_NOTE}
+    assert all(assistant_service.FINAL_ROUND_NOTE not in str(sent) for sent, _ in llm.calls[:5])
     assert text_of(stream) == "Enough."
     async with test_app.sessions() as session:
         [usage] = (await session.execute(select(AssistantUsage))).scalars()
