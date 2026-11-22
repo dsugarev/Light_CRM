@@ -22,6 +22,7 @@ A light B2B CRM for a telecom Commercial team (about 20 internal users, on-premi
 | `docs/integration-guide.md`, `docs/integration/` | Guide and Postman collection for the Conclusion, ERP and Billing teams; tests run its Python sample and check the collection against the routes |
 | `docs/operations-guide.md`, `docs/user-guide.*.md`, `docs/integration-readiness.md` | Operator, user and integrating-team guides; keep them current with behaviour and configuration |
 | `docs/accessibility.md`, `docs/acceptance-checklist.md`, `docs/release-notes.md` | Accessibility record, user acceptance checklist, release notes |
+| `docs/manual/` | User manuals, one per role (Sales Rep, Sales Manager, Admin, Viewer), with screenshots and PDFs; update them with every user-facing change (maintenance steps in its README) |
 | `docs/security/asvs-l1.md` | OWASP ASVS Level 1 checklist (NFR-04): status and evidence per requirement; keep it current when security behaviour changes |
 | `docs/assistant-eval.md` | Live evaluation of the AI assistant (cases, results); rerun when the prompt, tools or model change |
 
@@ -104,6 +105,8 @@ pnpm e2e                      # Playwright against https://localhost (E2E_BASE_U
                               # stack with the scripted model: COMPOSE_FILE=docker-compose.yml:docker-compose.e2e.yml
 pnpm e2e:visual               # UX-14 screenshot baselines (en/bg, 1440/768); macOS baselines, not in CI;
                               # after an intended UI change: pnpm e2e:visual --update-snapshots
+pnpm manual:screenshots       # screenshots for docs/manual (MANUAL_PASSWORD; the four manual-*@example.test users)
+../scripts/build-manual-pdfs.sh  # docs/manual/pdf from the Markdown manuals (pandoc + Playwright Chromium)
 ```
 
 Documentation is part of done (owner instruction): before a phase closes and before the next starts, update `docs/Plan.md`, `docs/05-api-specification.md` (payloads, rules, status table), `docs/api/openapi.json`, `docs/Test_strategy.md` (strategy, cases, runs; regenerate the inventory with `python3 scripts/test_inventory.py`), README and ADRs.

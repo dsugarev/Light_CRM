@@ -2579,3 +2579,31 @@ function LinkedRow({ href, children }: { href: string; children: ReactNode }) {
 
 End-to-end (2026-11-22): Chromium 48/48 with axe clean; visual 4/4 twice after updating the board and opportunity baselines. Firefox is left to CI.
 
+## User manuals per role (2026-11-22)
+
+New-user manuals in `docs/manual/`: an index (`README.md`) with a role comparison, and one manual each for the Sales Rep, Sales Manager, Admin and Viewer roles.
+- **Format:** Markdown as the source (renders on GitHub, reviewed like code), plus generated PDFs in `docs/manual/pdf/` for printing and email.
+- **Structure of each manual:**
+  - who it is for and what the role can do;
+  - getting started (first password, sign-in, the screen, profile, language, two-factor sign-in);
+  - task chapters, each opened by a user story, with numbered steps and captioned screenshots;
+  - what the role can't do and who can;
+  - troubleshooting, a glossary and a quick reference.
+- **Screenshots** (59 images, 1280 × 800) come from `frontend/e2e/manual.spec.ts` (Playwright project `manual`, `pnpm manual:screenshots`). It signs in as four fictional users, one per role, who own a small set of fictional sample records. It only reads: forms are opened, not saved. Records left by automated test runs are hidden in the browser so only the sample data shows. The project is excluded from `pnpm e2e` and CI, like `visual`.
+- **PDFs:** `scripts/build-manual-pdfs.sh` (pandoc to self-contained HTML with `docs/manual/manual.css`, printed by Playwright Chromium through `frontend/scripts/manual-pdf.mjs`, with page numbers and an outline).
+
+```ts
+// frontend/e2e/manual.spec.ts: one fictional user per role
+const USERS = {
+  admin: 'manual-admin@example.test',
+  manager: 'manual-manager@example.test',
+  rep: 'manual-rep@example.test',
+  viewer: 'manual-viewer@example.test',
+} as const
+```
+
+Found while writing (raised with the owner, not changed):
+- the requirements say Viewers can't export and Sales Reps export only their own data, but `data.export` is not enforced and the export endpoints are open to every signed-in user (API spec 14). The manuals describe the current behaviour;
+- the import page shows **Roll back import** to Sales Managers, although the endpoint is Admin-only (403);
+- the board shows its drag help text to Viewers, who can't drag.
+

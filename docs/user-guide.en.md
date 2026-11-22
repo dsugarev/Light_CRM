@@ -2,6 +2,8 @@
 
 A short guide for the Commercial team. The application is in English and Bulgarian: change the language under **My profile** (your name, top right) or with the language switch.
 
+New to Light CRM? The step-by-step [manual for your role](manual/README.md) has screenshots for every task.
+
 ## Signing in
 
 Open the address you were given and sign in with your work email and password. After five wrong attempts the account is locked for 15 minutes. **Forgot your password?** sends a reset link if email is set up; otherwise ask an Admin for a link.
