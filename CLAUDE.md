@@ -23,6 +23,7 @@ A light B2B CRM for a telecom Commercial team (about 20 internal users, on-premi
 | `docs/operations-guide.md`, `docs/user-guide.*.md`, `docs/integration-readiness.md` | Operator, user and integrating-team guides; keep them current with behaviour and configuration |
 | `docs/accessibility.md`, `docs/acceptance-checklist.md`, `docs/release-notes.md` | Accessibility record, user acceptance checklist, release notes |
 | `docs/manual/` | User manuals, one per role (Sales Rep, Sales Manager, Admin, Viewer), with screenshots and PDFs; update them with every user-facing change (maintenance steps in its README) |
+| `docs/light-crm-introduction.pptx`, `docs/presenter_notes.md` | Introduction deck for business users (15 slides, speaker notes) and the same notes with a demo script and prepared answers |
 | `docs/security/asvs-l1.md` | OWASP ASVS Level 1 checklist (NFR-04): status and evidence per requirement; keep it current when security behaviour changes |
 | `docs/assistant-eval.md` | Live evaluation of the AI assistant (cases, results); rerun when the prompt, tools or model change |
 
