@@ -1,6 +1,6 @@
 # Release notes
 
-## v1.0.1: Release 1 completion (proposed; to be tagged after PRs #24–#25 are merged)
+## v1.0.1: Release 1 completion (proposed; to be tagged on `main` once the Release 1 completion PR is merged; #24 and #25 are already in)
 
 Interface improvements after v1.0.0, the remaining Release 1 items that could be done without other teams, and manuals for new users. No database migration. The API change is limited to the export endpoints, which integrations can't call. Upgrade as in the operations guide, section 4.
 
