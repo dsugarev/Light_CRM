@@ -202,7 +202,7 @@ NFR-11 asks for layouts "usable down to tablet width". Tablets are touch devices
 | Best practice | Before | After |
 |---|---|---|
 | Show that something is happening (Nielsen: visibility of system status) | Lists keep the previous rows while the next page, sort or filter loads (`keepPreviousData`), with no sign of loading: on a slow connection a click seemed to do nothing | While the previous rows are shown, the table is marked `aria-busy`, the rows dim to 60% and a thin blue bar slides above them. All of it starts only after 200 ms, so fast answers do not flicker. Organizations, contacts, leads, opportunities, users, audit log, imports and My tasks |
-| Navigation reads as navigation | Pages swapped instantly | The page fades in over 200 ms when the address changes. A change of search, filter, sort or page keeps the same page (no fade), so working in a list does not flash |
+| Navigation reads as navigation | Pages swapped instantly | The page rises 4 px over 200 ms when the address changes (movement only, no fade; see "Defect found by the end-to-end run" below). A change of search, filter, sort or page keeps the same page (no fade), so working in a list does not flash |
 | Feedback on pointer interaction | Sidebar links changed background abruptly | Sidebar links fade their hover and active background (150 ms) and are taller on touch (as in iteration 2). Buttons, rows and badges already had transitions and a 1 px press |
 | Respect "reduce motion" (WCAG 2.3.3, user preference) | No handling: dialogs, the drawer, skeleton pulses and toasts always moved | With "reduce motion" set in the operating system, every animation and transition finishes at once (states still change, nothing moves) and the busy bar becomes a still line |
 
@@ -254,3 +254,22 @@ Run on the committed branch (`6d42f62`) against the production-like stack with t
 | Firefox journeys | Not run: Firefox did not start in this session's sandbox ("Could not find profile folder", also with a different temp directory); all 43 failures were launch errors, no test executed. CI runs Firefox |
 
 Afterwards the stack was returned to its normal configuration (default limits, no scripted model).
+
+### Follow-up — defect found by the end-to-end run, and the sign-in wait (2026-11-22)
+
+**Defect (loop 2, iteration 3):** the page **fade-in** made `shell.spec.ts` fail intermittently (about 1 run in 3): axe scanned the Contacts page while the fade was finishing and measured the pagination summary (`text-muted-foreground`, normally 4.6:1) at 4.35:1, slightly transparent. Any opacity animation lowers text contrast while it runs, and muted text has little margin. **Fix:** the page now enters with a 4 px rise (`slide-in-from-bottom-1`) and no opacity change. `motion.test.tsx` now also asserts there is no fade class.
+
+**Test change:** `e2e/support.ts` `expectSignedIn` waits up to 15 s (was the 5 s default) for the home heading. Sign-in hashes the password with Argon2, which can take longer than 5 s when many specs sign in at once on a loaded machine. The assertion is unchanged.
+
+**Runs (Chromium, scripted model, CI's sign-in limits):**
+
+| Run | Result |
+|---|---|
+| Before the fix, default workers | 46/48: the axe contrast failure above, plus a sign-in timeout |
+| Two runs while macOS background services held the load average at about 24 | 44/48 and 40/48: every failure a timeout (test 30 s or 120 s, browser launch 180 s), no assertion about the UI; not evidence either way |
+| Shell, accessibility, 768 px layout and session specs, twice each, two workers | **18/18** |
+| Full suite, two workers | **48/48** |
+| Visual baselines | **4/4**, no baseline changed |
+| Vitest | 312/312; lint, typecheck, i18n clean |
+
+Firefox still could not start in this session's sandbox; CI runs it.

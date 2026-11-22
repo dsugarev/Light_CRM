@@ -2503,12 +2503,12 @@ export function detailListClass(gap: 'compact' | 'normal' = 'normal'): string {
   ].join(' ')
 }
 ```
-- **Iteration 3, interface dynamics:** `DataTable` `busy` (from `isPlaceholderData`) marks the table `aria-busy`, dims the rows and shows a sliding bar after 200 ms on eight lists; pages fade in on a path change (`AppLayout`, keyed by path); sidebar links transition; a `prefers-reduced-motion: reduce` block in `index.css` stops animations and transitions.
+- **Iteration 3, interface dynamics:** `DataTable` `busy` (from `isPlaceholderData`) marks the table `aria-busy`, dims the rows and shows a sliding bar after 200 ms on eight lists; pages enter with a 4 px rise on a path change (`AppLayout`, keyed by path; a fade was replaced after axe caught low contrast mid-animation); sidebar links transition; a `prefers-reduced-motion: reduce` block in `index.css` stops animations and transitions.
 
 ```tsx
-<div key={pathname} data-testid="page-transition" className="animate-in duration-200 fade-in-0">
+<div key={pathname} data-testid="page-transition" className="animate-in duration-200 slide-in-from-bottom-1">
   <Outlet />
 </div>
 ```
 
-End-to-end (2026-11-22): Chromium 47/48 (one known sign-in timing flake, passing alone), axe clean, visual 4/4 with no baseline change; Firefox left to CI. See `docs/loop_result.md`.
+End-to-end (2026-11-22): after fixing the transition, Chromium 48/48, axe clean, visual 4/4 with no baseline change; Firefox left to CI. See `docs/loop_result.md`.
