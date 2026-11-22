@@ -1,9 +1,40 @@
 import * as React from 'react'
 import { cn } from 'cn'
 
+/**
+ * WCAG 2.1.1 (axe scrollable-region-focusable): when a table is wider than its container,
+ * the container becomes focusable, so keyboard users can scroll it with the arrow keys.
+ * A table that fits adds no tab stop.
+ */
+function useScrollableFocus() {
+  const ref = React.useRef<HTMLDivElement>(null)
+  const [scrollable, setScrollable] = React.useState(false)
+  React.useEffect(() => {
+    const element = ref.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const update = () => {
+      setScrollable(element.scrollWidth > element.clientWidth + 1)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    if (element.firstElementChild) observer.observe(element.firstElementChild)
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+  return { ref, scrollable }
+}
+
 function Table({ className, ...props }: React.ComponentProps<'table'>) {
+  const { ref, scrollable } = useScrollableFocus()
   return (
-    <div data-slot="table-container" className="scroll-shadow-x relative w-full overflow-x-auto">
+    <div
+      ref={ref}
+      data-slot="table-container"
+      tabIndex={scrollable ? 0 : undefined}
+      className="scroll-shadow-x relative w-full overflow-x-auto focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
       <table
         data-slot="table"
         className={cn('w-full caption-bottom text-sm', className)}

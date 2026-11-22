@@ -49,6 +49,8 @@ export function OrganizationsPage() {
   const columns: Column<Organization>[] = [
     {
       key: 'name',
+      // Long names wrap instead of pushing the list sideways (UX-13, as on opportunities).
+      className: 'whitespace-normal',
       header: t('organizations.columns.name'),
       sortKey: 'name',
       cell: (org) => (

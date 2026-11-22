@@ -55,6 +55,8 @@ export function LeadsPage() {
   const columns: Column<Lead>[] = [
     {
       key: 'title',
+      // Long names wrap instead of pushing the list sideways (UX-13, as on opportunities).
+      className: 'whitespace-normal',
       header: t('list.columns.title'),
       cell: (lead) => (
         <span className="flex items-center gap-2">

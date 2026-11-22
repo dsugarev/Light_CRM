@@ -34,6 +34,7 @@ import { stageName, type BoardCard, type BoardData, type StageSummary } from './
 import { StaleBadge } from './StageBadge'
 
 const GRIP = '⠿'
+const EDIT_OWN = 'records.edit_own'
 
 /** Where a card can go: another open stage, or closed as won or lost. */
 type Target = { kind: 'stage'; stageId: string } | { kind: 'won' } | { kind: 'lost' }
@@ -54,6 +55,7 @@ export function BoardPage() {
   const queryClient = useQueryClient()
   const list = useListParams({ sort: '', filters: ['owner_id'] as const })
   const [losing, setLosing] = useState<BoardCard | null>(null)
+  const mayMove = can(EDIT_OWN)
   const board = useQuery({
     queryKey: ['opportunities', 'board', list.key],
     placeholderData: keepPreviousData,
@@ -170,7 +172,10 @@ export function BoardPage() {
           </div>
         }
       />
-      <p className="text-sm text-muted-foreground">{t('board.help')}</p>
+      {/* Viewers can't move cards, so they get a reading help instead of drag instructions. */}
+      <p className="text-sm text-muted-foreground">
+        {t(mayMove ? 'board.help' : 'board.helpReadOnly')}
+      </p>
       {board.isError ? (
         <ErrorState
           error={board.error}
