@@ -1027,6 +1027,7 @@ Per-iteration detail is in `docs/loop_result.md`. Same strategy as section 19: t
 | Date | What | Result |
 |---|---|---|
 | 2026-11-22 | Iteration 3 gate | Vitest 281/281; Playwright 48/48; visual 4/4 twice (16 list baselines updated); pytest first run 1 failure (housekeeping test vs real clock, fixed), then 1305 passed |
+| 2026-11-22 | End-to-end on `6d42f62` | Chromium 47/48 with CI's sign-in limits (1 known sign-in timing flake in `party.spec.ts`, then 9/9 alone); axe, layout and keyboard specs passed; visual 4/4 with no baseline change. First attempt hit the local production rate limit (30 failures, not a defect). Firefox did not launch in the session sandbox |
 | 2026-11-18 | Iteration 2 gate | Vitest 277/277; Playwright 48/48; visual 4/4 twice (two home baselines updated); pytest 1305 passed |
 | 2026-11-18 | Iteration 1 gate | Vitest 270/270; Playwright 45/48 under load (3 timeouts in untouched specs, which passed alone 10/10); visual 4/4; pytest 1305 passed |
 

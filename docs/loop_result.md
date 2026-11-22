@@ -237,6 +237,20 @@ NFR-11 asks for layouts "usable down to tablet width". Tablets are touch devices
 All three are frontend-only, with no API change and no new dependency. Brand colour (C-01) and dark mode (C-02) remain owner decisions.
 
 **Open before merging** (owner or a session with credentials):
-1. Run `pnpm e2e` (journeys and axe) and `pnpm e2e:visual`. Expect baseline changes where status badges appear (iteration 1) and possibly where a 768 px table shows the scroll shadow (iteration 2). Review the diffs, then `pnpm e2e:visual --update-snapshots`.
+1. ~~Run `pnpm e2e` and `pnpm e2e:visual`~~ Done 2026-11-22, see below.
 2. ~~Commit~~ Done 2026-11-22, one commit per iteration (`feat(ui): semantic status colours …`, `feat(ui): touch-sized controls …`, `feat(ui): busy state for updating lists …`) and this documentation commit.
 3. Optional follow-up: the webhook deliveries page has its own table and no busy bar.
+
+## Loop 2 — end-to-end run (2026-11-22)
+
+Run on the committed branch (`6d42f62`) against the production-like stack with the scripted model (`docker-compose.e2e.yml`). Two loop-only admins (`e2e-loop-admin-en/bg@example.test`) were created by the owner with the CLI; their password is random and not recorded in the repository.
+
+| Run | Result |
+|---|---|
+| Chromium journeys, first attempt | 18 passed, 30 failed: every failure was the sign-in rate limit ("Too many attempts"). The local `.env` keeps the production limit of 10 sign-ins per minute; CI raises it for E2E (`RATE_LIMIT_LOGIN_PER_MINUTE=500`, `RATE_LIMIT_PASSWORD_PER_15_MINUTES=500`). Not a product defect |
+| Chromium journeys with CI's limits (temporary compose override, `.env` untouched) | **47/48 passed**, including all axe accessibility checks (NFR-10, UX-12), the UX-13 768 px layout check and the keyboard walkthroughs. 1 failure: `party.spec.ts` (en) waited 5 s for "Welcome" while the sign-in was still running (no error shown), the same timing flake recorded in loop 1 |
+| `party.spec.ts` alone | 5/6 with default workers, then 9/9 (three repeats, two workers): the flake appears only under many parallel sign-ins (Argon2 hashing) |
+| Visual baselines (`pnpm e2e:visual`) | **4/4 passed, no baseline changed.** The baseline pages show no status badges (lists open on their empty filtered state), and desktop runs use a mouse pointer |
+| Firefox journeys | Not run: Firefox did not start in this session's sandbox ("Could not find profile folder", also with a different temp directory); all 43 failures were launch errors, no test executed. CI runs Firefox |
+
+Afterwards the stack was returned to its normal configuration (default limits, no scripted model).

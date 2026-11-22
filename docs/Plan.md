@@ -2511,4 +2511,4 @@ export function detailListClass(gap: 'compact' | 'normal' = 'normal'): string {
 </div>
 ```
 
-Open: Playwright journeys, axe and visual baselines were not run during loop 2 (no E2E credentials in the session); see `docs/loop_result.md`.
+End-to-end (2026-11-22): Chromium 47/48 (one known sign-in timing flake, passing alone), axe clean, visual 4/4 with no baseline change; Firefox left to CI. See `docs/loop_result.md`.
