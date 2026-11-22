@@ -157,7 +157,7 @@ describe('FR-AI-07 switch', () => {
     await renderApp('/search', 'bg')
     await userEvent.click(await screen.findByRole('button', { name: 'Асистент' }))
     const panel = screen.getByRole('complementary', { name: 'Асистент' })
-    expect(within(panel).getByText(/само чете данни от CRM/)).toBeInTheDocument()
+    expect(within(panel).getByText(/Нищо не се променя, докато не я потвърдите/)).toBeInTheDocument()
     expect(within(panel).getByText('Остават 199850 токена за днес')).toBeInTheDocument()
     await userEvent.click(within(panel).getByRole('button', { name: 'Затвори асистента' }))
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument()

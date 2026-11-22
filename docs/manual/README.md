@@ -85,7 +85,7 @@ MANUAL_PASSWORD='…' pnpm manual:screenshots
 
 `images/common/assistant-action.png` (a confirmation card) is taken with the real assistant model on a stack where it is switched on, because the scripted test model does not propose actions; retake it by hand when the card changes.
 
-The script only reads: it opens pages, opens forms without saving them, and takes screenshots. To show only the sample data, it hides records left by automated test runs ("A11y …", "E2E …") **in the browser**. Review the new images before you commit them.
+On the local stack, the manual users' password is in `docs/users.md`. That file is kept out of git and exists only on the maintainer's machine. The script only reads: it opens pages, opens forms without saving them, and takes screenshots. To show only the sample data, it hides records left by automated test runs ("A11y …", "E2E …") **in the browser**. Review the new images before you commit them.
 
 **Rebuild the PDFs** (needs `pandoc`, and Chromium from the frontend's Playwright install):
 
