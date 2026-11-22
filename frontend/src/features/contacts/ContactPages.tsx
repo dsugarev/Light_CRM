@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { api, ApiError, asPage, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { EmailLink, PhoneLink } from '@/components/ContactLinks'
+import { ListEmptyState } from '@/components/ListEmptyState'
 import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { FormMessage } from '@/components/FormMessage'
@@ -164,6 +165,17 @@ export function ContactsPage() {
             onSort={(sort) => {
               list.update({ sort })
             }}
+            empty={
+              <ListEmptyState
+                filtered={list.filtered}
+                onClear={list.clear}
+                create={
+                  can('records.create')
+                    ? { to: '/contacts/new', label: t('contacts.new') }
+                    : undefined
+                }
+              />
+            }
           />
           <Pagination
             page={list.page}

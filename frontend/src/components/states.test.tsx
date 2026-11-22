@@ -45,7 +45,8 @@ describe('UX-04 loading, empty and error states', () => {
     signedInAs(REP_ME)
     server.use(http.get('*/api/v1/leads', () => HttpResponse.json(page([]))))
     await renderApp('/leads')
-    expect(await screen.findByText('Nothing to show.')).toBeInTheDocument()
+    // A list with no records says so (ListEmptyState, built on EmptyState).
+    expect(await screen.findByText('There is nothing here yet.')).toBeInTheDocument()
   })
 
   it('UX-04 a failed list shows the request ID and retries', async () => {

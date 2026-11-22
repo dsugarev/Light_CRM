@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { api, asPage, call, type Schemas } from '@/api/client'
+import { ListEmptyState } from '@/components/ListEmptyState'
 import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { Loading } from '@/components/Loading'
@@ -151,6 +152,17 @@ export function OrganizationsPage() {
             onSort={(sort) => {
               list.update({ sort })
             }}
+            empty={
+              <ListEmptyState
+                filtered={list.filtered}
+                onClear={list.clear}
+                create={
+                  can('records.create')
+                    ? { to: '/organizations/new', label: t('organizations.new') }
+                    : undefined
+                }
+              />
+            }
           />
           <Pagination
             page={list.page}

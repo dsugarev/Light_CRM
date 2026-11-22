@@ -76,7 +76,10 @@
     "empty": "Nothing to show.",
     "saved": "Saved.",
     "retry": "Try again",
-    "requestId": "Reference for support:"
+    "requestId": "Reference for support:",
+    "noMatches": "No records match the search or filters.",
+    "clearFilters": "Clear filters",
+    "noRecords": "There is nothing here yet."
   },
   "pagination": {
     "summary": "Page {{page}} of {{pages}} · {{total}} in total"

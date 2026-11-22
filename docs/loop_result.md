@@ -64,3 +64,44 @@ A loop applying CRM UI best practices to Light CRM after the UI polish (PR #22).
 - Playwright Chromium 48/48. Visual 4/4 (twice).
 - Axe on the home page with the card, en/bg at 1440 and 768 px: no violations.
 - Backend: pytest 1305 passed.
+
+## Iteration 3 — empty lists that say what to do next (2026-11-22)
+
+| Best practice | Before | After |
+|---|---|---|
+| Distinguish "no matches" from "no records" and offer the next step | Every empty list said "Nothing to show." | With a search or filter active: "No records match the search or filters." and **Clear filters**. With no filter: "There is nothing here yet." and the create action (**New organization**, **New contact**, **New lead**, **New opportunity**) for users who may create; viewers get no create button |
+| Clearing keeps the user's view | — | **Clear filters** removes search, filters and "show archived" and keeps the sort |
+
+**Code:**
+- `frontend/src/components/ListEmptyState.tsx`, on the organizations, contacts, leads and opportunities lists.
+- `useListParams` gained `filtered` and `clear()`.
+- **Defect found and fixed:** `SearchInput` was uncontrolled and kept its old text after the URL was cleared. It now follows its `value` when that changes from outside, without disturbing text that is still waiting for the 300 ms pause.
+- New texts `states.noMatches`, `states.clearFilters`, `states.noRecords` in en/bg.
+
+**Tests:**
+- `src/components/listEmptyState.test.tsx`, 4 cases:
+  - the create action is offered, and not to a viewer;
+  - **Clear filters** keeps the sort and empties the search box;
+  - Bulgarian.
+- Two existing tests now expect the specific texts instead of "Nothing to show.". They check the same behaviour.
+- 16 visual baselines (the four lists, en/bg, 1440/768) were updated after reviewing the new empty state. The suite then passed twice in a row.
+- Axe on the filtered empty state (Bulgarian): no violations.
+
+**Also fixed (found by this iteration's gate):** `tests/api/test_operations.py::test_housekeeping_removes_expired_sessions` failed from 2026-11-20 on. The worker purges by the system clock, but the session meant to survive expired 3 days after the fixed test date. It is now measured from the real clock, and the test still asserts one session removed and one kept (separate commit).
+
+**Environment note:** the machine was restarted during this iteration. This wiped the scratchpad, including the local test database on port 5433 and the E2E admins' password. The test database now runs as a throwaway `postgres:18.7-trixie` container set up with `deploy/postgres/init-roles.sh`. The two local E2E admins got a new password, hashed by the backend's own Argon2 code. No project file changed for this.
+
+**Gate:**
+- Frontend: lint, prettier, typecheck, Vitest 281/281, i18n 1208 keys.
+- Playwright Chromium 48/48. Visual 4/4 (twice).
+- Backend: ruff, mypy, import-linter 14/14, pytest 1305 passed.
+
+## Summary of the loop
+
+| # | Improvement | Value |
+|---|---|---|
+| 1 | Descriptive browser-tab titles; email, phone and website as safe links | Orientation with several tabs (WCAG 2.4.2); one click to email, call or open a site |
+| 2 | Recently viewed records on the home page | Get back to work in progress; per user, private to the browser, cleared on sign-out |
+| 3 | Empty lists with a next step (clear filters or create) | Fewer dead ends; the search box now resets correctly |
+
+All three are frontend-only, with no API change and no new dependency. Owner-decision items (backlog section C) were not built.

@@ -2473,3 +2473,4 @@ export function rememberRecent(userId: string, record: Omit<RecentRecord, 'at'>,
   write(userId, [{ ...record, at }, ...others].slice(0, MAX_RECENT))
 }
 ```
+- **Iteration 3:** empty lists say what to do next (`ListEmptyState`): **Clear filters** when filters hide everything, the create action when there is nothing yet (only for users who may create). `useListParams` gained `filtered` and `clear()`; `SearchInput` now follows an outside reset. Also fixed: a housekeeping test that compared the fixed test date with the real clock and started failing on 2026-11-20.

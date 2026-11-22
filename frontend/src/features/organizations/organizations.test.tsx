@@ -54,7 +54,7 @@ describe('FR-PARTY-04 organization list', () => {
     await waitFor(() => {
       expect(requests.at(-1)).toBe('софия')
     })
-    expect(await screen.findByText('Nothing to show.')).toBeInTheDocument()
+    expect(await screen.findByText('No records match the search or filters.')).toBeInTheDocument()
   })
 })
 
