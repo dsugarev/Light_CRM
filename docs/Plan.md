@@ -2512,3 +2512,37 @@ export function detailListClass(gap: 'compact' | 'normal' = 'normal'): string {
 ```
 
 End-to-end (2026-11-22): after fixing the transition, Chromium 48/48, axe clean, visual 4/4 with no baseline change; Firefox left to CI. See `docs/loop_result.md`.
+
+## CRM UI loop 3 — warm colours and interactivity (2026-11-22)
+
+Recorded per iteration in [`docs/loop_result.md`](loop_result.md) (section "Loop 3"). Frontend only, with no API change. The owner's request for a warm scheme settles the colour part of C-01. Logo and favicon still need assets; dark mode (C-02) stays off.
+
+- **Iteration 1, warm colour scheme:**
+  - warm stone neutrals, a cream page with white cards and list panels, and a terracotta `--brand` with a darker `--primary-hover`;
+  - warning moved to yellow 800, away from the brand hue;
+  - a cream sidebar whose active link has a peach tint and a terracotta edge;
+  - a white header with a lettermark;
+  - warm chart series;
+  - table headers as small semi-bold muted text on a warm tint.
+- **Testing:** contrast is tested from the tokens (`src/app/warmTheme.test.ts`, with shared maths in `src/test/themeContrast.ts`). The visual baselines were regenerated.
+
+```css
+/* index.css */
+--brand: oklch(0.53 0.16 40);        /* terracotta, white text 5.7:1 */
+--brand-hover: oklch(0.47 0.15 38);  /* hover shade, white text 7.3:1 */
+--primary: var(--brand);
+--primary-hover: var(--brand-hover);
+
+/* lists on a page sit on a white panel; tables inside cards keep the card */
+main [data-slot='table-container']:not([data-slot='card'] *) {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+```
+
+```ts
+// AppNav.tsx: active link
+'bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-[inset_3px_0_0_var(--sidebar-primary)]'
+```
+
+Deviation found and fixed: uppercase table headers made four Bulgarian tables scroll at 768 px (UX-13), so the headers are not uppercase.

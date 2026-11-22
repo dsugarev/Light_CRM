@@ -42,7 +42,7 @@ Build these only through endpoints already specified in `docs/05-api-specificati
 
 These need a product or design decision. The loop may add notes here but must not implement them.
 
-- **C-01 Company branding:** logo, brand colors and favicon (needs assets; plugs into the UX-01 token).
+- **C-01 Company branding:** logo, brand colors and favicon (needs assets; plugs into the UX-01 token). *Colours decided 2026-11-22: the owner asked for a warm scheme (UI loop 3), so `--brand` is terracotta with warm neutrals; logo and favicon still need assets (the header shows a lettermark).*
 - **C-02 Dark mode:** cheap once UX-01 is done; is it wanted?
 - **C-03 Multi-factor authentication (FR-AUTH-07):** security feature, better built as a deliberate task with review than inside a loop.
 - **C-04 Command palette (Ctrl+K) with global search:** valuable once organizations and leads exist (after Phase 2/3).

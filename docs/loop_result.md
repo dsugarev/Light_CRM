@@ -273,3 +273,67 @@ Afterwards the stack was returned to its normal configuration (default limits, n
 | Vitest | 312/312; lint, typecheck, i18n clean |
 
 Firefox still could not start in this session's sandbox; CI runs it.
+
+# Loop 3 — warm colours, interactivity, best-in-class CRM look (started 2026-11-22)
+
+Prompt: apply a **warm colour scheme** to the interface, **add interactivity** to the screens with a look and feel like the best CRM products, keep every document current, and record each improvement here. Two iterations, same branch (`ui-improvements`).
+
+**Owner decision taken by the prompt:** loop 2 kept the brand colour neutral because C-01 (company branding) was an owner decision. The owner now asks for a warm scheme, so this loop sets the brand colour and the neutral tones. The **logo and favicon** of C-01 still need company assets and are not invented here; the header shows a lettermark until then. Dark mode (C-02) is still not switched on; its tokens were only kept in step.
+
+**Rules kept:**
+- frontend only, with no endpoint, API change or new dependency;
+- every text colour pair keeps 4.5:1 and every focus ring or chart mark keeps 3:1 (NFR-10), tested from the tokens;
+- tests with every change and documents kept current.
+
+**Plan:**
+
+| Iteration | Theme | Scope |
+|---|---|---|
+| 1 | Warm colour scheme | Warm neutrals, terracotta brand, cream page with white panels, warm sidebar and active state, warm charts |
+| 2 | Interactivity | Hover and press feedback, clickable rows and cards, and an interactive stage path on the opportunity record, as in leading CRMs |
+
+## Loop 3, iteration 1 — warm colour scheme (2026-11-22)
+
+**What leading CRMs do:** HubSpot, Pipedrive and Salesforce Lightning show lists and records as white panels on a lightly tinted page. One strong brand colour goes on primary actions and the active navigation item. Neutrals are tinted rather than pure grey. This iteration applies the same structure in warm tones.
+
+**Changes** (`frontend/src/index.css` unless named):
+- **Warm neutrals.** Every neutral token is a warm stone tone (hue 45–75, low chroma) instead of pure grey:
+  - page `--background` is cream (`#fdfaf6`);
+  - cards and popovers stay white;
+  - text is a warm near-black;
+  - muted text is a warm brown-grey;
+  - borders and inputs are warm.
+- **Terracotta brand.** `--brand` is `oklch(0.53 0.16 40)` (`#b4410d`), with a new `--brand-hover` / `--primary-hover` shade.
+  - The primary button and the default badge darken on hover (`hover:bg-primary-hover`) instead of going 80% transparent, which on terracotta would drop the white text below 4.5:1.
+  - The focus ring uses the brand colour: 5.4:1 on the page.
+- **Warning moved off the brand hue.** The amber-orange warning (hue 46) was close to terracotta (hue 40). Warning is now yellow 800 (hue 62), so a "Needs attention" badge does not read as a brand accent. Contrast is 6.9:1 on white.
+- **Warm sidebar and active page** (`AppNav.tsx`, `AppLayout.tsx`). The sidebar has its own cream surface.
+  - The active page is a peach tint with terracotta text and a 3 px terracotta bar on its leading edge. The bar is an inset shadow, so the text does not shift.
+  - Other links warm on hover.
+- **Header and footer** are white with a hairline shadow. The app name has a terracotta lettermark (decorative, `aria-hidden`) until the owner supplies a logo.
+- **Lists as panels.** A table directly on a page (not inside a card) sits on a white panel with a warm border, rounded corners and a soft shadow. This is a CSS rule in `index.css`, so every list gets it.
+  - Table headers are small semi-bold muted text on a warm tint.
+  - Rows are a little taller (`py-2.5`) and warm to peach on hover.
+  - The scroll-shadow covers now carry the card colour.
+- **Cards** get a hairline shadow (`ui/card.tsx`).
+- **Warm charts.** The dashboard series are amber (totals) and deep terracotta (weighted), each with at least 3:1 against the card. The screen-reader table is unchanged.
+- **Overlay** (dialog backdrop) uses the warm near-black instead of pure black.
+
+**Defect caught and fixed during the iteration.** The first version made table headers uppercase with letter spacing and widened the cell padding. The UX-13 end-to-end check ("Bulgarian at 768 px: no sideways scrolling") then failed on four tables (leads, win/loss, webhook deliveries, stages), which scrolled by 11–37 px. Uppercase Cyrillic is wide. The headers are now small semi-bold text without uppercase, and the side padding is back to `px-2`. The check passes.
+
+**Tests:**
+- `src/app/warmTheme.test.ts` (32 cases) parses the tokens from `index.css`. It checks that:
+  - every neutral token is warm-tinted;
+  - the brand is terracotta and `--primary` follows it;
+  - warning is at least 15° of hue away from the brand;
+  - 14 text and surface pairs keep 4.5:1, plus the table-header tint and the hover tint;
+  - the ring keeps 3:1 on page, card and sidebar;
+  - the two chart series keep 3:1.
+- `src/app/warmShell.test.tsx` (4 cases) checks the sidebar surface, the active and hover link classes, the decorative brand mark, and the primary hover shade.
+- The contrast maths moved to a shared helper, `src/test/themeContrast.ts`. It also resolves `var(--other)` aliases. `statusColors.test.tsx` now imports it.
+
+**Runs:**
+- Frontend gate: lint, typecheck, Vitest 348/348, i18n 1208 keys.
+- Chromium end-to-end (E2E stack with CI's sign-in limits): the first full run found the UX-13 defect above. After the fix, layout, accessibility (axe), shell and keyboard (focus contrast) passed 12/12.
+- Visual (UX-14): every baseline changed, as intended. They were updated with `--update-snapshots`, and the next run passed 4/4.
+- Firefox can't start in the sandbox and is left to CI.
