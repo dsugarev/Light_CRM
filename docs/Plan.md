@@ -2512,3 +2512,98 @@ export function detailListClass(gap: 'compact' | 'normal' = 'normal'): string {
 ```
 
 End-to-end (2026-11-22): after fixing the transition, Chromium 48/48, axe clean, visual 4/4 with no baseline change; Firefox left to CI. See `docs/loop_result.md`.
+
+## CRM UI loop 3 — warm colours and interactivity (2026-11-22)
+
+Recorded per iteration in [`docs/loop_result.md`](loop_result.md) (section "Loop 3"). Frontend only, with no API change. The owner's request for a warm scheme settles the colour part of C-01. Logo and favicon still need assets; dark mode (C-02) stays off.
+
+- **Iteration 1, warm colour scheme:**
+  - warm stone neutrals, a cream page with white cards and list panels, and a terracotta `--brand` with a darker `--primary-hover`;
+  - warning moved to yellow 800, away from the brand hue;
+  - a cream sidebar whose active link has a peach tint and a terracotta edge;
+  - a white header with a lettermark;
+  - warm chart series;
+  - table headers as small semi-bold muted text on a warm tint.
+- **Testing:** contrast is tested from the tokens (`src/app/warmTheme.test.ts`, with shared maths in `src/test/themeContrast.ts`). The visual baselines were regenerated.
+
+```css
+/* index.css */
+--brand: oklch(0.53 0.16 40);        /* terracotta, white text 5.7:1 */
+--brand-hover: oklch(0.47 0.15 38);  /* hover shade, white text 7.3:1 */
+--primary: var(--brand);
+--primary-hover: var(--brand-hover);
+
+/* lists on a page sit on a white panel; tables inside cards keep the card */
+main [data-slot='table-container']:not([data-slot='card'] *) {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+```
+
+```ts
+// AppNav.tsx: active link
+'bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-[inset_3px_0_0_var(--sidebar-primary)]'
+```
+
+Deviation found and fixed: uppercase table headers made four Bulgarian tables scroll at 768 px (UX-13), so the headers are not uppercase.
+- **Iteration 2, interactivity:**
+  - a clickable **sales path** on the opportunity page (`StagePath.tsx`), which uses the existing move call; the "Stage" list stays;
+  - **clickable rows** through a `DataTable` `rowHref` prop on six lists (Ctrl-click or Cmd-click opens a new tab; links, buttons, menus and text selection keep their own behaviour);
+  - **KPI cards** as entry points with a stretched link and a hover lift;
+  - **board** feedback: hover lift, a tilt while dragging, and a peach drop column and green or red drop areas.
+  - User guides (en, bg) describe the path, row clicks and KPI cards.
+
+```tsx
+// OpportunityPage.tsx (OpportunityActions)
+<StagePath
+  opportunity={o}
+  stages={openStages}
+  onMove={editable && isOpen ? (stageId) => { move.mutate(stageId) } : undefined}
+  pending={move.isPending}
+/>
+```
+
+```tsx
+// DataTable.tsx: a row with rowHref opens the record unless the click was on a control
+function LinkedRow({ href, children }: { href: string; children: ReactNode }) {
+  const navigate = useNavigate()
+  const open = (event: MouseEvent<HTMLTableRowElement>) => {
+    if (event.target instanceof Element && event.target.closest(INTERACTIVE)) return
+    if (window.getSelection()?.toString()) return
+    if (event.metaKey || event.ctrlKey) { window.open(href, '_blank', 'noopener'); return }
+    void navigate(href)
+  }
+  return <TableRow data-href={href} className="cursor-pointer" onClick={open}>{children}</TableRow>
+}
+```
+
+End-to-end (2026-11-22): Chromium 48/48 with axe clean; visual 4/4 twice after updating the board and opportunity baselines. Firefox is left to CI.
+
+## User manuals per role (2026-11-22)
+
+New-user manuals in `docs/manual/`: an index (`README.md`) with a role comparison, and one manual each for the Sales Rep, Sales Manager, Admin and Viewer roles.
+- **Format:** Markdown as the source (renders on GitHub, reviewed like code), plus generated PDFs in `docs/manual/pdf/` for printing and email.
+- **Structure of each manual:**
+  - who it is for and what the role can do;
+  - getting started (first password, sign-in, the screen, profile, language, two-factor sign-in);
+  - task chapters, each opened by a user story, with numbered steps and captioned screenshots;
+  - what the role can't do and who can;
+  - troubleshooting, a glossary and a quick reference.
+- **Screenshots** (59 images, 1280 × 800) come from `frontend/e2e/manual.spec.ts` (Playwright project `manual`, `pnpm manual:screenshots`). It signs in as four fictional users, one per role, who own a small set of fictional sample records. It only reads: forms are opened, not saved. Records left by automated test runs are hidden in the browser so only the sample data shows. The project is excluded from `pnpm e2e` and CI, like `visual`.
+- **PDFs:** `scripts/build-manual-pdfs.sh` (pandoc to self-contained HTML with `docs/manual/manual.css`, printed by Playwright Chromium through `frontend/scripts/manual-pdf.mjs`, with page numbers and an outline).
+
+```ts
+// frontend/e2e/manual.spec.ts: one fictional user per role
+const USERS = {
+  admin: 'manual-admin@example.test',
+  manager: 'manual-manager@example.test',
+  rep: 'manual-rep@example.test',
+  viewer: 'manual-viewer@example.test',
+} as const
+```
+
+Found while writing (raised with the owner, not changed):
+- the requirements say Viewers can't export and Sales Reps export only their own data, but `data.export` is not enforced and the export endpoints are open to every signed-in user (API spec 14). The manuals describe the current behaviour;
+- the import page shows **Roll back import** to Sales Managers, although the endpoint is Admin-only (403);
+- the board shows its drag help text to Viewers, who can't drag.
+

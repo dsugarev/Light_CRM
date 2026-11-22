@@ -182,6 +182,7 @@ export function UsersPage({ creating = false }: { creating?: boolean }) {
               columns={columns}
               rows={users.data.items}
               rowKey={(user) => user.id}
+              rowHref={(user) => `/admin/users/${user.id}`}
               sort={list.sort}
               onSort={(sort) => {
                 list.update({ sort })

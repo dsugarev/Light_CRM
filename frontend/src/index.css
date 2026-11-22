@@ -39,6 +39,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -55,93 +56,106 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Loop 3: warm theme (owner request 2026-11-22). Warm stone neutrals (hue 45-75, low
+     chroma) instead of pure grey, a cream page under white cards, and a terracotta brand.
+     Every text pair keeps 4.5:1 and every focus ring or chart mark 3:1 (NFR-10); the pairs
+     are checked in src/app/warmTheme.test.ts. */
+  --background: oklch(0.985 0.006 75);
+  --foreground: oklch(0.2 0.018 45);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.2 0.018 45);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  /* TODO(owner): brand color. The one token to change for the company's brand. */
-  --brand: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.2 0.018 45);
+  /* TODO(owner): logo and favicon (C-01). Brand color: terracotta, chosen with the owner's
+     "warm color scheme" request; white text on it is 5.7:1, on the hover shade 7.3:1. */
+  --brand: oklch(0.53 0.16 40);
+  --brand-hover: oklch(0.47 0.15 38);
   --primary: var(--brand);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --primary-hover: var(--brand-hover);
+  --primary-foreground: oklch(0.99 0.004 75);
+  --secondary: oklch(0.955 0.014 70);
+  --secondary-foreground: oklch(0.27 0.03 45);
+  --muted: oklch(0.962 0.01 70);
+  --muted-foreground: oklch(0.48 0.025 50);
+  /* Peach tint for the active navigation item and highlighted rows. */
+  --accent: oklch(0.95 0.03 60);
+  --accent-foreground: oklch(0.38 0.11 40);
   /* Red 700, not 600: 4.5:1 on white and on the light red tint of badges and buttons (NFR-10). */
   --destructive: oklch(0.505 0.213 27.518);
   --destructive-foreground: oklch(0.985 0 0);
-  /* Status colors (loop 2): green, amber and blue 800/700. Text in these colors keeps
-     5.3:1 or more on white and on the 10% tint of status badges (NFR-10, WCAG 1.4.3);
-     a status never relies on color alone, the badge always carries its label. */
+  /* Status colors (loop 2): green 800, blue 700; warning moved to yellow 800 in loop 3 so it
+     no longer reads as the terracotta brand. Text in these colors keeps 4.5:1 or more on
+     white and on the 10% tint of status badges (NFR-10, WCAG 1.4.3); a status never relies
+     on color alone, the badge always carries its label. */
   --success: oklch(0.448 0.119 151.328);
-  --warning: oklch(0.473 0.137 46.201);
+  --warning: oklch(0.476 0.114 61.907);
   --info: oklch(0.488 0.243 264.376);
-  --overlay: oklch(0 0 0);
+  --overlay: oklch(0.2 0.018 45);
   /* QR codes need a white quiet zone in both themes to scan. */
   --qr-surface: oklch(1 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  /* UX-12: focus indicators need 3:1 against the page (WCAG 1.4.11). */
-  --ring: oklch(0.45 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: oklch(0.91 0.014 70);
+  --input: oklch(0.88 0.016 65);
+  /* UX-12: focus indicators need 3:1 against the page (WCAG 1.4.11); the brand gives 5.4:1. */
+  --ring: oklch(0.53 0.16 40);
+  /* Warm chart series: amber for totals, deep terracotta for weighted values; each mark has
+     3:1 or more against the card (WCAG 1.4.11) and the chart has a data table. */
+  --chart-1: oklch(0.8 0.1 70);
+  --chart-2: oklch(0.665 0.14 62);
+  --chart-3: oklch(0.6 0.15 45);
+  --chart-4: oklch(0.53 0.16 40);
+  --chart-5: oklch(0.47 0.15 35);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.968 0.014 70);
+  --sidebar-foreground: oklch(0.2 0.018 45);
+  --sidebar-primary: oklch(0.53 0.16 40);
+  --sidebar-primary-foreground: oklch(0.99 0.004 75);
+  --sidebar-accent: oklch(0.95 0.03 60);
+  --sidebar-accent-foreground: oklch(0.38 0.11 40);
+  --sidebar-border: oklch(0.91 0.014 70);
+  --sidebar-ring: oklch(0.53 0.16 40);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --brand: oklch(0.922 0 0);
+  --background: oklch(0.145 0.01 60);
+  --foreground: oklch(0.985 0.01 60);
+  --card: oklch(0.205 0.01 60);
+  --card-foreground: oklch(0.985 0.01 60);
+  --popover: oklch(0.205 0.01 60);
+  --popover-foreground: oklch(0.985 0.01 60);
+  --brand: oklch(0.72 0.14 50);
+  --brand-hover: oklch(0.78 0.12 55);
   --primary: var(--brand);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --primary-hover: var(--brand-hover);
+  --primary-foreground: oklch(0.205 0.01 60);
+  --secondary: oklch(0.269 0.01 60);
+  --secondary-foreground: oklch(0.985 0.01 60);
+  --muted: oklch(0.269 0.01 60);
+  --muted-foreground: oklch(0.708 0.01 60);
+  --accent: oklch(0.269 0.01 60);
+  --accent-foreground: oklch(0.985 0.01 60);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive-foreground: oklch(0.985 0.01 60);
   --success: oklch(0.792 0.209 151.711);
   --warning: oklch(0.828 0.189 84.429);
   --info: oklch(0.707 0.165 254.624);
-  --overlay: oklch(0 0 0);
+  --overlay: oklch(0 0.01 60);
   --qr-surface: oklch(1 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.556 0.01 60);
+  --chart-1: oklch(0.87 0.01 60);
+  --chart-2: oklch(0.556 0.01 60);
+  --chart-3: oklch(0.439 0.01 60);
+  --chart-4: oklch(0.371 0.01 60);
+  --chart-5: oklch(0.269 0.01 60);
+  --sidebar: oklch(0.205 0.01 60);
+  --sidebar-foreground: oklch(0.985 0.01 60);
+  --sidebar-primary: oklch(0.72 0.14 50);
+  --sidebar-primary-foreground: oklch(0.985 0.01 60);
+  --sidebar-accent: oklch(0.269 0.01 60);
+  --sidebar-accent-foreground: oklch(0.985 0.01 60);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.556 0.01 60);
 }
 
 /* Loop 2: a soft shadow on the edge of a sideways-scrolling table shows that more columns
@@ -161,7 +175,17 @@
         color-mix(in oklch, var(--foreground) 18%, transparent),
         transparent
       )
-      right / 0.875rem 100% no-repeat scroll;
+      right / 0.875rem 100% no-repeat scroll var(--card);
+}
+
+/* Loop 3: a list on a page sits on a white panel with a warm border, so it stands out from
+   the cream page as in other CRMs. A table already inside a card keeps the card's surface. */
+@layer components {
+  main [data-slot='table-container']:not([data-slot='card'] *) {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 1px 2px 0 color-mix(in oklch, var(--foreground) 6%, transparent);
+  }
 }
 
 /* Loop 2: "updating" feedback for a list that keeps its old rows while the next page,

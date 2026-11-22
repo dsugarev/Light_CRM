@@ -263,8 +263,9 @@ function Column({ stageId, children }: { stageId: string; children: React.ReactN
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-h-48 flex-col gap-2 rounded-lg border bg-muted/30 p-3',
-        isOver && 'ring-2 ring-primary',
+        // Loop 3: a brand edge on each column; the column a card is over turns peach.
+        'flex min-h-48 flex-col gap-2 rounded-lg border border-t-[3px] border-t-primary/70 bg-muted/40 p-3 transition-colors duration-150',
+        isOver && 'bg-accent/70 ring-2 ring-primary',
       )}
     >
       {children}
@@ -280,8 +281,11 @@ function DropArea({ id, label, tone }: { id: string; label: string; tone: 'won' 
       data-testid={id}
       className={cn(
         'rounded-lg border-2 border-dashed p-4 text-center text-sm',
-        tone === 'won' ? 'border-success/60' : 'border-destructive/60',
-        isOver && 'bg-muted',
+        'transition-colors duration-150',
+        tone === 'won'
+          ? 'border-success/60 text-success'
+          : 'border-destructive/60 text-destructive',
+        isOver && (tone === 'won' ? 'bg-success/10' : 'bg-destructive/10'),
       )}
     >
       {label}
@@ -312,9 +316,10 @@ function Card({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex flex-col gap-1 rounded-md border bg-card p-3 text-sm shadow-sm',
-        card.can_edit && 'cursor-grab',
-        isDragging && 'z-10 opacity-80 shadow-lg',
+        // Loop 3: cards lift on hover and tilt slightly while dragged.
+        'flex flex-col gap-1 rounded-md border bg-card p-3 text-sm shadow-xs transition-[box-shadow,border-color] duration-150 hover:border-primary/40 hover:shadow-md',
+        card.can_edit && 'cursor-grab active:cursor-grabbing',
+        isDragging && 'z-10 rotate-1 opacity-90 shadow-lg ring-1 ring-primary/40',
       )}
       data-testid={`card-${card.id}`}
     >

@@ -62,7 +62,7 @@ export function AppLayout() {
       >
         {t('nav.skipToContent')}
       </a>
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2 lg:px-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-card px-4 py-2 shadow-xs lg:px-6">
         <div className="flex items-center gap-2">
           {me ? (
             <>
@@ -94,7 +94,16 @@ export function AppLayout() {
               </Button>
             </>
           ) : null}
-          <NavLink to="/" className="px-2 font-semibold">
+          {/* Loop 3: a brand mark (the first letter on terracotta) until the owner supplies
+              a logo (C-01). Decorative; the link is named by the text after it. */}
+          <NavLink to="/" className="flex items-center gap-2 rounded-md px-2 font-semibold">
+            <span
+              aria-hidden="true"
+              data-testid="brand-mark"
+              className="grid size-7 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground shadow-xs"
+            >
+              {t('app.name').charAt(0)}
+            </span>
             {t('app.name')}
           </NavLink>
         </div>
@@ -117,7 +126,7 @@ export function AppLayout() {
         {me ? (
           <div
             id="app-sidebar"
-            className={`w-56 shrink-0 border-r px-2 py-4 ${collapsed ? 'hidden' : 'hidden lg:block'}`}
+            className={`w-56 shrink-0 border-r border-sidebar-border bg-sidebar px-2 py-4 ${collapsed ? 'hidden' : 'hidden lg:block'}`}
           >
             <AppNav webhookProblems={webhookProblems} />
           </div>
@@ -162,7 +171,7 @@ export function AppLayout() {
         />
       ) : null}
       <Toaster position="bottom-right" richColors closeButton />
-      <footer className="border-t px-4 py-2 lg:px-6">
+      <footer className="border-t bg-card px-4 py-2 lg:px-6">
         <ApiStatus />
       </footer>
     </div>

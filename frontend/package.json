@@ -19,7 +19,8 @@
     "generate:api": "node scripts/generate-api.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
     "e2e": "playwright test --project=chromium --project=firefox",
-    "e2e:visual": "playwright test --project=visual"
+    "e2e:visual": "playwright test --project=visual",
+    "manual:screenshots": "playwright test --project=manual"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

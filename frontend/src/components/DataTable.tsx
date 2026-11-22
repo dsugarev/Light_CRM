@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router'
 
 import { EmptyState } from '@/components/EmptyState'
 import { RowActions, type RowAction } from '@/components/RowActions'
@@ -41,7 +42,16 @@ interface DataTableProps<T> {
    * bar moves above them, all after 200 ms so quick answers do not flicker.
    */
   busy?: boolean | undefined
+  /**
+   * Loop 3: the record page of a row. A click anywhere on the row opens it, as in other
+   * CRMs (Ctrl/Cmd-click opens a new tab). Clicks on links, buttons and form controls in
+   * the row keep their own meaning, and selecting text does not navigate. Keyboard and
+   * screen-reader users use the link in the row, which stays the accessible way in.
+   */
+  rowHref?: ((row: T) => string) | undefined
 }
+
+const INTERACTIVE = 'a, button, input, select, textarea, label, [role="menuitem"], [role="menu"]'
 
 function sortState(active: boolean, descending: boolean): 'ascending' | 'descending' | 'none' {
   if (!active) return 'none'
@@ -85,6 +95,7 @@ export function DataTable<T>({
   rowActions,
   rowLabel,
   busy = false,
+  rowHref,
 }: DataTableProps<T>) {
   const { t } = useTranslation()
   const span = columns.length + (rowActions ? 1 : 0)
@@ -117,7 +128,7 @@ export function DataTable<T>({
                   {column.sortKey ? (
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1 font-medium hover:underline"
+                      className="inline-flex items-center gap-1 font-semibold hover:text-foreground hover:underline"
                       onClick={() => {
                         const key = column.sortKey ?? ''
                         onSort(isActive && !descending ? `-${key}` : key)
@@ -157,7 +168,7 @@ export function DataTable<T>({
             </TableRow>
           ) : (
             rows.map((row) => (
-              <TableRow key={rowKey(row)}>
+              <RowShell key={rowKey(row)} href={rowHref?.(row)}>
                 {columns.map((column) => (
                   <TableCell key={column.key} className={column.className}>
                     {column.cell(row)}
@@ -168,11 +179,35 @@ export function DataTable<T>({
                     <RowActions name={rowLabel?.(row) ?? rowKey(row)} actions={rowActions(row)} />
                   </TableCell>
                 ) : null}
-              </TableRow>
+              </RowShell>
             ))
           )}
         </TableBody>
       </Table>
     </div>
+  )
+}
+
+/** A body row; with `href` it opens the record on click (see `rowHref`). */
+function RowShell({ href, children }: { href: string | undefined; children: ReactNode }) {
+  if (!href) return <TableRow>{children}</TableRow>
+  return <LinkedRow href={href}>{children}</LinkedRow>
+}
+
+function LinkedRow({ href, children }: { href: string; children: ReactNode }) {
+  const navigate = useNavigate()
+  const open = (event: MouseEvent<HTMLTableRowElement>) => {
+    if (event.target instanceof Element && event.target.closest(INTERACTIVE)) return
+    if (window.getSelection()?.toString()) return
+    if (event.metaKey || event.ctrlKey) {
+      window.open(href, '_blank', 'noopener')
+      return
+    }
+    void navigate(href)
+  }
+  return (
+    <TableRow data-href={href} className="cursor-pointer" onClick={open}>
+      {children}
+    </TableRow>
   )
 }

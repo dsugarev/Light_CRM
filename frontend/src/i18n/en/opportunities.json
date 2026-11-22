@@ -150,5 +150,11 @@
     "title": "Opportunities",
     "new": "New opportunity",
     "none": "No opportunities yet."
+  },
+  "path": {
+    "label": "Sales path",
+    "passed": "(passed)",
+    "moveTo": "Move to {{stage}}",
+    "closed": "Closed"
   }
 }

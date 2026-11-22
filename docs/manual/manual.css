@@ -1,0 +1,106 @@
+/* Print style for the Light CRM user manuals (PDF via scripts/build-manual-pdfs.sh).
+   Warm palette matching the application: terracotta brand, warm greys. */
+@page {
+  size: A4;
+  margin: 18mm 16mm 20mm;
+}
+html {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: #2b211c;
+}
+body {
+  max-width: none;
+  margin: 0;
+}
+h1 {
+  font-size: 24pt;
+  color: #b4410d;
+  border-bottom: 3px solid #b4410d;
+  padding-bottom: 6pt;
+  margin: 0 0 12pt;
+}
+h2 {
+  font-size: 15pt;
+  color: #8a3208;
+  margin-top: 22pt;
+  break-before: page;
+  break-after: avoid;
+}
+h2:first-of-type {
+  break-before: auto;
+}
+h3 {
+  font-size: 12pt;
+  margin-top: 14pt;
+  break-after: avoid;
+}
+a {
+  color: #9d3106;
+  text-decoration: none;
+}
+blockquote {
+  margin: 10pt 0;
+  padding: 8pt 12pt;
+  background: #fbefe4;
+  border-left: 4px solid #b4410d;
+  border-radius: 4px;
+}
+blockquote p {
+  margin: 0;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8pt 0;
+  font-size: 9.5pt;
+  break-inside: auto;
+}
+th,
+td {
+  border: 1px solid #e3d9cf;
+  padding: 4pt 6pt;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: #f6efe8;
+}
+tr {
+  break-inside: avoid;
+}
+img {
+  display: block;
+  max-width: 100%;
+  max-height: 150mm;
+  margin: 8pt auto 2pt;
+  border: 1px solid #e3d9cf;
+  border-radius: 4px;
+}
+p:has(> img) {
+  break-inside: avoid;
+  break-after: avoid;
+}
+p > em:only-child {
+  display: block;
+  text-align: center;
+  font-size: 9pt;
+  color: #6a5a51;
+  margin-bottom: 8pt;
+}
+code {
+  font-size: 9pt;
+  background: #f6efe8;
+  padding: 0 3pt;
+  border-radius: 3px;
+}
+pre {
+  background: #f6efe8;
+  padding: 8pt;
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
+hr {
+  display: none;
+}

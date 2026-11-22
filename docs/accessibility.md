@@ -42,6 +42,20 @@ Fixes:
 
 **Motion and status (UI loop 2).** With "reduce motion" set in the operating system, animations and transitions end at once (WCAG 2.3.3), checked in Chromium. A list that is loading its next page has `aria-busy="true"`; the moving bar is hidden from assistive technology.
 
+**Warm theme (UI loop 3).** The palette is warm (cream page, warm-grey text, terracotta brand), and every pair keeps its threshold, measured from the tokens by `src/app/warmTheme.test.ts`:
+- body text 17:1;
+- muted text at least 5.6:1 on every surface;
+- white on the terracotta button 5.7:1, and 7.3:1 on its hover shade;
+- the terracotta focus ring at least 5.1:1 on page, card and sidebar;
+- dashboard bars at least 3:1 against the card.
+
+Primary buttons darken on hover rather than fading, so their text keeps contrast. The active navigation item is shown by `aria-current="page"`, by weight and by a leading bar, not by colour alone. Axe, keyboard focus-contrast and the Bulgarian 768 px layout check passed in Chromium on 2026-11-22.
+
+**Interactivity (UI loop 3).**
+- **Sales path:** an ordered list named "Sales path". The current stage has `aria-current="step"`, and passed stages carry a screen-reader "(passed)", so progress isn't shown by colour alone. Each stage button is named "Move to {stage}", which contains its visible text (WCAG 2.5.3).
+- **Clickable rows:** they add mouse convenience only. The link in the row stays the single keyboard and screen-reader target, so there are no extra tab stops.
+- **KPI cards:** each card is one link named by its label and stretched over the card. Keyboard focus rings the whole card.
+
 ## Keyboard walkthroughs (`frontend/e2e/keyboard.spec.ts`)
 
 Automated so they stay true: only Tab, Enter, Escape and typing, no clicks.

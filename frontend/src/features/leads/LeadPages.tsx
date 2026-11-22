@@ -202,6 +202,7 @@ export function LeadsPage() {
             columns={columns}
             rows={leads.data.items}
             rowKey={(lead) => lead.id}
+            rowHref={(lead) => `/leads/${lead.id}`}
             sort={list.sort}
             onSort={(sort) => {
               list.update({ sort })

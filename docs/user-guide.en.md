@@ -2,6 +2,8 @@
 
 A short guide for the Commercial team. The application is in English and Bulgarian: change the language under **My profile** (your name, top right) or with the language switch.
 
+New to Light CRM? The step-by-step [manual for your role](manual/README.md) has screenshots for every task.
+
 ## Signing in
 
 Open the address you were given and sign in with your work email and password. After five wrong attempts the account is locked for 15 minutes. **Forgot your password?** sends a reset link if email is set up; otherwise ask an Admin for a link.
@@ -12,13 +14,15 @@ Open the address you were given and sign in with your work email and password. A
 
 | Menu | What is there |
 |---|---|
-| **Home** | Your dashboard: pipeline by stage, forecast, lead conversion, wins and losses, your open and overdue tasks |
+| **Home** | Your dashboard: pipeline by stage, forecast, lead conversion, wins and losses, your open and overdue tasks. Click a figure's card to open the list behind it |
 | **Organizations**, **Contacts** | Customers and prospects, and the people there. A duplicate warning appears when an organization with the same name or registration number exists |
 | **Leads** | Unqualified prospects: capture, **Mark as contacted**, qualify with BANT (budget, authority, need, timeline), **Qualify**, **Convert** into an opportunity, or **Disqualify** with a reason |
-| **Opportunities**, **Board** | Deals with amount, stage and expected close date. On the board, drag a card to another stage, or use the card's **Move … to** list. Closing as lost asks for a reason |
+| **Opportunities**, **Board** | Deals with amount, stage and expected close date. On the board, drag a card to another stage, or use the card's **Move … to** list. On an opportunity's page, the **sales path** across the top shows the passed, current and next stages; click a stage to move the deal there. Closing as lost asks for a reason |
 | **My tasks** | Tasks assigned to you, overdue first |
 | **Reports** | Win/loss report; every list can be exported to Excel or CSV |
 | **Search** (top bar) | Finds organizations, contacts, leads and opportunities in Cyrillic or Latin |
+
+In any list, click anywhere on a row to open the record (Ctrl-click or Cmd-click opens it in a new tab).
 
 Every record has a **timeline** with its notes, calls, meetings, emails and tasks and its history of changes. Log an activity from the record's page.
 

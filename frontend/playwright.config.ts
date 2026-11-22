@@ -15,10 +15,20 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /visual\.spec\.ts/ },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: /visual\.spec\.ts/ },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      testIgnore: /(visual|manual)\.spec\.ts/,
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+      testIgnore: /(visual|manual)\.spec\.ts/,
+    },
     // UX-14: screenshot baselines depend on the platform's font rendering, so they run
     // on their own (`pnpm e2e:visual`), not in `pnpm e2e` or CI.
     { name: 'visual', use: { ...devices['Desktop Chrome'] }, testMatch: /visual\.spec\.ts/ },
+    // Screenshots for the user manuals in docs/manual (`pnpm manual:screenshots`); not a test.
+    { name: 'manual', use: { ...devices['Desktop Chrome'] }, testMatch: /manual\.spec\.ts/ },
   ],
 })

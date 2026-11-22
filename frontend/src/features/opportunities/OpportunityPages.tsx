@@ -219,6 +219,7 @@ export function OpportunitiesPage() {
             columns={columns}
             rows={opportunities.data.items}
             rowKey={(o) => o.id}
+            rowHref={(o) => `/opportunities/${o.id}`}
             sort={list.sort}
             onSort={(sort) => {
               list.update({ sort })
