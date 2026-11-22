@@ -2474,3 +2474,41 @@ export function rememberRecent(userId: string, record: Omit<RecentRecord, 'at'>,
 }
 ```
 - **Iteration 3:** empty lists say what to do next (`ListEmptyState`): **Clear filters** when filters hide everything, the create action when there is nothing yet (only for users who may create). `useListParams` gained `filtered` and `clear()`; `SearchInput` now follows an outside reset. Also fixed: a housekeeping test that compared the fixed test date with the real clock and started failing on 2026-11-20.
+
+## CRM UI loop 2 — colour, responsive layout, motion (2026-11-22)
+
+Recorded per iteration in [`docs/loop_result.md`](loop_result.md) (section "Loop 2"). Frontend only, with no API change. Brand colour (C-01) and dark mode (C-02) stay owner decisions.
+
+- **Iteration 1, semantic status colours:** tokens `--success` (darkened), `--warning` and `--info` in `index.css`; badge variants `success`, `warning`, `info`; one mapping per status (lead, stage, stale, import, delivery, active). Contrast is tested from the tokens (`src/app/statusColors.test.tsx`).
+
+```ts
+// features/leads/LeadStatusBadge.tsx
+const VARIANT = {
+  new: 'info',
+  contacted: 'secondary',
+  qualified: 'success',
+  converted: 'outline',
+  disqualified: 'destructive',
+} as const
+```
+- **Iteration 2, touch tablets and narrow screens (NFR-11):** `pointer-coarse:` sizes on buttons, inputs and selects (44 px targets on touch, desktop unchanged); the filter bar's search box no longer forces 320 px; pagination wraps; tables show a scroll shadow where columns are hidden (`scroll-shadow-x`); record details stack label over value below 640 px (`components/detailList.ts`).
+
+```ts
+export function detailListClass(gap: 'compact' | 'normal' = 'normal'): string {
+  return [
+    'grid grid-cols-1 gap-y-0.5 text-sm',
+    '[&_dd]:mb-2 [&_dd]:min-w-0 [&_dd]:break-words',
+    'sm:grid-cols-[max-content_1fr] sm:gap-x-4 sm:[&_dd]:mb-0',
+    gap === 'compact' ? 'sm:gap-y-1' : 'sm:gap-y-2',
+  ].join(' ')
+}
+```
+- **Iteration 3, interface dynamics:** `DataTable` `busy` (from `isPlaceholderData`) marks the table `aria-busy`, dims the rows and shows a sliding bar after 200 ms on eight lists; pages fade in on a path change (`AppLayout`, keyed by path); sidebar links transition; a `prefers-reduced-motion: reduce` block in `index.css` stops animations and transitions.
+
+```tsx
+<div key={pathname} data-testid="page-transition" className="animate-in duration-200 fade-in-0">
+  <Outlet />
+</div>
+```
+
+Open: Playwright journeys, axe and visual baselines were not run during loop 2 (no E2E credentials in the session); see `docs/loop_result.md`.
