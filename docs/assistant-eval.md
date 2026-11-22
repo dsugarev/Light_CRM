@@ -10,7 +10,7 @@ OPENROUTER_API_KEY=… GEMINI_API_KEY=… \
 EVAL_DATABASE_URL=postgresql+asyncpg://crm_migrator:…@localhost:5432/crm_eval \
 EVAL_APP_DATABASE_URL=postgresql+asyncpg://crm_app:…@localhost:5432/crm_eval \
 uv run python scripts/assistant_eval.py --report ../docs/assistant-eval.md
-# --model gemini-3.5-flash         evaluate another catalog model (default gpt-oss-120b)
+# --model gemini-3.5-flash         evaluate another catalog model (default nemotron-3-ultra-free)
 # --only pipeline-en,pipeline-bg   run some cases
 # --fake                            dry run with the scripted demo model (checks the harness, not the model)
 ```

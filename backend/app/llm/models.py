@@ -12,7 +12,8 @@ from app.core.config import Settings
 
 KeyKind = Literal["openrouter", "gemini"]
 
-DEFAULT_MODEL = "gpt-oss-120b"
+# The owner's choice on 2026-11-22: the free open-weights model is the default (ADR 0031).
+DEFAULT_MODEL = "nemotron-3-ultra-free"
 # The provider may keep or use prompts (free endpoints, Gemini's free tier): the Settings
 # screen says so next to the option.
 MAY_KEEP_PROMPTS = "may_keep_prompts"
@@ -34,7 +35,7 @@ class ModelOption:
 
 CATALOG: tuple[ModelOption, ...] = (
     ModelOption(
-        id=DEFAULT_MODEL,
+        id="gpt-oss-120b",
         label="gpt-oss-120b (OpenRouter, Cerebras)",
         key="openrouter",
         litellm_model=None,

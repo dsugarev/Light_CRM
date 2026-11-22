@@ -171,9 +171,17 @@ Select **Settings**, change the values, and select **Save**.
 | **Maximum session length (minutes)** | 10080 (7 days) | 60–43200 | Users must sign in again after this long, active or not. |
 | **Days without activity before an opportunity needs attention** | 14 | 1–365 | When the **Needs attention** badge appears on deals. |
 | **Require two-factor sign-in for Admins** | Off | — | Admins without two-factor must set it up at their next request, and can't turn it off. |
-| **AI model for all users** (shown when the assistant is installed) | gpt-oss-120b (OpenRouter, Cerebras) | Models whose API key is configured | The assistant uses this model for everyone's next question. Options without a key are greyed out. |
+| **AI model for all users** (shown when the assistant is installed) | NVIDIA Nemotron 3 Ultra (OpenRouter, free) | Models whose API key is configured | The assistant uses this model for everyone's next question. Options without a key are greyed out. |
 
-Two options, **NVIDIA Nemotron 3 Ultra (free)** and **Gemini 3.5 Flash**, show a warning: *the provider may keep or use prompts*. Questions and the CRM data the assistant looks up go to that provider, so check with your data protection officer before choosing one for real customer data. The operations guide (section 8.1) explains the keys and the differences.
+The three models:
+
+| Model | Speed (median answer) | Note |
+|---|---|---|
+| **NVIDIA Nemotron 3 Ultra (OpenRouter, free)**, the default | about 10 s | Free. Needs an OpenRouter account that has bought at least 10 USD of credits, or OpenRouter allows only 50 free requests a day for everyone. |
+| **gpt-oss-120b (OpenRouter, Cerebras)** | about 1.5 s | Paid per use; the data flow approved for customer data (prompt logging off). |
+| **Gemini 3.5 Flash (Google)** | about 7 s | Needs `GEMINI_API_KEY`; Google's free tier allows only about 20 requests a day. |
+
+The free model and Gemini show a warning: *the provider may keep or use prompts*. Questions and the CRM data the assistant looks up go to that provider. **The default is one of them**, so check with your data protection officer before the assistant is used with real customer data, or choose gpt-oss-120b. The operations guide (section 8.1) explains the keys and the differences.
 
 Every change is recorded in the audit log.
 
@@ -330,7 +338,7 @@ Points to share with users:
 - An instruction hidden in CRM text (for example in an imported note) can at most produce a card that the user sees and can refuse.
 - It answers in English or Bulgarian, links the records it mentions, and can draft emails and call summaries. **Save as note** saves a checked draft on a record.
 - It can be wrong. Figures must be checked before use.
-- The **model** in use is shown under the question box; Admins choose it in **Settings** (section 4).
+- The **model** in use is shown under the question box; Admins choose it in **Settings** (section 4). The default free model answers in about 10 seconds, sometimes up to 30; gpt-oss-120b is the fastest.
 - Each user has a **daily limit**, shown under the question box. Since the assistant can prepare actions, an answer uses about 12,000 tokens (about 7,000 before), so the default 200,000 tokens a day allow roughly 16 answers. Raise `AI_DAILY_TOKEN_BUDGET` if people run out. If the AI provider is unavailable, the chat shows an error and the rest of the CRM keeps working.
 
 ---
@@ -346,6 +354,7 @@ Points to share with users:
 | "Someone changed my deal" | **Audit log**: filter by the record type and the date, and open the entry to see who changed what. |
 | "The data looks wrong after an import" | Open the import and check its preview. If needed, **Roll back import**. |
 | "The assistant is missing or failing" | AI may be switched off, the daily limit may be reached, or the provider may be down. Check with IT (operations guide). |
+| "The assistant is not available right now" | The model's provider is busy or its quota is used up (free models and Gemini's free tier have daily caps). Choose another model in **Settings**, or try again later. |
 | An integration stopped working | The client's status, its keys (expired or revoked?), the **Delivery log** and the error counts. |
 | Anything else | Ask for the time and what the person was doing. Find the entry in the audit log and pass the **Request ID** to IT. |
 

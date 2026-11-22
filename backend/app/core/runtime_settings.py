@@ -57,7 +57,9 @@ class AppSetting(TimestampMixin, Base):
         Boolean, nullable=False, server_default="false"
     )
     # FR-AI-10: the assistant's model, a catalog id from app.llm.models (ADR 0031).
-    ai_model: Mapped[str] = mapped_column(String(64), nullable=False, server_default="gpt-oss-120b")
+    ai_model: Mapped[str] = mapped_column(
+        String(64), nullable=False, server_default="nemotron-3-ultra-free"
+    )
     updated_by: Mapped[UUID | None] = mapped_column(ForeignKey("app_user.id"), nullable=True)
 
 
@@ -68,7 +70,7 @@ class RuntimeSettings(BaseModel):
     session_absolute_timeout_minutes: int = Field(ge=60, le=43200)
     stale_opportunity_days: int = Field(ge=1, le=365)
     mfa_required_for_admins: bool = False
-    ai_model: str = "gpt-oss-120b"
+    ai_model: str = "nemotron-3-ultra-free"
 
 
 class RuntimeSettingsUpdate(BaseModel):

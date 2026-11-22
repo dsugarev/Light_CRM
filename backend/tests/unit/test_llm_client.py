@@ -62,7 +62,8 @@ def captured(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 async def test_routes_to_the_configured_model_through_cerebras_only(
     captured: dict[str, Any],
 ) -> None:
-    items = await _collect(llm_client.LiteLLMClient(_settings()).stream(MESSAGES, None))
+    client = llm_client.LiteLLMClient(_settings())
+    items = await _collect(client.stream(MESSAGES, None, model="gpt-oss-120b"))
     assert captured["model"] == "openrouter/openai/gpt-oss-120b"
     assert captured["extra_body"] == {"provider": {"order": ["cerebras"], "allow_fallbacks": False}}
     assert captured["api_key"] == "sk-or-v1-test"
@@ -76,6 +77,13 @@ async def test_routes_to_the_configured_model_through_cerebras_only(
     assert isinstance(final, Completed)
     assert final.tool_calls == ()
     assert final.usage.completion_tokens > 0
+
+
+async def test_FR_AI_10_without_a_choice_the_free_model_answers(
+    captured: dict[str, Any],
+) -> None:
+    await _collect(llm_client.LiteLLMClient(_settings()).stream(MESSAGES, None))
+    assert captured["model"] == "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free"
 
 
 async def test_FR_AI_10_free_model_routes_through_openrouter_to_nvidia_only(

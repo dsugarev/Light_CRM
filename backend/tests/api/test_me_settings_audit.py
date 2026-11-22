@@ -113,7 +113,7 @@ async def test_FR_AUTH_04_settings_defaults_and_update(test_app: TestApp) -> Non
         "session_absolute_timeout_minutes": 10080,
         "stale_opportunity_days": 14,
         "mfa_required_for_admins": False,
-        "ai_model": "gpt-oss-120b",
+        "ai_model": "nemotron-3-ultra-free",
     }
 
     response = await admin.patch(
@@ -128,7 +128,7 @@ async def test_FR_AUTH_04_settings_defaults_and_update(test_app: TestApp) -> Non
         "session_absolute_timeout_minutes": 1440,
         "stale_opportunity_days": 14,
         "mfa_required_for_admins": False,
-        "ai_model": "gpt-oss-120b",
+        "ai_model": "nemotron-3-ultra-free",
     }
 
 

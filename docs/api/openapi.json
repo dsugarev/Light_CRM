@@ -6594,7 +6594,7 @@
       "RuntimeSettings": {
         "properties": {
           "ai_model": {
-            "default": "gpt-oss-120b",
+            "default": "nemotron-3-ultra-free",
             "title": "Ai Model",
             "type": "string"
           },

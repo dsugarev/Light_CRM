@@ -431,7 +431,8 @@ The assistant prepares a **card** with exactly what will happen. **Nothing chang
 Keep in mind:
 - The assistant changes nothing by itself: **you confirm every change**. It sees only what you may see.
 - It can be wrong. **Check figures** before you use them; it says so when the CRM does not hold the answer.
-- There is a **daily limit** per person, shown under the question box.
+- There is a **daily limit** per person, shown under the question box. The name of the **AI model** in use is shown there too; your Admin chooses it for everyone.
+- An answer can take **10–30 seconds** with the default free model. The steps it takes ("Searching opportunities…") are shown while you wait, and **Stop** ends an answer early.
 
 ---
 
@@ -464,6 +465,7 @@ The screens hide what you cannot do, and the server checks every action again.
 | "Someone else changed this record" | A colleague saved first. The page now shows their version; make your change again. |
 | I was signed out | Sessions end after inactivity. Sign in again; you return to the page you were on. |
 | The **Assistant** button is missing | The assistant is switched off. Ask an Admin. |
+| The assistant says it is **not available right now** | The AI provider is busy or its daily quota is used up. Try again later, or ask an Admin to choose another model. |
 | Something else fails | Note what you were doing and the time, and tell an Admin; they can find it in the logs. |
 
 ---

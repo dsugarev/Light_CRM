@@ -179,8 +179,8 @@ async def test_FR_AI_08_status_reports_the_daily_budget(
         "daily_token_budget": 200_000,
         "used_today": 0,
         "remaining_budget": 200_000,
-        "model": "gpt-oss-120b",
-        "model_label": "gpt-oss-120b (OpenRouter, Cerebras)",
+        "model": "nemotron-3-ultra-free",
+        "model_label": "NVIDIA Nemotron 3 Ultra (OpenRouter, free)",
     }
 
 

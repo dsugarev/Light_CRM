@@ -86,9 +86,9 @@ Session timeouts, the stale-opportunity threshold and "Require two-factor sign-i
 | Variable | Default | Meaning |
 |---|---|---|
 | `AI_ENABLED` | `false` | Approved by the owner (2026-11-18); set to `true` together with `OPENROUTER_API_KEY` (section 8) |
-| `OPENROUTER_API_KEY` | empty | Key of a funded OpenRouter account: the default model and the free Nemotron option |
+| `OPENROUTER_API_KEY` | empty | OpenRouter key: the default model (the free NVIDIA Nemotron 3 Ultra) and gpt-oss-120b. Free models allow 50 requests a day unless the account has bought 10 USD of credits |
 | `GEMINI_API_KEY` | empty | Google AI Studio key: makes the Gemini 3.5 Flash option available (ADR 0031). `AI_ENABLED=true` needs at least one of the two keys |
-| `LLM_MODEL`, `LLM_PROVIDER` | `openrouter/openai/gpt-oss-120b`, `cerebras` | The default catalog model (`gpt-oss-120b`) and its only provider (no fallbacks). The model in use is the Admin's choice in **Settings** |
+| `LLM_MODEL`, `LLM_PROVIDER` | `openrouter/openai/gpt-oss-120b`, `cerebras` | The `gpt-oss-120b` option's model and its only provider (no fallbacks). The model in use is the Admin's choice in **Settings** |
 | `LLM_TIMEOUT_SECONDS` | 60 | Per model call |
 | `LLM_API_BASE` | empty | An OpenAI-compatible gateway instead of OpenRouter (end-to-end tests use it) |
 | `AI_DAILY_TOKEN_BUDGET` | 200000 | Tokens per user per day (from midnight Sofia time). Since the assistant prepares actions (R1.1), an answer uses about 12,000 tokens, so 200,000 allow about 16 answers a day; raise it if users run out |
@@ -186,7 +186,7 @@ The audit log (**Audit log**, Admins) records every change, sign-in and export.
 | Exports (XLSX/CSV) and the GDPR personal-data export | The requesting user's browser; each export is audited | Not kept by the CRM |
 | Imports | Rows parsed into the database for preview and rollback; files are not kept | Batches until discarded |
 | Integration data | Read and written by Conclusion, ERP and Billing through the API with their scopes; webhook events to their HTTPS endpoints | Webhook events and delivery history 30 days |
-| Assistant questions and the CRM data the assistant looks up | Sent to the model an Admin chose (outside the company) when `AI_ENABLED=true`: OpenRouter and Cerebras by default; OpenRouter and NVIDIA (free), or Google, if chosen (section 8.1). Answers stored in the user's chat history | Chats until the user deletes them; token usage per request kept for the budget |
+| Assistant questions and the CRM data the assistant looks up | Sent to the model an Admin chose (outside the company) when `AI_ENABLED=true`: OpenRouter and NVIDIA (the free model) by default; OpenRouter and Cerebras, or Google, if chosen (section 8.1). Answers stored in the user's chat history | Chats until the user deletes them; token usage per request kept for the budget |
 | Logs | Container logs (JSON): no passwords, tokens, keys or chat text; no query strings | As configured in Docker (rotate them) |
 | Backups | `CRM_BACKUP_DIR`, copied nightly to another machine | 10 days on the server; 30 days on the other machine |
 
@@ -196,16 +196,16 @@ The audit log (**Audit log**, Admins) records every change, sign-in and export.
 
 ## 8. Switching on the AI assistant
 
-The owner approved the data flow to OpenRouter and Cerebras on 2026-11-18 (ADR 0028). In the OpenRouter account settings, turn off prompt logging and training on your data, and file the data-processing agreement. Then set `AI_ENABLED=true` and `OPENROUTER_API_KEY` in `.env`, allow outbound HTTPS to `openrouter.ai`, run `docker compose up -d`, and run the live evaluation (`docs/assistant-eval.md`; it passed 20/20 on 2026-11-18).
+The owner approved the data flow to OpenRouter and Cerebras on 2026-11-18 (ADR 0028). Since 2026-11-22 the default model is the free NVIDIA Nemotron 3 Ultra on OpenRouter; see section 8.1 for what that means for data protection. In the OpenRouter account settings, turn off prompt logging and training on your data, and file the data-processing agreement. Then set `AI_ENABLED=true` and `OPENROUTER_API_KEY` in `.env`, allow outbound HTTPS to `openrouter.ai`, run `docker compose up -d`, and run the live evaluation (`docs/assistant-eval.md`; it passed 20/20 on 2026-11-18).
 
 ### 8.1 Choosing the AI model (FR-AI-10, ADR 0031)
 
-An Admin chooses the model for all users in **Settings → AI assistant**. The choice applies to everyone's next question without a restart, is recorded in the audit log (`settings.updated`), and is shown to users under the question box.
+An Admin chooses the model for all users in **Settings → AI assistant**. **The default is the free NVIDIA Nemotron 3 Ultra** (owner's decision, 2026-11-22; migration `0014` also switched installations still on the old default, gpt-oss-120b). Because the free endpoint may keep prompts, **get the DPO's approval before switching the assistant on with real customer data**, or choose gpt-oss-120b, the flow approved in ADR 0028. The choice applies to everyone's next question without a restart, is recorded in the audit log (`settings.updated`), and is shown to users under the question box.
 
 | Option | Needs | Data protection |
 |---|---|---|
-| gpt-oss-120b (OpenRouter, Cerebras), default | `OPENROUTER_API_KEY`; HTTPS to `openrouter.ai` | The approved flow (ADR 0028): turn off prompt logging and training in the OpenRouter account |
-| NVIDIA Nemotron 3 Ultra (OpenRouter, free) | `OPENROUTER_API_KEY` | **The provider may keep or use prompts.** Free endpoints log prompts by the provider's terms. OpenRouter caps free models (about 20 requests a minute, and a daily cap that depends on the credit bought); answers are slower (median 12 s in the evaluation) |
+| gpt-oss-120b (OpenRouter, Cerebras) | `OPENROUTER_API_KEY`; HTTPS to `openrouter.ai` | The approved flow (ADR 0028): turn off prompt logging and training in the OpenRouter account |
+| NVIDIA Nemotron 3 Ultra (OpenRouter, free), **default** | `OPENROUTER_API_KEY`; HTTPS to `openrouter.ai` | **The provider may keep or use prompts.** Free endpoints log prompts by the provider's terms. OpenRouter caps free models (about 20 requests a minute, and a daily cap that depends on the credit bought); answers are slower (median 12 s in the evaluation) |
 | Gemini 3.5 Flash (Google) | `GEMINI_API_KEY`; HTTPS to `generativelanguage.googleapis.com` | **The provider may keep or use prompts** on Google AI Studio's free tier; a paid (billed) project keeps them out of training. **The free tier allows only 20 requests a day per project** (2026-11-22). An answer takes 2–4 requests, so that is about 5–10 answers a day for everyone: switch on billing for the Google project before choosing Gemini for daily use |
 
 Options whose key is not set are shown greyed out and cannot be chosen. Free OpenRouter models share an account-wide cap of 50 requests a day (1,000 a day once the account has bought 10 USD of credits in total; checked 2026-11-22), and an answer can take several requests. When a provider's quota or rate limit is reached, the chat shows "The assistant is not available right now" until the quota resets; choose another model in the meantime. Prompts contain customer data (names, deal values, notes), so **before choosing one of the options marked "may keep prompts" with real data**, check the provider's current terms and get the DPO's approval. To add a key: put it in `.env`, then `docker compose up -d backend` (or `scripts/start-*.sh`). Each option has a recorded live evaluation in `docs/assistant-eval.md`; run it again after a model or prompt change (`--model <id>`).

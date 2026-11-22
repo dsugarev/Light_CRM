@@ -162,7 +162,7 @@ If your Admin has switched it on, select **Assistant** in the top bar. Ask in En
 - The assistant reads CRM data, only what you are allowed to see. It can't change records for you (Viewers can't change records). It can prepare one change: your own **name or language**, which you confirm on a card.
 - Records mentioned in an answer are links. **Copy** copies the answer.
 - Check the figures before you rely on them. The assistant says so when the CRM doesn't hold the answer.
-- There is a **daily limit** per person, shown under the question box.
+- There is a **daily limit** per person, shown under the question box, with the name of the AI model in use. With the default free model an answer takes about 10–30 seconds.
 
 ---
 
@@ -188,6 +188,7 @@ You can't change data yourself. Here is who to ask:
 | I forgot my password | Use **Forgot your password?**, or ask an Admin for a reset link. |
 | I don't see Edit or New buttons | This is expected: Viewers have read-only access. |
 | The **Assistant** button is missing | The assistant is switched off. Ask an Admin. |
+| The assistant says it is **not available right now** | The AI provider is busy or its daily quota is used up. Try again later, or ask an Admin to choose another model. |
 | I was signed out | Sessions end after a period of inactivity. Sign in again and you return to the page you were on. |
 
 ---

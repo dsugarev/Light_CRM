@@ -2784,3 +2784,21 @@ if ctx.principal.role is not RoleCode.ADMIN:
 - `get_settings` gives other roles `not_allowed_for_role`. `list_values` and the activity filters are open to every signed-in user, as the API is.
 - No email address, session, key or audit entry reaches the model.
 
+### Phase 10 follow-up: the free model by default; manuals (owner, 2026-11-22)
+
+| # | Task | Result |
+|---|---|---|
+| 10.11 | `nemotron-3-ultra-free` becomes the default: `models.DEFAULT_MODEL`, the settings default, migration `0014` (column default; installations still on `gpt-oss-120b` switch) | Done |
+| 10.12 | Manuals for all roles, user guides, operations guide, architecture, API spec, ADR 0031 amendment, release notes, CLAUDE.md | Done |
+
+```python
+# alembic/versions/0014_free_model_by_default.py
+op.alter_column("app_setting", "ai_model", server_default="nemotron-3-ultra-free")
+op.execute(sa.text("UPDATE app_setting SET ai_model = 'nemotron-3-ultra-free' "
+                   "WHERE ai_model = 'gpt-oss-120b'"))
+```
+
+- Switching rows that hold `gpt-oss-120b` is safe only because Release 1.1 is not yet released: that value came from `0013`, not from an Admin. The downgrade switches them back.
+- Data protection: the default free endpoint may keep prompts. The Settings screen shows the warning for it, and the admin manual and operations guide ask for the DPO's approval before real customer data is used (or a switch to gpt-oss-120b).
+- Manuals: the Admin manual has the new default and a table comparing the three models (speed, caps, data note). Every role's manual now covers the model name under the question box, the 10–30 s answers of the free model, and a troubleshooting row for "not available right now". The screenshots that show the model (Settings, assistant) still need retaking: `pnpm manual:screenshots` needs the manual users' password.
+

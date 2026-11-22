@@ -231,7 +231,7 @@ The assistant can also **prepare changes** for you to confirm. For example:
 
 Each change appears as a card, and **nothing changes until you press Confirm**. It uses your manager rights, and every confirmed change is audited as yours "via assistant". The Sales Rep manual (section 10.1) shows a card.
 
-Records in an answer are links. **Save as note** saves a checked draft on a record. Check the figures before you present them. There is a daily limit per person.
+Records in an answer are links. **Save as note** saves a checked draft on a record. Check the figures before you present them. There is a daily limit per person. The AI model in use is shown under the question box (an Admin chooses it); with the default free model an answer takes about 10–30 seconds.
 
 ---
 
@@ -260,6 +260,7 @@ Records in an answer are links. **Save as note** saves a checked draft on a reco
 | An import shows many invalid rows | Compare the file with the template and the [import format](../import-format.md). Check the date and number formats and the required columns. |
 | I can't roll back an import | Only an Admin can. Ask them, and give them the file name and time of the import. |
 | The **Assistant** button is missing | The assistant is switched off. Ask an Admin. |
+| The assistant says it is **not available right now** | The AI provider is busy or its daily quota is used up. Try again later, or ask an Admin to choose another model. |
 
 ---
 

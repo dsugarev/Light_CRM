@@ -88,3 +88,40 @@ def test_NFR_04_application_role_cannot_run_ddl(migrated_database: str) -> None:
 
     with pytest.raises(ProgrammingError, match="permission denied"):
         asyncio.run(create_table())
+
+
+def test_FR_AI_10_the_free_model_becomes_the_default(migrated_database: str) -> None:
+    """0014: the old default switches to the free model; another choice is kept."""
+
+    async def model() -> str:
+        engine = create_async_engine(migrated_database)
+        try:
+            async with engine.connect() as connection:
+                result = await connection.execute(text("SELECT ai_model FROM app_setting"))
+                return str(result.scalar_one())
+        finally:
+            await engine.dispose()
+
+    async def choose(model_id: str) -> None:
+        engine = create_async_engine(migrated_database)
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("UPDATE app_setting SET ai_model = :m"), {"m": model_id}
+                )
+        finally:
+            await engine.dispose()
+
+    config = alembic_config(migrated_database)
+    try:
+        command.downgrade(config, "0013")
+        assert asyncio.run(model()) == "gpt-oss-120b"
+        command.upgrade(config, "0014")
+        assert asyncio.run(model()) == "nemotron-3-ultra-free"
+        command.downgrade(config, "0013")
+        asyncio.run(choose("gemini-3.5-flash"))  # an Admin's own choice
+        command.upgrade(config, "0014")
+        assert asyncio.run(model()) == "gemini-3.5-flash"
+    finally:
+        asyncio.run(choose("nemotron-3-ultra-free"))
+        command.upgrade(config, "head")

@@ -6,7 +6,7 @@
     uv run python scripts/assistant_eval.py [--model gemini-3.5-flash] \\
         [--report ../docs/assistant-eval.md]
 
-`--model` is a catalog id from app.llm.models (default gpt-oss-120b); it is chosen through
+`--model` is a catalog id from app.llm.models (default nemotron-3-ultra-free); it is chosen through
 the Admin setting, as in production. Gemini needs GEMINI_API_KEY instead of (or as well as)
 OPENROUTER_API_KEY.
 
