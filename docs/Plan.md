@@ -2805,3 +2805,19 @@ op.execute(sa.text("UPDATE app_setting SET ai_model = 'nemotron-3-ultra-free' "
 - **The screenshot script** waits for the finished answer (its **Copy** button) instead of a fixed 4 seconds.
 - **Local passwords (owner's request):** the four manual users have a new password. `docs/users.md` lists the local stack's users, roles and passwords, or one-time reset links. It is in `.gitignore` (no secrets in git, CLAUDE.md) and readable only by its owner.
 
+### Presentation readiness (2026-11-22)
+
+- **Local database cleaned for the business presentation.** A backup was taken first (`backups/before-demo-cleanup-20261122-2237.dump`). One transaction, with foreign keys checked, kept:
+  - the four manual users and their sample records: 1 organization, 1 contact, 2 leads, 3 opportunities, 3 activities;
+  - the lists and stages, which match a fresh installation;
+  - the settings, at their defaults;
+  - the 91 audit entries about the kept users and records.
+
+  It removed everything the automated tests had left: 16,778 organizations, 20,623 leads, about 2,000 test and service users, the integration clients, imports, chats and sessions. One assistant test task ("Call MR Z") went too. Smoke test: all four roles sign in, and the main lists and the dashboard load. The live assistant answered "How many users are there?" with 4, one per role.
+- **Presenter notes:**
+  - demo on the local stack (staging runs an older version);
+  - use the ready demo accounts;
+  - the assistant uses the free model by default, and Settings can switch to gpt-oss-120b for faster answers;
+  - the demo lead is renamed so it doesn't duplicate the sample lead;
+  - the Q&A answer on where assistant data goes now covers the free model and the DPO.
+
