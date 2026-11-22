@@ -149,6 +149,7 @@ export function OrganizationsPage() {
             columns={columns}
             rows={organizations.data.items}
             rowKey={(org) => org.id}
+            rowHref={(org) => `/organizations/${org.id}`}
             sort={list.sort}
             onSort={(sort) => {
               list.update({ sort })

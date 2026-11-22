@@ -163,6 +163,7 @@ export function ContactsPage() {
             columns={columns}
             rows={contacts.data.items}
             rowKey={(c) => c.id}
+            rowHref={(c) => `/contacts/${c.id}`}
             sort={list.sort}
             onSort={(sort) => {
               list.update({ sort })

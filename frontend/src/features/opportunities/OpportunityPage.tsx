@@ -28,6 +28,7 @@ import { detailListClass } from '@/components/detailList'
 import { CloseForm } from './CloseForm'
 import { stageName, type Opportunity } from './opportunityValues'
 import { StageBadge, StaleBadge } from './StageBadge'
+import { StagePath } from './StagePath'
 import { useOpportunityMutation } from './useOpportunityMutation'
 import { usePipeline } from './usePipeline'
 
@@ -233,6 +234,20 @@ function OpportunityActions({ opportunity: o }: { opportunity: Opportunity }) {
                 })}
           </AlertDescription>
         </Alert>
+      ) : null}
+      {openStages.length > 0 ? (
+        <StagePath
+          opportunity={o}
+          stages={openStages}
+          onMove={
+            editable && isOpen
+              ? (stageId) => {
+                  move.mutate(stageId)
+                }
+              : undefined
+          }
+          pending={move.isPending}
+        />
       ) : null}
       <div
         className="flex flex-wrap items-center gap-2"

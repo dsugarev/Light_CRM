@@ -86,6 +86,7 @@ export function ImportsPage() {
             columns={columns}
             rows={batches.data.items}
             rowKey={(b) => b.id}
+            rowHref={(b) => `/admin/imports/${b.id}`}
             sort="-created_at"
             onSort={() => undefined}
             empty={t('list.none')}

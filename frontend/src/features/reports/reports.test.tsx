@@ -87,6 +87,27 @@ describe('FR-REP-01 dashboard', () => {
       'Преговори',
     )
   })
+
+  it('FR-REP-01 loop 3: each KPI card opens the list behind its figure', async () => {
+    signedInAs(REP_ME)
+    server.use(http.get('*/api/v1/reports/dashboard', () => HttpResponse.json(DASHBOARD)))
+    await renderApp('/')
+    const pipeline = await screen.findByRole('link', { name: 'Open pipeline' })
+    expect(pipeline).toHaveAttribute('href', '/opportunities/board')
+    expect(screen.getByRole('link', { name: 'Lead conversion rate' })).toHaveAttribute(
+      'href',
+      '/leads',
+    )
+    expect(screen.getByRole('link', { name: 'Win rate' })).toHaveAttribute(
+      'href',
+      '/reports/win-loss',
+    )
+    // The link covers its card, and the card lifts on hover and rings on keyboard focus.
+    expect(pipeline).toHaveClass('after:absolute', 'after:inset-0')
+    const card = pipeline.closest('[data-slot="card"]')
+    expect(card).toHaveClass('relative', 'hover:-translate-y-0.5', 'has-[a:focus-visible]:ring-2')
+    expect(screen.getByRole('link', { name: '4' })).toHaveClass('after:inset-0')
+  })
 })
 
 describe('FR-REP-03 win/loss report', () => {

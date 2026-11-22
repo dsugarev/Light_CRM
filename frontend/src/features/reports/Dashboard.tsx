@@ -70,19 +70,33 @@ export function Dashboard() {
   )
 }
 
+/**
+ * Loop 3: KPI cards are entry points, as on CRM home pages. The card lifts and gains a
+ * brand edge on hover; one link inside is stretched over the card (`after:inset-0`), so
+ * the card is a single tab stop named by its label, and focus outlines the whole card.
+ */
+const KPI_CARD =
+  'relative transition-[box-shadow,translate] duration-150 hover:-translate-y-0.5 hover:shadow-md hover:ring-primary/40 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring'
+const STRETCHED = 'outline-none after:absolute after:inset-0 after:content-[""]'
+
 function Kpi({
   label,
   value,
   detail,
+  to,
 }: {
   label: string
   value: string
   detail?: string | undefined
+  /** Loop 3: the list behind the figure; the whole card opens it. */
+  to: string
 }) {
   return (
-    <Card>
+    <Card className={KPI_CARD}>
       <CardContent className="flex flex-col gap-1 pt-6">
-        <span className="text-sm text-muted-foreground">{label}</span>
+        <Link to={to} className={`text-sm text-muted-foreground ${STRETCHED}`}>
+          {label}
+        </Link>
         <span className="text-2xl font-semibold" data-testid={`kpi-${label}`}>
           {value}
         </span>
@@ -120,6 +134,7 @@ function Figures({ data }: { data: DashboardData }) {
           label={t('dashboard.openPipeline')}
           value={money(data.pipeline.total_amount)}
           detail={t('dashboard.weighted', { value: money(data.pipeline.weighted_amount) })}
+          to="/opportunities/board"
         />
         <Kpi
           label={t('dashboard.conversionRate')}
@@ -128,6 +143,7 @@ function Figures({ data }: { data: DashboardData }) {
             converted: formatNumber(conversion.converted, locale),
             created: formatNumber(conversion.created, locale),
           })}
+          to="/leads"
         />
         <Kpi
           label={t('dashboard.winRate')}
@@ -136,11 +152,12 @@ function Figures({ data }: { data: DashboardData }) {
             won: formatNumber(closed.won_count, locale),
             lost: formatNumber(closed.lost_count, locale),
           })}
+          to="/reports/win-loss"
         />
-        <Card>
+        <Card className={KPI_CARD}>
           <CardContent className="flex flex-col gap-1 pt-6">
             <span className="text-sm text-muted-foreground">{t('dashboard.myTasks')}</span>
-            <Link to="/tasks" className="text-2xl font-semibold hover:underline">
+            <Link to="/tasks" className={`text-2xl font-semibold hover:underline ${STRETCHED}`}>
               {formatNumber(data.my_tasks.open, locale)}
             </Link>
             <span className="text-xs text-muted-foreground">
