@@ -10,11 +10,8 @@ import { api, ApiError, call } from '@/api/client'
 import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
-import {
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-  PasswordChecklist,
-} from '@/components/PasswordChecklist'
+import { PasswordChecklist } from '@/components/PasswordChecklist'
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/components/passwordPolicy'
 import { PasswordInput } from '@/components/PasswordInput'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { applyServerErrors } from '@/lib/errors'
