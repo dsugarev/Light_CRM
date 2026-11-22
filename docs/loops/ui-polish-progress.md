@@ -449,3 +449,12 @@ PR #22's first CI run (`44364701501`) failed two end-to-end tests on Chromium an
 **Also cherry-picked here:** the housekeeping test fix (it compared the fixed test date with the real clock and fails from 2026-11-20 on).
 
 **Gate:** Vitest 258/258, i18n 1200 keys; Playwright Chromium 47/47 (one sign-in timeout in `party.spec.ts` passed alone twice); visual 4/4; backend pytest 1305 passed.
+
+**Second CI run (PR #23, run `44982236874`):** the contacts fix held. Two tests still failed:
+- **`/admin/audit-log` scrolled by 6–8 px at 768 px** with CI's data. Actor, action and record now wrap too.
+- **The session test failed again: my first diagnosis was incomplete.** CI's trace shows the real cause. When the session ended, **two** requests answered 401 at once (lead sources and leads). The first marked the session as expired and cleared the user; the second then saw no user and overwrote the flag with "not expired". Locally the lead sources were cached, so only one request failed.
+  - Fixed: a 401 only ever *sets* the flag, and a successful sign-in resets it.
+  - New test `FN-04 says so when several requests fail together as the session ends`. It fails without the fix (reproducing CI) and passes with it.
+  - The earlier `useMe` change stays: it covers a real path, but it was not the cause here.
+
+**Gate:** Vitest 259/259; Playwright Chromium 47/47; visual 4/4.

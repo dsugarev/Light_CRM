@@ -73,6 +73,23 @@ describe('FN-04 session expiry', () => {
     expect(router.state.location.search).toBe('?next=%2Fleads&expired=1')
   })
 
+  it('FN-04 says so when several requests fail together as the session ends', async () => {
+    const { expire } = session()
+    const { router, queryClient } = await renderApp('/leads')
+    expect(await screen.findByRole('link', { name: LEAD.title })).toBeInTheDocument()
+    expire()
+    // Both requests answer 401 at once (as in CI); the second must not undo the first.
+    server.use(http.get('*/api/v1/reference/:list', () => problem(401, 'auth.session_expired')))
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['leads'] }),
+      queryClient.invalidateQueries({ queryKey: ['reference'] }),
+    ])
+    expect(
+      await screen.findByText('Your session has ended. Sign in again to continue where you were.'),
+    ).toBeInTheDocument()
+    expect(router.state.location.search).toBe('?next=%2Fleads&expired=1')
+  })
+
   it('FN-04 a first visit is sent to sign-in without the expiry message', async () => {
     const { router } = await renderApp('/leads')
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()

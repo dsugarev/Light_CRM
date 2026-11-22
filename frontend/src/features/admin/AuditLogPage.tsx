@@ -147,11 +147,22 @@ export function AuditLogPage() {
         )
       },
     },
-    { key: 'actor', header: t('audit.columns.actor'), cell: (row) => labels.actor(row.actor) },
-    { key: 'action', header: t('audit.columns.action'), cell: (row) => labels.action(row.action) },
+    {
+      key: 'actor',
+      header: t('audit.columns.actor'),
+      className: 'whitespace-normal [overflow-wrap:anywhere]',
+      cell: (row) => labels.actor(row.actor),
+    },
+    {
+      key: 'action',
+      header: t('audit.columns.action'),
+      className: 'whitespace-normal [overflow-wrap:anywhere]',
+      cell: (row) => labels.action(row.action),
+    },
     {
       key: 'entity',
       header: t('audit.columns.entity'),
+      className: 'whitespace-normal [overflow-wrap:anywhere]',
       cell: (row) => (
         <>
           {labels.entityType(row.entity_type)}

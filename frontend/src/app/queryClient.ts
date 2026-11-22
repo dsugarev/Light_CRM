@@ -15,7 +15,9 @@ export function createQueryClient() {
       // FN-04: someone who was signed in lost their session; a first visit did not.
       // RequireAuth then sends them to sign-in, with the message and the way back.
       const previous: unknown = queryClient.getQueryData(ME_QUERY_KEY)
-      queryClient.setQueryData(SESSION_EXPIRED_KEY, previous != null)
+      // Only ever set, never cleared here: several requests fail together when a session
+      // ends, and the later ones (which see no user any more) must not undo the first.
+      if (previous != null) queryClient.setQueryData(SESSION_EXPIRED_KEY, true)
       queryClient.setQueryData(ME_QUERY_KEY, null)
     }
   }
