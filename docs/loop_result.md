@@ -105,3 +105,17 @@ A loop applying CRM UI best practices to Light CRM after the UI polish (PR #22).
 | 3 | Empty lists with a next step (clear filters or create) | Fewer dead ends; the search box now resets correctly |
 
 All three are frontend-only, with no API change and no new dependency. Owner-decision items (backlog section C) were not built.
+
+## After the loop — rebased on PR #22's CI fixes (2026-11-22)
+
+PR #22's CI found two end-to-end failures; they are fixed on `ui-polish`, see `docs/loops/ui-polish-progress.md`:
+- the contacts list now fits at 768 px;
+- sign-in now reports a lost session even when `/me` is the first request to fail.
+
+`ui-improvements` was rebased onto that. One conflict, in the contacts email column, was resolved by keeping both the narrow-screen classes and the email link. The housekeeping test fix, already on `ui-polish`, was dropped here as a duplicate.
+
+Gate on the rebased branch:
+- Vitest 282/282, i18n 1208 keys;
+- Playwright Chromium 47/48: one sign-in "Welcome" timeout in `opportunities.spec.ts`, which passed alone twice;
+- visual 4/4;
+- pytest 1305 passed.
