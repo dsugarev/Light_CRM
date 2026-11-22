@@ -68,7 +68,7 @@ Found and fixed during this review:
 |---|---|---|---|
 | 4.1.1 | Enforced server-side | ✅ | `core/policy.py`; route × role matrix and integration scope matrix for every route |
 | 4.1.2 | Attributes cannot be manipulated by users | ✅ | Roles and ownership read from the database per request |
-| 4.1.3 | Least privilege | ✅ | Roles per requirements; integrations deny-by-default with scopes; exports follow the role matrix since 2026-11-22 (Viewers none, Sales Reps own records only) |
+| 4.1.3 | Least privilege | ✅ | Assistant actions (R1.1, ADR 0030): the model only proposes; the user confirms; the service rechecks permissions on confirmation; write tools offered by role. Roles per requirements; integrations deny-by-default with scopes; exports follow the role matrix since 2026-11-22 (Viewers none, Sales Reps own records only) |
 | 4.1.5 | Fails securely | ✅ | Unknown level or missing scope refuses (`test_policy.py`) |
 | 4.2.1 | No insecure direct object references | ✅ | Ownership checks on changes (Owner+); own-only conversations return 404; visibility per assumption A1 (everyone sees all records, owner decision pending as question 6) |
 | 4.2.2 | CSRF protection | ✅ | Custom header + Origin check, `SameSite=Strict`; `test_security_headers.py` |

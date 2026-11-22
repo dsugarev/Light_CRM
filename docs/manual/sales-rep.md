@@ -405,8 +405,31 @@ If your Admin has switched it on, select **Assistant** in the top bar. A chat op
 ![An answer listing the open pipeline by stage in a table, with Copy and Save as note.](images/common/assistant-answer.png)
 *Figure 30. An answer with figures from the CRM. (Example from a test system; your figures differ.)*
 
+### 10.1 Let the assistant do it for you
+
+**User story:** *As a Sales Rep, I want to say what needs doing and have the CRM prepare it, so that updating records takes seconds.*
+
+Ask in plain words, for example:
+- *Create a task due tomorrow to send the offer to Petar* (on the deal's page, or naming the record);
+- *Move Fibre for Sunrise Foods HQ to Negotiation*;
+- *Log a call with Petar Nikolov: he wants a quote by Friday*;
+- *Close the Cloud PBX deal as lost, reason price*;
+- *Create a lead: SD-WAN for Riverside Hotels, 60,000 EUR*.
+
+The assistant prepares a **card** with exactly what will happen. **Nothing changes until you press Confirm.** **Cancel** discards it, and a card expires after 30 minutes.
+
+![The assistant on an opportunity page showing a "Create task" card with subject, due date, assignee and linked record, and Confirm and Cancel buttons.](images/common/assistant-action.png)
+*Figure 31. A task prepared by the assistant, waiting for confirmation.*
+
+- Cards for changes that remove or close something (archive, close as lost) are **red**: check them carefully.
+- After **Confirm** the card says **Done.** and links to the record.
+- If someone changed the record in the meantime, the card says **Not done.** Ask again.
+- It works with your rights. It won't prepare changes to a colleague's records, and the CRM checks again when you confirm.
+- Tasks, notes, calls, meetings and emails always belong to a lead, opportunity, organization or contact. If you don't say which, it asks.
+- Every confirmed change appears in the audit log as made by you, "via assistant".
+
 Keep in mind:
-- The assistant **only reads**. It never creates, changes or deletes anything, and it sees only what you may see.
+- The assistant changes nothing by itself: **you confirm every change**. It sees only what you may see.
 - It can be wrong. **Check figures** before you use them; it says so when the CRM does not hold the answer.
 - There is a **daily limit** per person, shown under the question box.
 

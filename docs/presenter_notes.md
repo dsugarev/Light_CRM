@@ -52,7 +52,7 @@ Let us be honest about how we work today. Leads and deals are tracked in spreads
 
 *About 1.5 min.*
 
-So what is Light CRM? It is one shared place for our leads, our opportunities, our customers and everything that happened with them. It was built for our team of about twenty people, so it is deliberately simple. Every screen works in English and in Bulgarian, and you choose your language in your profile. There are four roles: Sales Rep, Sales Manager, Viewer and Admin, so each person sees exactly the buttons they need. It runs on our own servers: customer data does not go to an external cloud CRM. It is connected to ERP, Billing and Conclusion through a secure interface, and it has an AI assistant you can ask about your pipeline. The assistant only reads data; it never changes anything.
+So what is Light CRM? It is one shared place for our leads, our opportunities, our customers and everything that happened with them. It was built for our team of about twenty people, so it is deliberately simple. Every screen works in English and in Bulgarian, and you choose your language in your profile. There are four roles: Sales Rep, Sales Manager, Viewer and Admin, so each person sees exactly the buttons they need. It runs on our own servers: customer data does not go to an external cloud CRM. It is connected to ERP, Billing and Conclusion through a secure interface, and it has an AI assistant you can ask about your pipeline. The assistant can also prepare changes, such as a new task or a stage move, but nothing changes until you press Confirm on its card.
 
 ## A week with Light CRM
 
@@ -96,7 +96,7 @@ Friday. Elena closes the Riverside deal as won. Georgi, her manager, does not ne
 
 *About 1.5 min.*
 
-One more helper: the AI assistant. It opens from the top bar on every page. You ask in plain English or Bulgarian, for example which of my deals close this month, or summarise the history with this customer, or draft a follow-up email for this deal. Answers link to the records they mention. A draft can be copied, or saved as a note on the record after you have checked it. Two important points: the assistant only reads, and only what you are allowed to see. It never changes data. And like any assistant it can be wrong, so check figures before you send them to a customer. The assistant is switched on by the Admin; there is a daily limit per person.
+One more helper: the AI assistant. It opens from the top bar on every page. You ask in plain English or Bulgarian, for example which of my deals close this month, or summarise the history with this customer, or draft a follow-up email for this deal. Answers link to the records they mention. A draft can be copied, or saved as a note on the record after you have checked it. It can also prepare changes for you, for example create a task due tomorrow, log a call, or move a deal. It shows a card with exactly what will happen, and nothing changes until you press Confirm. Two important points: it sees and does only what you are allowed to, and every confirmed change is in the audit log as yours. And like any assistant it can be wrong, so check figures before you send them to a customer. The assistant is switched on by the Admin; there is a daily limit per person.
 
 ## What it means for you
 
@@ -152,7 +152,7 @@ In the demo environment, signed in as the demo Sales Rep:
 | Can I use it on a tablet? | Yes, it works down to tablet width, with larger touch targets. |
 | Who can see my deals? | Everyone in the team can see all records. Only you (the owner), the Sales Managers and the Admin can change yours. |
 | Can I export to Excel? | Sales Reps export their own records; Sales Managers and Admins export everything; Viewers do not export. |
-| Does the AI assistant change data or send it outside? | It only reads, with your permissions. It uses an external AI provider approved by the owner (see the operations guide); it can be switched off. |
+| Does the AI assistant change data or send it outside? | Only after you confirm its card, with your permissions. It uses an external AI provider approved by the owner (see the operations guide); it can be switched off. |
 | Is it in Bulgarian? | Every screen is in English and Bulgarian; choose under **My profile → Language**. |
 | What happens if I forget my password? | Use **Forgot your password?** on the sign-in page, or ask the Admin for a reset link. |
 | Is it connected to ERP and Billing? | Yes, through a secure interface. The connections go live once those teams finish their side. |

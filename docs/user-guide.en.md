@@ -32,7 +32,8 @@ Sales Reps change their own records; Sales Managers and Admins change all. Viewe
 
 If your Admin has switched it on, the **Assistant** button in the top bar opens a chat on the right. Ask in English or Bulgarian, for example "Which of my opportunities close this month?" or "Draft a follow-up email for this opportunity". On a lead, opportunity or organization page it offers to answer about that record.
 
-- The assistant only reads CRM data, with your permissions; it never changes anything.
+- It can also **do things for you**: "Create a task due tomorrow to call Petar for Sunrise Foods", "Move this deal to Negotiation", "Log a call with Petar: he wants a quote". It prepares a **card**; nothing changes until you press **Confirm** (or **Cancel**). It works with your permissions, and every confirmed change is in the audit log as made by you via the assistant. Tasks and other activities always belong to a record: name it, or ask on the record's page.
+- Passwords, API keys, personal-data export or anonymization and imports are done on the screens, not through the assistant.
 - Records it mentions are links. **Copy** copies an answer; **Save as note** saves a draft as a note on a record, after you have checked and edited it.
 - It can be wrong: check figures before you use them. It says so when the CRM does not hold the answer.
 - There is a daily limit per person, shown under the question box.

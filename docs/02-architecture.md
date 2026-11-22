@@ -256,15 +256,15 @@ As built (Phase 7a, ADR 0026): the rest of the backend depends only on the `LLM`
 3. The model may request tools. The backend executes each tool **through the same service layer and permission checks as the REST API**, as the signed-in user, and returns compact JSON results.
 4. The loop ends on a final answer or after 5 tool rounds. The answer is streamed, then stored with token counts.
 
-### 8.3 Tools in R1 (all read-only)
+### 8.3 Tools (reading; and since R1.1, proposals the user confirms)
 
 `search_leads`, `search_opportunities`, `search_organizations`, `search_contacts`, `get_record` (by type and ID), `list_activities`, `pipeline_summary`, `forecast_summary`, `win_loss_summary`, `lead_conversion_summary`, `my_tasks` (extended 2026-11-22; API spec 17 lists the arguments). Each has a strict JSON schema, bounded result sizes (maximum 25 rows), and returns record IDs so the answer can link to records.
 
-The model never receives database access, never writes SQL, and has no tool that changes data.
+The model never receives database access, never writes SQL, and has no tool that changes data. Since R1.1 (Phase 9, ADR 0030) it also has `propose_*` tools: they validate an action and store it as a proposal; the user's **Confirm** runs it through the same service function as the REST endpoint, with the user's permissions and the record version captured when proposing. Write tools are offered only to roles that can use them.
 
 ### 8.4 Guardrails
 
-- **Prompt injection:** CRM text (notes, descriptions, imported data) is untrusted. It is passed only inside tool results, the system prompt instructs the model to treat tool content as data, and because no write tools exist, injected text cannot change anything.
+- **Prompt injection:** CRM text (notes, descriptions, imported data) is untrusted. It is passed only inside tool results, the system prompt instructs the model to treat tool content as data, and because no tool executes a change (proposals wait for the user's confirmation, ADR 0030), injected text can at most produce a visible card. A round in which the model writes a tool call as text is discarded and retried, so an imagined tool result never reaches the user.
 - **Data minimization:** tool results contain only the fields needed; no password hashes, sessions, audit data or other users' chat history are ever reachable by tools.
 - **Limits:** per-user rate limit, daily token budget, request timeout, maximum tool rounds, maximum message length.
 - **Failure:** provider errors and timeouts become a translated, friendly chat error; nothing else in the application depends on the LLM.

@@ -90,7 +90,7 @@ Session timeouts, the stale-opportunity threshold and "Require two-factor sign-i
 | `LLM_MODEL`, `LLM_PROVIDER` | `openrouter/openai/gpt-oss-120b`, `cerebras` | The model and the only provider allowed (no fallbacks) |
 | `LLM_TIMEOUT_SECONDS` | 60 | Per model call |
 | `LLM_API_BASE` | empty | An OpenAI-compatible gateway instead of OpenRouter (end-to-end tests use it) |
-| `AI_DAILY_TOKEN_BUDGET` | 200000 | Tokens per user per day (from midnight Sofia time) |
+| `AI_DAILY_TOKEN_BUDGET` | 200000 | Tokens per user per day (from midnight Sofia time). Since the assistant prepares actions (R1.1), an answer uses about 12,000 tokens, so 200,000 allow about 16 answers a day; raise it if users run out |
 | `RATE_LIMIT_ASSISTANT_PER_10_MINUTES` | 20 | Questions per user per 10 minutes |
 | `LLM_FAKE` | `false` | Development only; refused in production |
 

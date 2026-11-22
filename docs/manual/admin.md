@@ -309,10 +309,22 @@ The assistant is switched on or off on the server (`AI_ENABLED`, see the operati
 *Figure 17. The assistant. (Example from a test system.)*
 
 Points to share with users:
-- It **only reads** CRM data, with the user's own permissions. It never creates, changes or deletes anything.
+- It **prepares changes that the user confirms** (FR-AI-09, ADR 0030): a card shows exactly what will happen, and only **Confirm** runs it, with the user's own permissions. Cards expire after 30 minutes. Audit entries of confirmed changes carry `via: assistant`.
+- **For Admins** it can also prepare administration as cards:
+  - create, edit, deactivate, activate and unlock users, and sign them out everywhere. A new user's one-time link is shown once in the card and never stored in the chat;
+  - change settings;
+  - add, rename, deactivate and delete list values and pipeline stages.
+- **Not through the assistant:**
+  - password reset links, API keys, webhooks and integration clients;
+  - GDPR export and anonymization;
+  - imports;
+  - users' own passwords and two-factor sign-in;
+  - reordering lists and stages;
+  - IDs in other systems.
+- An instruction hidden in CRM text (for example in an imported note) can at most produce a card that the user sees and can refuse.
 - It answers in English or Bulgarian, links the records it mentions, and can draft emails and call summaries. **Save as note** saves a checked draft on a record.
 - It can be wrong. Figures must be checked before use.
-- Each user has a **daily limit**, shown under the question box. If the AI provider is unavailable, the chat shows an error and the rest of the CRM keeps working.
+- Each user has a **daily limit**, shown under the question box. Since the assistant can prepare actions, an answer uses about 12,000 tokens (about 7,000 before), so the default 200,000 tokens a day allow roughly 16 answers. Raise `AI_DAILY_TOKEN_BUDGET` if people run out. If the AI provider is unavailable, the chat shows an error and the rest of the CRM keeps working.
 
 ---
 
