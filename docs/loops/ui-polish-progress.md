@@ -431,3 +431,21 @@ C-03 (two-factor sign-in) was built in Phase 8a. C-07 (chart polish) and C-08 (a
 - frontend: lint, prettier, typecheck, Vitest 257/257, i18n 1200 keys, API types up to date;
 - Playwright Chromium 47/47, visual 4/4;
 - backend: ruff, mypy, import-linter 14/14, pytest 1305 passed (95.55%), OpenAPI snapshot up to date.
+
+## CI follow-up for PR #22 — 2026-11-22
+
+PR #22's first CI run (`44364701501`) failed two end-to-end tests on Chromium and Firefox. Both passed locally.
+
+**`layout.spec.ts`: `/contacts` scrolled sideways by 156–176 px at 768 px.**
+- CI's database holds different contact data than the local one. The contacts list had been left out of UX-13's narrow-screen trimming.
+- Fixed: job title and owner are hidden below 1024 px, and name, organization and email wrap anywhere, so the table fits whatever the content.
+- I could not reproduce CI's exact rows locally; the next CI run is the check.
+
+**`session.spec.ts`: sign-in showed no "session has ended" message.**
+- `useMe` caught the 401 itself and returned "no user". When the profile reload was the first request after the session ended (the order in CI), the expiry was never recorded.
+- Fixed: `useMe` records a lost session the same way the query cache does.
+- New test `FN-04 says so too when the profile reload is the first request after the session ended`. It fails without the fix and passes with it.
+
+**Also cherry-picked here:** the housekeeping test fix (it compared the fixed test date with the real clock and fails from 2026-11-20 on).
+
+**Gate:** Vitest 258/258, i18n 1200 keys; Playwright Chromium 47/47 (one sign-in timeout in `party.spec.ts` passed alone twice); visual 4/4; backend pytest 1305 passed.
