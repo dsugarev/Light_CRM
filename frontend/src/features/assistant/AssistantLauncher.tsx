@@ -31,6 +31,7 @@ export function AssistantLauncher() {
       {open ? (
         <AssistantPanel
           remaining={status.data.remaining_budget}
+          model={status.data.model_label}
           onClose={() => {
             setOpen(false)
             button.current?.focus() // focus goes back where the user opened the drawer

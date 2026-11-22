@@ -6,14 +6,23 @@ Secrets never live here; they come from the environment.
 """
 
 import time
+from collections.abc import Callable
 from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, SmallInteger, select
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+    select,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -47,6 +56,8 @@ class AppSetting(TimestampMixin, Base):
     mfa_required_for_admins: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="false"
     )
+    # FR-AI-10: the assistant's model, a catalog id from app.llm.models (ADR 0031).
+    ai_model: Mapped[str] = mapped_column(String(64), nullable=False, server_default="gpt-oss-120b")
     updated_by: Mapped[UUID | None] = mapped_column(ForeignKey("app_user.id"), nullable=True)
 
 
@@ -57,6 +68,7 @@ class RuntimeSettings(BaseModel):
     session_absolute_timeout_minutes: int = Field(ge=60, le=43200)
     stale_opportunity_days: int = Field(ge=1, le=365)
     mfa_required_for_admins: bool = False
+    ai_model: str = "gpt-oss-120b"
 
 
 class RuntimeSettingsUpdate(BaseModel):
@@ -66,6 +78,23 @@ class RuntimeSettingsUpdate(BaseModel):
     session_absolute_timeout_minutes: int | None = Field(default=None, ge=60, le=43200)
     stale_opportunity_days: int | None = Field(default=None, ge=1, le=365)
     mfa_required_for_admins: bool | None = None
+    ai_model: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+# Checks an AI model choice: None when it can be chosen, else the field's error code.
+# app.main supplies it from the catalog in app.llm.models (core cannot import app.llm).
+AiModelCheck = Callable[[str], str | None]
+
+
+class AiModelOption(BaseModel):
+    """One model an Admin can choose (GET /settings/ai-models, FR-AI-10)."""
+
+    id: str
+    label: str
+    provider: str
+    available: bool
+    free: bool
+    data_note: str | None
 
 
 class _Cache:
@@ -97,6 +126,7 @@ async def update(
     *,
     events: EventBus,
     now: datetime,
+    ai_model_check: AiModelCheck | None = None,
 ) -> RuntimeSettings:
     row = (
         await session.execute(select(AppSetting).where(AppSetting.id == 1).with_for_update())
@@ -109,6 +139,16 @@ async def update(
             HTTPStatus.UNPROCESSABLE_CONTENT,
             errors=[FieldError("session_idle_timeout_minutes", "validation.exceeds_absolute")],
         )
+    if changes.ai_model is not None and changes.ai_model != before.ai_model:
+        reason = (
+            ai_model_check(changes.ai_model) if ai_model_check else "settings.ai_model_unavailable"
+        )
+        if reason is not None:
+            raise AppError(
+                ErrorCode.VALIDATION_FAILED,
+                HTTPStatus.UNPROCESSABLE_CONTENT,
+                errors=[FieldError("ai_model", reason)],
+            )
     for key, value in values.items():
         setattr(row, key, value)
     row.updated_by = principal.user_id
@@ -139,12 +179,32 @@ async def get_settings(session: DbSession) -> RuntimeSettings:
     return await load(session)
 
 
+@router.get(
+    "/ai-models",
+    summary="The AI models an Admin can choose, with availability and data notes",
+    **endpoint(AccessLevel.ADMIN),
+)
+async def get_ai_models(request: Request) -> list[AiModelOption]:
+    provide: Callable[[], list[dict[str, object]]] | None = getattr(
+        request.app.state, "ai_models", None
+    )
+    return [AiModelOption.model_validate(item) for item in (provide() if provide else [])]
+
+
 @router.patch("", summary="Update settings; audited", **endpoint(AccessLevel.ADMIN))
 async def patch_settings(
+    request: Request,
     body: RuntimeSettingsUpdate,
     session: DbSession,
     principal: CurrentPrincipal,
     events: Annotated[EventBus, Depends(get_event_bus)],
     clock: Annotated[Clock, Depends(get_clock)],
 ) -> RuntimeSettings:
-    return await update(session, principal, body, events=events, now=clock.now())
+    return await update(
+        session,
+        principal,
+        body,
+        events=events,
+        now=clock.now(),
+        ai_model_check=getattr(request.app.state, "ai_model_check", None),
+    )

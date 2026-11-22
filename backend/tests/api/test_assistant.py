@@ -35,14 +35,20 @@ class ScriptedLLM:
     def __init__(self) -> None:
         self.steps: list[Step] = []
         self.calls: list[tuple[list[dict[str, Any]], list[dict[str, Any]] | None]] = []
+        self.models: list[str | None] = []
 
     def then(self, *steps: Step) -> ScriptedLLM:
         self.steps.extend(steps)
         return self
 
     async def stream(
-        self, messages: Sequence[Mapping[str, Any]], tools: Sequence[Mapping[str, Any]] | None
+        self,
+        messages: Sequence[Mapping[str, Any]],
+        tools: Sequence[Mapping[str, Any]] | None,
+        *,
+        model: str | None = None,
     ) -> AsyncIterator[StreamItem]:
+        self.models.append(model)
         sent: list[dict[str, Any]] = json.loads(
             json.dumps([dict(m) for m in messages], default=str)
         )
@@ -173,6 +179,8 @@ async def test_FR_AI_08_status_reports_the_daily_budget(
         "daily_token_budget": 200_000,
         "used_today": 0,
         "remaining_budget": 200_000,
+        "model": "gpt-oss-120b",
+        "model_label": "gpt-oss-120b (OpenRouter, Cerebras)",
     }
 
 

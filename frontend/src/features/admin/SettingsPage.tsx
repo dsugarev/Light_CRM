@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/NativeSelect'
 import { UnsavedChangesGuard } from '@/components/UnsavedChangesGuard'
 import { applyServerErrors } from '@/lib/errors'
 
@@ -28,6 +29,7 @@ const schema = z
     session_absolute_timeout_minutes: minutes(60, 43200),
     stale_opportunity_days: minutes(1, 365),
     mfa_required_for_admins: z.boolean(),
+    ai_model: z.string().min(1),
   })
   .refine((v) => v.session_idle_timeout_minutes <= v.session_absolute_timeout_minutes, {
     path: ['session_idle_timeout_minutes'],
@@ -39,24 +41,41 @@ const FIELDS = [
   'session_idle_timeout_minutes',
   'session_absolute_timeout_minutes',
   'stale_opportunity_days',
+  'ai_model',
 ] as const
+type AiModel = Schemas['AiModelOption']
 
-/** FR-AUTH-04, FR-OPP-06: session timeouts and the stale threshold are set by an Admin. */
+/** FR-AUTH-04, FR-OPP-06, FR-AI-10: session timeouts, the stale threshold and the
+ * assistant's model are set by an Admin. */
 export function SettingsPage() {
   const { t } = useTranslation('admin')
   const settings = useQuery({
     queryKey: ['settings'],
     queryFn: () => call(api.GET('/api/v1/settings')),
   })
+  const models = useQuery({
+    queryKey: ['settings', 'ai-models'],
+    queryFn: () => call(api.GET('/api/v1/settings/ai-models')),
+  })
   return (
     <section className="mx-auto flex max-w-xl flex-col gap-6">
       <PageHeader title={t('settings.title')} />
-      {settings.data ? <SettingsForm current={settings.data} /> : <Loading variant="form" />}
+      {settings.data && models.data ? (
+        <SettingsForm current={settings.data} models={models.data} />
+      ) : (
+        <Loading variant="form" />
+      )}
     </section>
   )
 }
 
-function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
+function SettingsForm({
+  current,
+  models,
+}: {
+  current: Schemas['RuntimeSettings']
+  models: AiModel[]
+}) {
   const { t } = useTranslation('admin')
   const { t: tc } = useTranslation()
   const queryClient = useQueryClient()
@@ -67,6 +86,7 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
       session_absolute_timeout_minutes: String(current.session_absolute_timeout_minutes),
       stale_opportunity_days: String(current.stale_opportunity_days),
       mfa_required_for_admins: current.mfa_required_for_admins,
+      ai_model: current.ai_model,
     },
   })
   const save = useMutation({
@@ -77,6 +97,8 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
     onError: (error) => applyServerErrors(error, form.setError, FIELDS),
   })
   const errors = form.formState.errors
+  const aiModel = useWatch({ control: form.control, name: 'ai_model' })
+  const chosen = models.find((model) => model.id === aiModel)
   return (
     <Card>
       <CardHeader>
@@ -144,6 +166,37 @@ function SettingsForm({ current }: { current: Schemas['RuntimeSettings'] }) {
               <span className="block text-muted-foreground">{t('settings.mfaRequiredHint')}</span>
             </span>
           </label>
+          {models.length > 0 ? (
+            <>
+              <h3 className="pt-2 font-medium">{t('settings.assistant')}</h3>
+              <FormField
+                label={t('settings.aiModel')}
+                required
+                error={errors.ai_model?.message}
+                hint={t('settings.aiModelHint')}
+              >
+                {(control) => (
+                  <NativeSelect {...control} {...form.register('ai_model')}>
+                    {models.map((model) => (
+                      <option key={model.id} value={model.id} disabled={!model.available}>
+                        {model.available
+                          ? model.label
+                          : t('settings.aiModelNoKey', { label: model.label })}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                )}
+              </FormField>
+              {chosen?.data_note === 'may_keep_prompts' ? (
+                <p
+                  role="note"
+                  className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground dark:bg-warning/20"
+                >
+                  {t('settings.aiModelDataNote')}
+                </p>
+              ) : null}
+            </>
+          ) : null}
           <Button type="submit" className="self-start" disabled={save.isPending}>
             {save.isPending ? tc('actions.saving') : tc('actions.save')}
           </Button>

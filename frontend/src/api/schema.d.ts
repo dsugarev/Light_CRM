@@ -1798,6 +1798,23 @@ export interface paths {
         patch: operations["patch_settings_api_v1_settings_patch"];
         trace?: never;
     };
+    "/api/v1/settings/ai-models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The AI models an Admin can choose, with availability and data notes */
+        get: operations["get_ai_models_api_v1_settings_ai_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/system/info": {
         parameters: {
             query?: never;
@@ -2283,6 +2300,24 @@ export interface components {
             version: number;
         };
         /**
+         * AiModelOption
+         * @description One model an Admin can choose (GET /settings/ai-models, FR-AI-10).
+         */
+        AiModelOption: {
+            /** Available */
+            available: boolean;
+            /** Data Note */
+            data_note: string | null;
+            /** Free */
+            free: boolean;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Provider */
+            provider: string;
+        };
+        /**
          * AnonymizeRequest
          * @description FR-ADM-04: the word must be typed, so the irreversible step cannot happen by accident.
          */
@@ -2388,6 +2423,10 @@ export interface components {
             daily_token_budget: number;
             /** Enabled */
             enabled: boolean;
+            /** Model */
+            model: string;
+            /** Model Label */
+            model_label: string;
             /** Remaining Budget */
             remaining_budget: number;
             /** Used Today */
@@ -4165,6 +4204,11 @@ export interface components {
         /** RuntimeSettings */
         RuntimeSettings: {
             /**
+             * Ai Model
+             * @default gpt-oss-120b
+             */
+            ai_model: string;
+            /**
              * Mfa Required For Admins
              * @default false
              */
@@ -4178,6 +4222,8 @@ export interface components {
         };
         /** RuntimeSettingsUpdate */
         RuntimeSettingsUpdate: {
+            /** Ai Model */
+            ai_model?: string | null;
             /** Mfa Required For Admins */
             mfa_required_for_admins?: boolean | null;
             /** Session Absolute Timeout Minutes */
@@ -9460,6 +9506,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ai_models_api_v1_settings_ai_models_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModelOption"][];
                 };
             };
         };

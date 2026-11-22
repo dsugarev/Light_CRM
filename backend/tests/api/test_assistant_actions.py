@@ -274,6 +274,36 @@ def test_FR_AI_09_tools_read_or_propose_and_none_executes() -> None:
         assert schema["function"]["parameters"]["additionalProperties"] is False
 
 
+def _undefined_required(schema: Any, path: str) -> list[str]:
+    """Paths where `required` names a property the schema does not define."""
+    found: list[str] = []
+    if isinstance(schema, dict):
+        properties = schema.get("properties", {})
+        found += [f"{path}.{n}" for n in schema.get("required", []) if n not in properties]
+        for key, value in schema.items():
+            found += _undefined_required(value, f"{path}.{key}")
+    elif isinstance(schema, list):
+        for n, value in enumerate(schema):
+            found += _undefined_required(value, f"{path}[{n}]")
+    return found
+
+
+@pytest.mark.parametrize("role", list(RoleCode))
+def test_FR_AI_10_tool_schemas_define_every_required_field(role: RoleCode) -> None:
+    """A field named `title` was dropped with pydantic's `title` annotations, so
+    propose_create_lead required an undefined property: Gemini refused every request,
+    and the other models could not know the field (found by the Phase 10 evaluation)."""
+    problems = [
+        p
+        for schema in tools.schemas(role)
+        for p in _undefined_required(schema["function"]["parameters"], schema["function"]["name"])
+    ]
+    assert problems == []
+    offered = {s["function"]["name"]: s["function"] for s in tools.schemas(role)}
+    if "propose_create_lead" in offered:  # not for Viewers
+        assert "title" in offered["propose_create_lead"]["parameters"]["properties"]
+
+
 # --- Every action through confirmation --------------------------------------------------------
 
 

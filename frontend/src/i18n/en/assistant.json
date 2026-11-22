@@ -71,5 +71,6 @@
       "failed": "Not done."
     },
     "list": "Proposed actions"
-  }
+  },
+  "model": "Model: {{name}}"
 }

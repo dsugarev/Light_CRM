@@ -3,7 +3,12 @@
     OPENROUTER_API_KEY=… \\
     EVAL_DATABASE_URL=postgresql+asyncpg://crm_migrator:…@localhost:5432/crm_test \\
     EVAL_APP_DATABASE_URL=postgresql+asyncpg://crm_app:…@localhost:5432/crm_test \\
-    uv run python scripts/assistant_eval.py [--report ../docs/assistant-eval.md]
+    uv run python scripts/assistant_eval.py [--model gemini-3.5-flash] \\
+        [--report ../docs/assistant-eval.md]
+
+`--model` is a catalog id from app.llm.models (default gpt-oss-120b); it is chosen through
+the Admin setting, as in production. Gemini needs GEMINI_API_KEY instead of (or as well as)
+OPENROUTER_API_KEY.
 
 Runs in-process against a disposable database (its name must end in `_test` or
 `_eval`; it is emptied first), seeds a small fictional data set, asks about 20
@@ -43,6 +48,7 @@ from app.core.config import Environment, Settings
 from app.core.logging import configure_logging
 from app.core.migrations import alembic_config
 from app.core.principal import RoleCode
+from app.llm import models
 from app.main import create_app
 from app.modules.assistant import prompt
 from tests.helpers import RecordingMailer, TestApp
@@ -306,15 +312,24 @@ async def _ask(client: httpx.AsyncClient, case: Case) -> Result:
     return result
 
 
-def _report(settings: Settings, results: list[Result]) -> str:
+def _model_line(settings: Settings, model_id: str) -> str:
+    if settings.llm_fake:
+        return "- Model: the scripted demo model (`--fake`): this checks the harness, not the model"
+    option = models.find(model_id)
+    if option is None or option.litellm_model is None:
+        return f"- Model: `{settings.llm_model}` via OpenRouter, provider `{settings.llm_provider}`"
+    if option.key == "gemini":
+        return f"- Model: `{option.litellm_model}` via Google AI Studio (`{model_id}`)"
+    return f"- Model: `{option.litellm_model}` via OpenRouter, provider `{option.provider}`"
+
+
+def _report(settings: Settings, results: list[Result], model_id: str) -> str:
     passed = sum(not r.problems for r in results)
     digest = hashlib.sha256(prompt.SYSTEM_PROMPT.encode()).hexdigest()[:12]
     lines = [
         f"### Run {datetime.now(SOFIA):%Y-%m-%d %H:%M} (Europe/Sofia)",
         "",
-        "- Model: the scripted demo model (`--fake`): this checks the harness, not the model"
-        if settings.llm_fake
-        else f"- Model: `{settings.llm_model}` via OpenRouter, provider `{settings.llm_provider}`",
+        _model_line(settings, model_id),
         f"- System prompt SHA-256 (first 12): `{digest}`",
         f"- Result: **{passed}/{len(results)} passed**; "
         f"{sum(r.tokens for r in results):,} tokens; "
@@ -344,18 +359,28 @@ async def main() -> int:
     parser.add_argument(
         "--fake", action="store_true", help="dry run with the scripted demo model (no network)"
     )
+    parser.add_argument(
+        "--model",
+        default=models.DEFAULT_MODEL,
+        choices=[option.id for option in models.CATALOG],
+        help="the catalog model to evaluate, chosen through the Admin setting",
+    )
     args = parser.parse_args()
     key = os.environ.get("OPENROUTER_API_KEY")
+    gemini_key = os.environ.get("GEMINI_API_KEY")
     migration_url = os.environ.get("EVAL_DATABASE_URL", "")
     app_url = os.environ.get("EVAL_APP_DATABASE_URL", "")
-    if not migration_url or not app_url or not (key or args.fake):
-        parser.error("set OPENROUTER_API_KEY, EVAL_DATABASE_URL and EVAL_APP_DATABASE_URL")
+    if not migration_url or not app_url or not (key or gemini_key or args.fake):
+        parser.error(
+            "set OPENROUTER_API_KEY or GEMINI_API_KEY, "
+            "and EVAL_DATABASE_URL and EVAL_APP_DATABASE_URL"
+        )
     if not _database_name(migration_url).endswith(("_test", "_eval")):
         parser.error("the evaluation empties its database: use one named *_test or *_eval")
 
     # Logs (migrations, requests) go to stderr; stdout carries only the report.
     with contextlib.redirect_stdout(sys.stderr):
-        report, ok = await _run(args, key, migration_url, app_url)
+        report, ok = await _run(args, key, gemini_key, migration_url, app_url)
     print(report)  # noqa: T201
     if args.report:
         with args.report.open("a", encoding="utf-8") as handle:
@@ -364,7 +389,11 @@ async def main() -> int:
 
 
 async def _run(
-    args: argparse.Namespace, key: str | None, migration_url: str, app_url: str
+    args: argparse.Namespace,
+    key: str | None,
+    gemini_key: str | None,
+    migration_url: str,
+    app_url: str,
 ) -> tuple[str, bool]:
     configure_logging("WARNING")  # importing app.main set up logging on the real stdout
     await _reset(migration_url)
@@ -376,6 +405,7 @@ async def _run(
         public_url="https://crm.example.test",
         ai_enabled=True,
         openrouter_api_key=SecretStr(key) if key else None,
+        gemini_api_key=SecretStr(gemini_key) if gemini_key else None,
         llm_fake=args.fake,
         rate_limit_assistant_per_10_minutes=1000,
         # One user asks every case; the daily budget would end the run early.
@@ -387,6 +417,10 @@ async def _run(
         harness = TestApp(app, SystemClock(), RecordingMailer())  # type: ignore[arg-type]
         try:
             client, _ = await _seed(harness)
+            admin, _ = await harness.signed_in(RoleCode.ADMIN, full_name="Eval Admin")
+            chosen = await admin.patch("/api/v1/settings", json={"ai_model": args.model})
+            if chosen.status_code != 200:
+                raise SystemExit(f"cannot choose {args.model}: {chosen.text}")
             results = []
             for case in cases:
                 results.append(await _ask(client, case))
@@ -394,7 +428,7 @@ async def _run(
                 print(f"{case.id}: {outcome}", file=sys.stderr)  # noqa: T201
         finally:
             await harness.close()
-    return _report(settings, results), all(not r.problems for r in results)
+    return _report(settings, results, args.model), all(not r.problems for r in results)
 
 
 if __name__ == "__main__":

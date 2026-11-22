@@ -53,6 +53,9 @@ class AssistantStatus(BaseModel):
     daily_token_budget: int
     used_today: int
     remaining_budget: int
+    # FR-AI-10: the model that answers, chosen by an Admin (catalog id and label).
+    model: str
+    model_label: str
 
 
 class RecordRef(BaseModel):

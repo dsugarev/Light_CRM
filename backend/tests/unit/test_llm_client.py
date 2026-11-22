@@ -78,6 +78,46 @@ async def test_routes_to_the_configured_model_through_cerebras_only(
     assert final.usage.completion_tokens > 0
 
 
+async def test_FR_AI_10_free_model_routes_through_openrouter_to_nvidia_only(
+    captured: dict[str, Any],
+) -> None:
+    client = llm_client.LiteLLMClient(_settings())
+    await _collect(client.stream(MESSAGES, None, model="nemotron-3-ultra-free"))
+    assert captured["model"] == "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free"
+    assert captured["extra_body"] == {"provider": {"order": ["nvidia"], "allow_fallbacks": False}}
+    assert captured["api_key"] == "sk-or-v1-test"
+
+
+async def test_FR_AI_10_gemini_goes_to_google_with_its_own_key(
+    captured: dict[str, Any],
+) -> None:
+    settings = _settings(gemini_api_key=SecretStr("gm-test"), llm_api_base="http://gateway")
+    await _collect(
+        llm_client.LiteLLMClient(settings).stream(MESSAGES, None, model="gemini-3.5-flash")
+    )
+    assert captured["model"] == "gemini/gemini-3.5-flash"
+    assert captured["api_key"] == "gm-test"
+    assert captured["api_base"] is None  # the OpenRouter gateway override is not for Google
+    assert captured["extra_body"] is None
+
+
+@pytest.mark.parametrize(
+    ("model", "reason"),
+    [("gemini-3.5-flash", "MissingApiKey"), ("no-such-model", "UnknownModel")],
+)
+async def test_FR_AI_10_a_model_that_cannot_be_called_fails_the_answer(
+    captured: dict[str, Any], model: str, reason: str
+) -> None:
+    with pytest.raises(LLMUnavailableError, match=reason):
+        await _collect(llm_client.LiteLLMClient(_settings()).stream(MESSAGES, None, model=model))
+    assert captured == {}
+
+
+def test_FR_AI_10_a_gemini_key_alone_switches_the_assistant_on() -> None:
+    settings = Settings(env=Environment.TEST, ai_enabled=True, gemini_api_key=SecretStr("gm"))
+    assert isinstance(create_llm(settings), llm_client.LiteLLMClient)
+
+
 async def test_tool_call_fragments_are_assembled(monkeypatch: pytest.MonkeyPatch) -> None:
     def chunk(**delta: Any) -> ModelResponseStream:
         return ModelResponseStream(

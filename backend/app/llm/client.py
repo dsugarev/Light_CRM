@@ -1,4 +1,7 @@
-"""LLM client: LiteLLM -> OpenRouter -> Cerebras (architecture 8.1).
+"""LLM client: LiteLLM to the model an Admin chose (architecture 8.1, ADR 0031).
+
+OpenRouter models go through OpenRouter with provider routing (Cerebras for the
+default, NVIDIA for the free Nemotron); Gemini goes straight to Google AI Studio.
 
 The only module that imports litellm (an import-linter contract enforces it). The rest
 of the application sees the small `LLM` protocol in app.llm.types, which the tests and
@@ -9,6 +12,7 @@ import asyncio
 import logging
 import os
 from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 # LiteLLM fetches a model price list from the internet at import time unless told to
@@ -21,6 +25,7 @@ os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 import litellm
 
 from app.core.config import Settings
+from app.llm import models
 from app.llm.types import (
     Completed,
     LLMUnavailableError,
@@ -39,33 +44,71 @@ litellm.turn_off_message_logging = True
 logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
 
+@dataclass(frozen=True, slots=True)
+class Route:
+    """How one catalog model is called."""
+
+    model: str
+    api_key: str
+    api_base: str | None
+    extra_body: dict[str, Any] | None
+
+
+def _secret(value: Any) -> str | None:
+    return value.get_secret_value() or None if value is not None else None
+
+
 class LiteLLMClient:
     def __init__(self, settings: Settings) -> None:
-        if settings.openrouter_api_key is None:
-            raise ValueError("OPENROUTER_API_KEY is not set")
-        self._api_key = settings.openrouter_api_key.get_secret_value()
-        self._model = settings.llm_model
-        self._provider = settings.llm_provider
+        self._settings = settings
         self._timeout = settings.llm_timeout_seconds
-        self._api_base = settings.llm_api_base or None  # compose passes "" when unset
+
+    def route(self, model_id: str | None) -> Route:
+        """The call for a catalog id; an unknown id or a missing key fails the answer."""
+        settings = self._settings
+        option = models.find(model_id or models.DEFAULT_MODEL)
+        if option is None:
+            raise LLMUnavailableError("UnknownModel")
+        if option.key == "gemini":
+            key = _secret(settings.gemini_api_key)
+            if key is None:
+                raise LLMUnavailableError("MissingApiKey")
+            return Route(
+                model=option.litellm_model or "", api_key=key, api_base=None, extra_body=None
+            )
+        key = _secret(settings.openrouter_api_key)
+        if key is None:
+            raise LLMUnavailableError("MissingApiKey")
+        provider = option.provider or settings.llm_provider
+        return Route(
+            model=option.litellm_model or settings.llm_model,
+            api_key=key,
+            api_base=settings.llm_api_base or None,  # compose passes "" when unset
+            # OpenRouter provider routing: this provider only, never another one.
+            extra_body={"provider": {"order": [provider], "allow_fallbacks": False}},
+        )
 
     async def stream(
-        self, messages: Sequence[Message], tools: Sequence[Tool] | None
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[Tool] | None,
+        *,
+        model: str | None = None,
     ) -> AsyncIterator[StreamItem]:
+        route = self.route(model)
         chunks: list[Any] = []
         try:
             async with asyncio.timeout(self._timeout):
                 response = await litellm.acompletion(
-                    model=self._model,
+                    model=route.model,
                     messages=list(messages),
                     tools=list(tools) if tools else None,
                     stream=True,
                     stream_options={"include_usage": True},
                     timeout=self._timeout,
-                    api_key=self._api_key,
-                    api_base=self._api_base,
-                    # OpenRouter provider routing: Cerebras only, never another provider.
-                    extra_body={"provider": {"order": [self._provider], "allow_fallbacks": False}},
+                    api_key=route.api_key,
+                    api_base=route.api_base,
+                    extra_body=route.extra_body,
                     # With tools, LiteLLM 1.108 imports its MCP gateway, which needs the
                     # optional `mcp` package; we use no MCP tools, so skip that path.
                     _skip_mcp_handler=True,

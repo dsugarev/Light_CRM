@@ -17,6 +17,7 @@ from app.core.events import EventBus
 from app.core.logging import configure_logging
 from app.core.mailer import Mailer, create_mailer
 from app.core.middleware import RequestContextMiddleware
+from app.llm import models as llm_models
 from app.llm.factory import create_llm
 from app.llm.types import LLM
 from app.modules.activity import router as activity_router
@@ -88,6 +89,9 @@ def create_app(
     app.state.mailer = mailer or create_mailer(settings)
     # The AI assistant's model (architecture 8.1); None while AI_ENABLED is false.
     app.state.llm = llm if llm is not None else create_llm(settings)
+    # The models an Admin can choose for everyone (FR-AI-10, ADR 0031).
+    app.state.ai_models = lambda: llm_models.options(settings)
+    app.state.ai_model_check = lambda model_id: llm_models.unavailable_reason(model_id, settings)
     app.state.event_bus = create_event_bus()
     app.state.authenticator = combined_authenticator(
         identity_service.authenticate_request, integration_service.authenticate_bearer

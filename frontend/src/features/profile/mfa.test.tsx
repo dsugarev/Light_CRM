@@ -143,6 +143,7 @@ describe('FR-AUTH-07 Admin setting', () => {
       session_absolute_timeout_minutes: 10080,
       stale_opportunity_days: 14,
       mfa_required_for_admins: false,
+      ai_model: 'gpt-oss-120b',
     }
     let saved: unknown = null
     server.use(

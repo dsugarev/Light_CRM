@@ -698,7 +698,8 @@ class ProposeAdminAction(_Args):
         description="user.create: email, full_name, role (admin|sales_manager|sales_rep|viewer), "
         "locale. user.*: user (name or email), and for user.update the fields to change. "
         "settings.update: session_idle_timeout_minutes, session_absolute_timeout_minutes, "
-        "stale_opportunity_days, mfa_required_for_admins. reference.*: list (industries, "
+        "stale_opportunity_days, mfa_required_for_admins, ai_model (gpt-oss-120b, "
+        "nemotron-3-ultra-free, gemini-3.5-flash). reference.*: list (industries, "
         "lead-sources, disqualification-reasons, loss-reasons), value (name, for update/delete), "
         "code, name_en, name_bg, is_active. stage.*: stage (name, for update/delete), name_en, "
         "name_bg, default_probability, stage_type (open|won|lost), is_active."
@@ -883,8 +884,18 @@ class Tool:
 
 
 def _strip_titles(schema: Any) -> Any:
+    """Drops pydantic's `title` annotations; a field *named* title (a key of `properties`)
+    stays, or `required` would name a property that is not defined (Gemini refuses that)."""
     if isinstance(schema, dict):
-        return {k: _strip_titles(v) for k, v in schema.items() if k != "title"}
+        return {
+            k: (
+                {name: _strip_titles(field) for name, field in v.items()}
+                if k == "properties" and isinstance(v, dict)
+                else _strip_titles(v)
+            )
+            for k, v in schema.items()
+            if k != "title"
+        }
     if isinstance(schema, list):
         return [_strip_titles(v) for v in schema]
     return schema
