@@ -42,7 +42,7 @@
 
 ### 1.1 Your first sign-in
 
-The first Admin is created by IT on the server (`create-admin`, see the operations guide). Other Admins are created by an Admin, like any other user ([chapter 3](#3-managing-users)). You receive a **one-time link**: open it, choose a password of **at least 12 characters** that is not a common password, and select **Save password**. Then sign in with your email and password.
+The first Admin is created by IT on the server (`create-admin`, see the operations guide). Other Admins are created by an Admin, like any other user ([chapter 3](#3-managing-users)). You receive a **one-time link**: open it, choose a password of **at least 12 characters** that is not a common password (a strength bar rates it from weak to strong), and select **Save password**. Then sign in with your email and password.
 
 ![The sign-in page.](images/common/sign-in.png)
 *Figure 1. The sign-in page.*
@@ -105,9 +105,9 @@ You have every sales and management capability. The **Sales Rep manual** and the
 | Role | Typical person | Can |
 |---|---|---|
 | **Admin** | CRM administrator | Everything, including this chapter |
-| **Sales Manager** | Team lead | See and change all records, reassign, reopen, restore, import, export |
-| **Sales Rep** | Account manager | See all records, create records, change and close their own, export |
-| **Viewer** | Stakeholder | See all records, dashboards and reports; no changes |
+| **Sales Manager** | Team lead | See and change all records, reassign, reopen, restore, import, export everything |
+| **Sales Rep** | Account manager | See all records, create records, change and close their own, export their own |
+| **Viewer** | Stakeholder | See all records, dashboards and reports; no changes, no exports |
 
 Give people the lowest role that lets them do their job.
 

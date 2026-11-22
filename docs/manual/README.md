@@ -16,7 +16,8 @@ Connected applications (ERP, Billing, Conclusion) are not people and don't use t
 | | Viewer | Sales Rep | Sales Manager | Admin |
 |---|:-:|:-:|:-:|:-:|
 | See all organizations, contacts, leads, opportunities, dashboards and reports | ✓ | ✓ | ✓ | ✓ |
-| Search, export lists, use the AI assistant | ✓ | ✓ | ✓ | ✓ |
+| Search, use the AI assistant | ✓ | ✓ | ✓ | ✓ |
+| Export lists to Excel or CSV | | own records | ✓ | ✓ |
 | Create records; log activities and tasks | | ✓ | ✓ | ✓ |
 | Change and close **own** records; take over open records | | ✓ | ✓ | ✓ |
 | Change and close **any** record; reassign owners | | | ✓ | ✓ |

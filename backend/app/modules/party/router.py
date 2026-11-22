@@ -167,7 +167,8 @@ OrganizationExportList = Annotated[
     summary="Export the filtered list as XLSX or CSV",
     response_class=Response,
     responses=EXPORT_RESPONSES,
-    **endpoint(AccessLevel.SIGNED_IN),
+    # Viewers may not export; a Sales Rep's export holds only their own records (service).
+    **endpoint(AccessLevel.CONTRIBUTOR_RULES_IN_SERVICE),
 )
 async def export_organizations(
     ctx: Ctx,
@@ -323,7 +324,8 @@ ContactExportList = Annotated[
     summary="Export the filtered list as XLSX or CSV",
     response_class=Response,
     responses=EXPORT_RESPONSES,
-    **endpoint(AccessLevel.SIGNED_IN),
+    # Viewers may not export; a Sales Rep's export holds only their own records (service).
+    **endpoint(AccessLevel.CONTRIBUTOR_RULES_IN_SERVICE),
 )
 async def export_contacts(
     ctx: Ctx,

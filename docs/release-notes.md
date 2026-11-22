@@ -1,5 +1,37 @@
 # Release notes
 
+## v1.0.1: Release 1 completion (proposed; to be tagged on `main` once the Release 1 completion PR is merged; #24 and #25 are already in)
+
+Interface improvements after v1.0.0, the remaining Release 1 items that could be done without other teams, and manuals for new users. No database migration. The API change is limited to the export endpoints, which integrations can't call. Upgrade as in the operations guide, section 4.
+
+### For users
+- **Look and feel:**
+  - a warm colour scheme with a terracotta brand colour;
+  - colour-coded statuses;
+  - larger touch targets on tablets;
+  - lists that stay readable on narrow screens;
+  - subtle loading and page transitions, which respect "reduce motion".
+- **Getting around faster:**
+  - a clickable **sales path** on opportunities;
+  - click anywhere on a list row to open the record;
+  - dashboard figures that open the list behind them;
+  - **recently viewed** records on the home page;
+  - page titles in browser tabs;
+  - empty lists that suggest the next step.
+- **Password strength** bar when setting or changing a password.
+- **Exports follow the role matrix** (requirements section 4):
+  - Viewers can no longer export;
+  - a Sales Rep's export contains only their own records, and the screen says so;
+  - Sales Managers and Admins export everything, as before.
+- **Accessibility:** tables that scroll sideways can be scrolled by keyboard. The organization page no longer scrolls sideways at 200% zoom.
+- **User manuals** for each role, with screenshots and PDFs, in `docs/manual/`.
+
+### Release 1 items still open (need people outside the team)
+- **The integrating teams' addresses and detailed flows (open question 7).** After that, narrow the integration scopes.
+- **IT:** the nightly copy of backups to another machine, and a restore drill on the production server (operations guide, section 5).
+- **ASVS 8.3.3:** a privacy notice text from the DPO, to be linked from the sign-in page.
+- **Accessibility:** a screen-reader walkthrough by a person (`docs/accessibility.md`, "Results"). Zoom and 1024 px checks are done.
+
 ## v1.0.0: Release 1 (tagged 2026-11-18 on `main` 026719d after the owner's acceptance)
 
 The first release of Light CRM: lead and opportunity management for the Commercial team, an AI assistant, and an integration API for Conclusion, ERP and Billing. On-premises, one Docker Compose stack.

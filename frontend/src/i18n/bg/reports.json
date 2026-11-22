@@ -2,7 +2,8 @@
   "export": {
     "label": "Експорт",
     "xlsx": "Експорт XLSX",
-    "csv": "Експорт CSV"
+    "csv": "Експорт CSV",
+    "ownOnly": "Само вашите записи"
   },
   "filters": {
     "owner": "Отговорник",

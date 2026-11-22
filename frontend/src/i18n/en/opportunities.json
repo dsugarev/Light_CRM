@@ -112,7 +112,8 @@
       "outside": "{{name}} is not over a stage.",
       "dropped": "{{name}} dropped on {{target}}.",
       "cancelled": "Moving {{name}} was cancelled."
-    }
+    },
+    "helpReadOnly": "Open deals by stage, with the count, total and weighted value of each column. Open a card to see the opportunity."
   },
   "stages": {
     "title": "Pipeline stages",

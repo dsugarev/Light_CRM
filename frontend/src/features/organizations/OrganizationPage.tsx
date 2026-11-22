@@ -227,7 +227,8 @@ export function OrganizationPage() {
             {org.notes ? <p className="mt-4 whitespace-pre-wrap text-sm">{org.notes}</p> : null}
           </CardContent>
         </Card>
-        <div className="flex flex-col gap-6">
+        {/* min-w-0: a grid item may otherwise grow past a narrow screen (WCAG 1.4.10). */}
+        <div className="flex min-w-0 flex-col gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>{t('organization.detail.contacts')}</CardTitle>

@@ -6,7 +6,7 @@ that `record_event` stores from the domain event bus (ADR 0020).
 """
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any
@@ -27,7 +27,7 @@ from app.core.export import (
 )
 from app.core.export import Locale as ExportLocale
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
-from app.core.policy import MANAGER_ROLES, can_edit_owned, record_owner
+from app.core.policy import MANAGER_ROLES, can_edit_owned, export_owner_ids, record_owner
 from app.core.principal import Principal
 from app.core.text import search_terms
 from app.modules.activity import repository
@@ -555,6 +555,7 @@ async def export_activities(
     options: ExportOptions,
 ) -> ExportFile:
     """FR-REP-02: the filtered activity list as XLSX or CSV."""
+    filters = replace(filters, owner_ids=export_owner_ids(principal, filters.owner_ids))
     statement = repository.activities_statement(
         include_archived=query.include_archived,
         search=search_terms(query.q) if query.q else None,

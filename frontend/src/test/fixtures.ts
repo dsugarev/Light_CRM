@@ -37,7 +37,35 @@ export const REP_ME: Schemas['Me'] = {
   email: 'boris.rep@example.test',
   full_name: 'Boris Rep',
   role: 'sales_rep',
-  permissions: ['records.create', 'records.edit_own', 'records.read'],
+  // As the server grants a Sales Rep (backend app/core/policy.py ROLE_PERMISSIONS).
+  permissions: ['data.export', 'records.create', 'records.edit_own', 'records.read'],
+}
+
+export const MANAGER_ME: Schemas['Me'] = {
+  ...ADMIN_ME,
+  id: '01930000-0000-7000-8000-000000000003',
+  email: 'mila.manager@example.test',
+  full_name: 'Mila Manager',
+  role: 'sales_manager',
+  permissions: [
+    'data.export',
+    'data.import',
+    'records.create',
+    'records.edit_any',
+    'records.edit_own',
+    'records.reassign',
+    'records.read',
+    'records.restore',
+  ],
+}
+
+export const VIEWER_ME: Schemas['Me'] = {
+  ...ADMIN_ME,
+  id: '01930000-0000-7000-8000-000000000004',
+  email: 'vera.viewer@example.test',
+  full_name: 'Vera Viewer',
+  role: 'viewer',
+  permissions: ['records.read'],
 }
 
 export const USER: Schemas['UserOut'] = {

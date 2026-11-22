@@ -11,11 +11,8 @@ import { FormField } from '@/components/FormField'
 import { FormMessage } from '@/components/FormMessage'
 import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
-import {
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-  PasswordChecklist,
-} from '@/components/PasswordChecklist'
+import { PasswordChecklist } from '@/components/PasswordChecklist'
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/components/passwordPolicy'
 import { PasswordInput } from '@/components/PasswordInput'
 import { PageHeader } from '@/components/PageHeader'
 import { Alert, AlertDescription } from '@/components/ui/alert'

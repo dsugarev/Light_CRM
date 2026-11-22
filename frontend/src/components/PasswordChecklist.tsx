@@ -1,10 +1,32 @@
 import { useTranslation } from 'react-i18next'
 
-/** The password policy the backend enforces (identity/passwords.py, FR-AUTH-03). */
-export const PASSWORD_MIN_LENGTH = 12
-export const PASSWORD_MAX_LENGTH = 128
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, passwordStrength } from './passwordPolicy'
 
 type Rule = 'length' | 'maxLength' | 'common' | 'match'
+
+const STRENGTH_LABEL = ['', 'weak', 'fair', 'good', 'strong'] as const
+const STRENGTH_TONE = ['', 'bg-destructive', 'bg-warning', 'bg-info', 'bg-success'] as const
+
+function StrengthMeter({ password }: { password: string }) {
+  const { t } = useTranslation()
+  const strength = passwordStrength(password)
+  if (strength === 0) return null
+  return (
+    <div className="flex items-center gap-2 text-sm" data-testid="password-strength">
+      <div aria-hidden="true" className="flex gap-1">
+        {[1, 2, 3, 4].map((step) => (
+          <span
+            key={step}
+            className={`h-1.5 w-8 rounded-full ${step <= strength ? STRENGTH_TONE[strength] : 'bg-muted'}`}
+          />
+        ))}
+      </div>
+      <span aria-live="polite">
+        {t('passwordRules.strength', { level: t(`passwordRules.${STRENGTH_LABEL[strength]}`) })}
+      </span>
+    </div>
+  )
+}
 
 function Mark({ met }: { met: boolean }) {
   return (
@@ -37,20 +59,23 @@ export function PasswordChecklist({ password, confirm }: { password: string; con
     { rule: 'match', met: confirm !== '' && password === confirm },
   ]
   return (
-    <ul aria-label={t('passwordRules.label')} className="flex flex-col gap-1 text-sm">
-      {rules.map(({ rule, met }) => (
-        <li key={rule} className="flex items-center gap-2">
-          <Mark met={met === true} />
-          <span className={met === true ? '' : 'text-muted-foreground'}>
-            {t(`passwordRules.${rule}`, { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH })}
-          </span>
-          {met === null ? null : (
-            <span className="sr-only">
-              {met ? t('passwordRules.met') : t('passwordRules.notMet')}
+    <div className="flex flex-col gap-2">
+      <StrengthMeter password={password} />
+      <ul aria-label={t('passwordRules.label')} className="flex flex-col gap-1 text-sm">
+        {rules.map(({ rule, met }) => (
+          <li key={rule} className="flex items-center gap-2">
+            <Mark met={met === true} />
+            <span className={met === true ? '' : 'text-muted-foreground'}>
+              {t(`passwordRules.${rule}`, { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH })}
             </span>
-          )}
-        </li>
-      ))}
-    </ul>
+            {met === null ? null : (
+              <span className="sr-only">
+                {met ? t('passwordRules.met') : t('passwordRules.notMet')}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

@@ -48,7 +48,8 @@ async def test_FR_REP_02_organizations_xlsx_with_filters_and_audit(test_app: Tes
         "format": "xlsx",
         "rows": 1,
         "columns": None,
-        "filters": {"q": "акме"},
+        # A Sales Rep's export is limited to their own records; the audit shows that filter.
+        "filters": {"q": "акме", "owner_ids": [str(user.id)]},
     }
     # Formula injection (architecture 7): text that would run as a formula is neutralized.
     rows = sheet_rows(await rep.get("/api/v1/organizations/export?sort=name"))
@@ -135,3 +136,71 @@ def test_neutralize_formula_prefixes() -> None:
     for text in ("=1+1", "+359", "-2", "@SUM(A1)", "\tx", "\rx"):
         assert export.neutralize(text) == f"'{text}"
     assert export.neutralize("Acme =") == "Acme ="
+
+
+# --- Who may export, and whose records (requirements section 4; API spec 14) -----------------
+
+EXPORTS = [
+    "/api/v1/organizations/export",
+    "/api/v1/contacts/export",
+    "/api/v1/leads/export",
+    "/api/v1/opportunities/export",
+    "/api/v1/activities/export",
+    "/api/v1/reports/win-loss/export",
+    "/api/v1/reports/lead-conversion/export",
+]
+
+
+@pytest.mark.parametrize("path", EXPORTS)
+async def test_FR_REP_02_a_viewer_may_not_export(test_app: TestApp, path: str) -> None:
+    viewer, _ = await test_app.signed_in(RoleCode.VIEWER)
+    response = await viewer.get(path)
+    assert response.status_code == 403
+    assert response.json()["code"] == "permission.denied"
+
+
+async def test_FR_REP_02_a_sales_rep_exports_only_own_records(test_app: TestApp) -> None:
+    rep, _ = await test_app.signed_in()
+    colleague, colleague_user = await test_app.signed_in()
+    await create_org(rep, "Моя ООД")
+    await create_org(colleague, "Чужда ООД")
+    # The list shows everything (assumption A1); the export holds only the rep's own records,
+    # even when the rep asks for the colleague's.
+    listed = (await rep.get("/api/v1/organizations")).json()["items"]
+    assert {"Моя ООД", "Чужда ООД"} <= {o["name"] for o in listed}
+    rows = sheet_rows(await rep.get("/api/v1/organizations/export"))
+    assert [r[0] for r in rows[1:]] == ["Моя ООД"]
+    rows = sheet_rows(await rep.get(f"/api/v1/organizations/export?owner_id={colleague_user.id}"))
+    assert [r[0] for r in rows[1:]] == ["Моя ООД"]
+
+
+@pytest.mark.parametrize("role", [RoleCode.SALES_MANAGER, RoleCode.ADMIN])
+async def test_FR_REP_02_managers_and_admins_export_everyone(
+    test_app: TestApp, role: RoleCode
+) -> None:
+    rep, _ = await test_app.signed_in()
+    await create_org(rep, "Делта ЕАД")
+    manager, _ = await test_app.signed_in(role)
+    await create_org(manager, "Епсилон ООД")
+    rows = sheet_rows(await manager.get("/api/v1/organizations/export?sort=name"))
+    assert [r[0] for r in rows[1:]] == ["Делта ЕАД", "Епсилон ООД"]
+
+
+async def test_FR_REP_02_a_sales_rep_report_export_covers_own_deals(test_app: TestApp) -> None:
+    rep, _ = await test_app.signed_in()
+    colleague, _ = await test_app.signed_in()
+    reason = await loss_reason(rep)
+    for client, name in ((rep, "Моя сделка"), (colleague, "Чужда сделка")):
+        org = await create_org(client, f"{name} ООД")
+        opp = await create_opp(client, org, name=name)
+        closed = await act(client, opp, "close", outcome="lost", loss_reason_id=reason)
+        assert closed.status_code == 200, closed.text
+    manager, _ = await test_app.signed_in(RoleCode.SALES_MANAGER)
+
+    def lost(rows: list[list[Any]]) -> int:
+        header, *data = rows
+        [total] = [r for r in data if r[0] == "Total"]
+        return int(total[header.index("Lost")])
+
+    assert lost(sheet_rows(await rep.get("/api/v1/reports/win-loss/export"))) == 1
+    assert lost(sheet_rows(await manager.get("/api/v1/reports/win-loss/export"))) == 2

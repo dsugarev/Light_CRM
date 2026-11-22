@@ -158,3 +158,15 @@ def can_edit_owned(principal: Principal, owner_id: UUID | None) -> bool:
 def check_owner(principal: Principal, owner_id: UUID | None) -> None:
     if not can_edit_owned(principal, owner_id):
         raise AppError(ErrorCode.PERMISSION_DENIED, HTTPStatus.FORBIDDEN)
+
+
+def export_owner_ids(principal: Principal, requested: tuple[UUID, ...]) -> tuple[UUID, ...]:
+    """FR-REP-02 with the role matrix (requirements section 4): who may export, and whose
+    records. Viewers may not export (`403`); Sales Reps export only the records they own,
+    whatever owner filter they sent; Sales Managers and Admins export what they filtered."""
+    granted = permissions_for(principal.role)
+    if Permission.DATA_EXPORT not in granted:
+        raise AppError(ErrorCode.PERMISSION_DENIED, HTTPStatus.FORBIDDEN)
+    if Permission.RECORDS_EDIT_ANY in granted:
+        return requested
+    return (principal.user_id,)

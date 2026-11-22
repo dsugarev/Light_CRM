@@ -111,7 +111,12 @@
     "common": "Not a commonly used password (checked when you save)",
     "match": "Both entries match",
     "met": "(done)",
-    "notMet": "(not yet)"
+    "notMet": "(not yet)",
+    "strength": "Strength: {{level}}",
+    "weak": "weak",
+    "fair": "fair",
+    "good": "good",
+    "strong": "strong"
   },
   "table": {
     "actions": "Actions",

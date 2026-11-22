@@ -4,7 +4,7 @@
 **Covers:** Light CRM Release 1 (November 2026). The screens are in English; you can switch to Bulgarian at any time (see [1.4](#14-change-the-language)).\
 **Time to read:** about 10 minutes.
 
-> **What a Viewer can do.** You can **see everything** in the CRM: organizations, contacts, leads, opportunities, the pipeline board, dashboards and reports. You can search, export lists and ask the AI assistant. You **cannot create, change or delete** anything: the screens don't show those buttons, and the server refuses such changes.
+> **What a Viewer can do.** You can **see everything** in the CRM: organizations, contacts, leads, opportunities, the pipeline board, dashboards and reports. You can search and ask the AI assistant. You **cannot create, change, delete or export** data. The screens don't show those buttons, and the server refuses such requests.
 
 ---
 
@@ -14,7 +14,7 @@
 2. [The dashboard](#2-the-dashboard)
 3. [Looking up customers, leads and deals](#3-looking-up-customers-leads-and-deals)
 4. [The pipeline board](#4-the-pipeline-board)
-5. [Reports and exports](#5-reports-and-exports)
+5. [Reports](#5-reports)
 6. [The AI assistant](#6-the-ai-assistant)
 7. [When you need a change](#7-when-you-need-a-change)
 8. [Troubleshooting](#8-troubleshooting)
@@ -32,7 +32,7 @@
 An Admin creates your account and gives you a **one-time link**. The link expires, so use it soon.
 
 1. Open the link. The **Set your password** page opens.
-2. Type a new password twice. The checklist under the fields turns green as each rule is met: **at least 12 characters**, at most 128, not a commonly used password, and both entries match.
+2. Type a new password twice. The checklist under the fields turns green as each rule is met: **at least 12 characters**, at most 128, not a commonly used password, and both entries match. A strength bar rates the password from weak to strong.
 3. Select **Save password**, then sign in.
 
 ### 1.2 Sign in
@@ -137,18 +137,18 @@ Select **Board**. Each column is an open stage, with the number of opportunities
 ![The pipeline board for everyone.](images/viewer/board.png)
 *Figure 10. The pipeline board.*
 
-The help text above the board explains dragging. That applies to the sales team: **as a Viewer you can't move cards**. When the board holds very many deals, it shows the first 500. Use the list view (**List view**) and its filters to see the rest.
+As a Viewer you can't move cards; select a card's name to open the opportunity. When the board holds very many deals, it shows the first 500. Use the list view (**List view**) and its filters to see the rest.
 
 ---
 
-## 5. Reports and exports
+## 5. Reports
 
 - **Reports** opens the **win/loss report**: won and lost deals by loss reason, owner and period.
 
   ![The win/loss report.](images/viewer/win-loss.png)
   *Figure 11. The win/loss report.*
 
-- **Export:** on a list, set the search and filters you want, then select **Export XLSX** (Excel) or **Export CSV**. The file contains exactly the rows you filtered. Every export is recorded in the audit log. Exported files contain customer data, so store and share them according to company policy.
+- **Exports** to Excel or CSV are not available to Viewers. If you need a list as a file, ask a Sales Manager to export it for you.
 
 ---
 
@@ -174,6 +174,7 @@ You can't change data yourself. Here is who to ask:
 |---|---|
 | A wrong detail on a customer, lead or deal | The record's **owner** (shown on the record), or a Sales Manager |
 | A missing customer or contact | A Sales Rep or Sales Manager |
+| A list as an Excel or CSV file | A Sales Manager |
 | You need to edit records yourself | An Admin, to change your role (with your manager's approval) |
 | A problem with your account or password | An Admin |
 
@@ -214,6 +215,6 @@ You can't change data yourself. Here is who to ask:
 | Find a customer | **Search** in the top bar |
 | See open deals by stage | **Board** |
 | See why deals were lost | **Reports** |
-| Get a list into Excel | Filter the list → **Export XLSX** |
+| Get a list as a file | Ask a Sales Manager |
 | Ask a question | **Assistant** |
 | Change language or password | **Your name → My profile** |

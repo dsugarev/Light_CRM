@@ -4,7 +4,7 @@
 **Covers:** Light CRM Release 1 (November 2026). The screens are in English; switch to Bulgarian at any time (see [1.5](#15-change-the-language)).\
 **Time to read:** about 25 minutes; each chapter also works on its own.
 
-> **What a Sales Rep can do.** You can **see every** organization, contact, lead and opportunity in the CRM, **create** new ones, and **change and close the ones you own**. You can export lists and use the AI assistant. Records owned by colleagues open read-only; you can take them over if they are still open.
+> **What a Sales Rep can do.** You can **see every** organization, contact, lead and opportunity in the CRM, **create** new ones, and **change and close the ones you own**. You can export **your own** records to Excel and use the AI assistant. Records owned by colleagues open read-only; you can take them over if they are still open.
 
 ---
 
@@ -36,7 +36,7 @@
 There is no self-registration. An Admin creates your account and gives you a **one-time link** (by email, or in person). The link expires, so use it soon.
 
 1. Open the link. The **Set your password** page opens.
-2. Type a new password twice. The checklist under the fields turns green as the rules are met: **at least 12 characters**, at most 128, not a commonly used password, and both entries match.
+2. Type a new password twice. The checklist under the fields turns green as the rules are met: **at least 12 characters**, at most 128, not a commonly used password, and both entries match. A **strength** bar rates the password from weak to strong: a longer passphrase, such as a short sentence, is the easiest way to a strong one.
 3. Select **Save password**. You are taken to the sign-in page.
 
 If the page says the link is used or expired, ask your Admin for a new one.
@@ -379,10 +379,10 @@ Select **My tasks** to see the open tasks assigned to you, **overdue first**. Ti
 **User story:** *As a Sales Rep, I want to take a filtered list into Excel.*
 
 1. Open the list and set the search and filters you want.
-2. Select **Export XLSX** (Excel) or **Export CSV** at the top. The file contains exactly the filtered rows.
+2. Select **Export XLSX** (Excel) or **Export CSV** at the top. The file contains the filtered rows **that you own**: next to the buttons the screen says **Your records only**. If you need a colleague's or the whole team's records in a file, ask your Sales Manager.
 
 ![The organizations list with the Export XLSX and Export CSV buttons highlighted.](images/rep/export.png)
-*Figure 28. Export buttons.*
+*Figure 28. Export buttons, with the "Your records only" note.*
 
 Exports are recorded in the audit log. Handle exported files with care: they contain customer data.
 
@@ -421,6 +421,7 @@ Keep in mind:
 | Reopen a closed opportunity or a disqualified lead | Sales Manager, Admin | Ask your manager |
 | Restore an archived record | Sales Manager, Admin | Ask your manager |
 | Import records from Excel | Sales Manager, Admin | Send the file to your manager |
+| Export colleagues' or the team's records | Sales Manager, Admin | Ask your manager |
 | Create users, change roles, reset passwords | Admin | Ask an Admin |
 | Change pipeline stages, lists (sources, reasons, industries) or settings | Admin | Ask an Admin |
 
