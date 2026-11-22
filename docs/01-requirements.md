@@ -163,7 +163,13 @@ Each requirement has an ID. Acceptance criteria (AC) are written to be directly 
 
 **FR-AI-04 (M) Drafting help.** The assistant can draft follow-up emails, call summaries and next-step suggestions from a record's data. Drafts appear in chat with a copy button; a draft can be saved as a note on the record by an explicit user click.
 
-**FR-AI-05 (M) Read-only in R1.** The assistant has no tool that creates, changes or deletes data. (Planned next: proposed actions shown as confirmation cards that the user approves.)
+**FR-AI-05 (M) Read-only in R1.** The assistant has no tool that creates, changes or deletes data. *Superseded in R1.1 by FR-AI-09.*
+
+**FR-AI-09 (M, R1.1) Actions with confirmation.** The assistant can propose the main user actions (creating and changing records, lead and opportunity steps, activities and tasks, the user's profile, and for Admins user administration, settings, lists and stages) as confirmation cards; nothing changes until the user confirms. Owner decision 2026-11-22; ADR 0030 lists the scope and the exclusions.
+- AC1: A proposal is executed only by the user's explicit confirmation, with the user's permissions, exactly as shown; a record changed in between is refused as a conflict.
+- AC2: No card is offered for an action the user's role or ownership does not allow; the server checks again on confirmation.
+- AC3: Instructions inside CRM data can at most produce a visible card, never a change.
+- AC4: Confirmed actions are audited by the user with `via: assistant`; proposals expire after 30 minutes; at most 5 per answer.
 
 **FR-AI-06 (M) Language.** The assistant replies in the language of the user's message, English or Bulgarian.
 

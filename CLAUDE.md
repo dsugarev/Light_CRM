@@ -53,7 +53,7 @@ These documents are the source of truth. If code and documents disagree, raise i
 - **Audit:** every create, update and delete writes an audit entry, whether made by a user or an integration client.
 - **i18n:** no hard-coded user-facing strings; every key exists in both `en` and `bg`. The backend returns error codes, not translated text.
 - **LLM calls:** when writing code to make calls to LLMs, use your Cerebras skill to use LiteLLM via OpenRouter to the `openrouter/openai/gpt-oss-120b` model with Cerebras as the inference provider. All LLM calls go through `backend/app/llm/client.py`; no other file imports `litellm`. Tests never call the live model.
-- **AI assistant is read-only in R1:** do not add any tool that creates, changes or deletes data. Tools run with the signed-in user's permissions through the service layer.
+- **AI assistant: proposals, never direct writes (R1.1, ADR 0030):** the model's tools may read, or *propose* an action that the user confirms in the chat; no tool executes a change itself. Confirmed actions run through the service layer with the user's permissions. New write actions go into the registry in `backend/app/modules/assistant/actions.py` with a test each; the ADR's exclusions (one-time secrets, GDPR, imports, own security settings) stay out.
 - **Dependencies:** do not add a library, service or infrastructure component that is not in the architecture document without proposing it first. Pin exact versions.
 - **No real customer data** in code, tests, fixtures, seeds or prompts.
 
