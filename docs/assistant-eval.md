@@ -2,14 +2,15 @@
 
 The on-demand evaluation of the AI assistant against the real model (test strategy section 7). The unit and API tests use scripted models and never call the provider; this evaluation is the only check of what the real model does with our prompt and tools.
 
-**Run it** before a release and whenever the system prompt (`backend/app/modules/assistant/prompt.py`), the tools (`backend/app/modules/assistant/tools.py`) or the model (`LLM_MODEL`) change. Each run is appended below with the model, the prompt's hash and the result per case.
+**Run it** before a release and whenever the system prompt (`backend/app/modules/assistant/prompt.py`), the tools (`backend/app/modules/assistant/tools.py`) or the model change. Since Phase 10 (ADR 0031) an Admin chooses among several models: evaluate each catalog model with `--model <id>` (`gpt-oss-120b`, `nemotron-3-ultra-free`, `gemini-3.5-flash`); the script chooses it through the Admin setting, as in production. Each run is appended below with the model, the prompt's hash and the result per case.
 
 ```bash
 cd backend
-OPENROUTER_API_KEY=… \
+OPENROUTER_API_KEY=… GEMINI_API_KEY=… \
 EVAL_DATABASE_URL=postgresql+asyncpg://crm_migrator:…@localhost:5432/crm_eval \
 EVAL_APP_DATABASE_URL=postgresql+asyncpg://crm_app:…@localhost:5432/crm_eval \
 uv run python scripts/assistant_eval.py --report ../docs/assistant-eval.md
+# --model gemini-3.5-flash         evaluate another catalog model (default gpt-oss-120b)
 # --only pipeline-en,pipeline-bg   run some cases
 # --fake                            dry run with the scripted demo model (checks the harness, not the model)
 ```

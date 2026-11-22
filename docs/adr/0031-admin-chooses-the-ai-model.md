@@ -14,13 +14,13 @@ On 2026-11-22, OpenRouter listed 11 free models with tool support. Checked on th
 - NVIDIA Nemotron 3 Ultra (550B MoE, open weights, served by NVIDIA) made a correct tool call;
 - Google Gemma 4 31B (free) was rate-limited (429).
 
-The Gemini key reaches `gemini-2.5-flash` and `gemini-2.5-pro`, and newer previews.
+The Gemini key lists `gemini-2.5-flash`, but Google refuses it to new users (`404`, "no longer available to new users"). Of the newer Flash models, `gemini-3.8-flash`, `gemini-3.7-flash` and `gemini-flash-latest` answered `503 high demand` or timed out on the free tier during the evaluation; `gemini-3.5-flash` answered, with tool calls over several rounds (LiteLLM keeps Gemini's thought signature in the tool-call id).
 
 ## Decision
 1. **A fixed catalog of three models** in `app/llm/models.py`:
    - `gpt-oss-120b`: OpenRouter, Cerebras only. This is the default, and `LLM_MODEL`/`LLM_PROVIDER` still override it.
    - `nemotron-3-ultra-free`: OpenRouter free endpoint, NVIDIA only.
-   - `gemini-2.5-flash`: Google AI Studio, through LiteLLM's `gemini/` provider. No new library.
+   - `gemini-3.5-flash`: Google AI Studio, through LiteLLM's `gemini/` provider. No new library. (Approved as "Gemini 2.5 Flash"; changed because Google no longer serves 2.5 Flash to new keys.)
 2. **One setting for everyone.** The runtime setting `ai_model` (Admin **Settings**; `PATCH /settings`) applies to the next question of every user, without a restart, and is audited as `settings.updated`. A model whose API key is not configured cannot be chosen (`422 settings.ai_model_unavailable`). `GET /settings/ai-models` lists the models with `available` and `data_note`.
 3. **All calls still go through `backend/app/llm/client.py`.** It picks the model, key and provider routing per request. LiteLLM is imported nowhere else.
 4. **Users see which model answers.** `GET /assistant/status` adds `model` and `model_label`, shown under the question box.

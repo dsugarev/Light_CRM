@@ -367,7 +367,7 @@ Settings present so far (later phases add theirs; unknown fields return `422`):
 | `session_absolute_timeout_minutes` | 10080 (7 days) | 60–43200 | 1 |
 | `stale_opportunity_days` | 14 | 1–365 | 4 |
 | `mfa_required_for_admins` | false | boolean | 8 |
-| `ai_model` | `gpt-oss-120b` | `gpt-oss-120b`, `nemotron-3-ultra-free`, `gemini-2.5-flash`; only a model with its API key configured (`422`, field `ai_model`, code `settings.ai_model_unavailable`) | 10 (R1.1, ADR 0031) |
+| `ai_model` | `gpt-oss-120b` | `gpt-oss-120b`, `nemotron-3-ultra-free`, `gemini-3.5-flash`; only a model with its API key configured (`422`, field `ai_model`, code `settings.ai_model_unavailable`) | 10 (R1.1, ADR 0031) |
 
 `GET /settings/ai-models` → `[{ "id", "label", "provider": "openrouter" \| "google", "available": bool, "free": bool, "data_note": null \| "may_keep_prompts" }]`, in catalog order.
 
@@ -917,7 +917,7 @@ The model never changes data. Its *proposal* tools validate an action and store 
 | `activity.create`, `.update`, `.complete`, `.reopen`, `.archive` | section 11 | archive |
 | `profile.update` (own name and language) | `PATCH /me` | — |
 | `user.create`, `.update`, `.deactivate`, `.activate`, `.unlock`, `.revoke_sessions` (Admins) | section 5 | deactivate, revoke_sessions |
-| `settings.update` (Admins) | section 6 | — |
+| `settings.update` (Admins) | section 6, including `ai_model` (R1.1; only an available model is proposed) | — |
 | `reference.add`, `.update`, `.delete`; `stage.add`, `.update`, `.delete` (Admins) | sections 6 and 10 | delete |
 
 Not available through the assistant (ADR 0030):

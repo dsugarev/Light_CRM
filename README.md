@@ -60,7 +60,7 @@ Backups run nightly into `backups/`; restore one with `scripts/restore.sh backup
 
 Webhooks are sent by the `worker` service only to hosts listed in `WEBHOOK_ALLOWED_HOSTS` (`.env`, comma-separated, exact names or `*.suffix`); the worker needs outbound HTTPS to them. Webhook signing secrets are encrypted with `APP_ENCRYPTION_KEY`, which the start script generates: keep it with the database backups, because without it stored secrets must be rotated.
 
-The AI assistant is off (`AI_ENABLED=false`) until the owner confirms the data flow: questions and the CRM data the assistant looks up are sent to OpenRouter and Cerebras. To switch it on, set `AI_ENABLED=true` and `OPENROUTER_API_KEY` (a funded OpenRouter account) in `.env`; the backend then needs outbound HTTPS to `openrouter.ai`.
+The AI assistant is off (`AI_ENABLED=false`) until the owner confirms the data flow: questions and the CRM data the assistant looks up are sent to OpenRouter and Cerebras. To switch it on, set `AI_ENABLED=true` and `OPENROUTER_API_KEY` (a funded OpenRouter account) in `.env`; the backend then needs outbound HTTPS to `openrouter.ai`. With `GEMINI_API_KEY` as well (outbound HTTPS to `generativelanguage.googleapis.com`), an Admin can choose Gemini 3.5 Flash in **Settings**, or the free NVIDIA Nemotron 3 Ultra through OpenRouter (ADR 0031). Those two options may let the provider keep prompts.
 
 ## Develop
 

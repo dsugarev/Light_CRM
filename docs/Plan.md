@@ -2703,3 +2703,46 @@ Found while building:
 - **The model sometimes writes a tool call and an imagined result as text.** Such a round is discarded and retried, and a second leak gives an error.
 - **Token use.** The proposal tools raise an answer to about 12,000 tokens, so the default daily budget (200,000) allows about 16 answers per user. Raising it is the owner's call.
 
+
+## Phase 10 — The Admin chooses the AI model (R1.1, 2026-11-22)
+
+The owner added a Gemini API key and asked for a free open-source model on OpenRouter and for Gemini as options, chosen in the Admin interface for all users. Approved: "three models". Decision: ADR 0031; requirement FR-AI-10; API spec 6.1 and 17.
+
+| # | Task | Result |
+|---|---|---|
+| 10.1 | ADR 0031, FR-AI-10, CLAUDE.md LLM rule, API spec, implementation plan | Done |
+| 10.2 | Model catalog and per-request routing; `GEMINI_API_KEY` | Done (`app/llm/models.py`, `LiteLLMClient.route`) |
+| 10.3 | Setting `ai_model` (migration `0013`), validation, `GET /settings/ai-models`, model in `/assistant/status` | Done (additive) |
+| 10.4 | Settings: AI model select with availability and the data note; model name in the chat | Done (en, bg) |
+| 10.5 | Tests and the live evaluation of each model | Tests done (Test_strategy section 26). Live evaluation of Nemotron and Gemini **open**: blocked by the providers' free daily quotas on 2026-11-22 |
+| 10.6 | Admin manual, user guides, operations guide, architecture, README, release notes | Done |
+
+Choosing the free model: OpenRouter listed 11 free models with tool support. The NVIDIA Nemotron 3 Ultra endpoint (550B mixture of experts, open weights, served by NVIDIA) made correct tool calls on the owner's account; Google Gemma 4 31B (free) was rate-limited. Gemini: the approved "Gemini 2.5 Flash" is refused to new keys (`404 no longer available to new users`), and Gemini 3.6, 3.7, 3.8 Flash and `gemini-flash-latest` answered `503 high demand` or timed out. The option therefore uses `gemini-3.5-flash`, which answered with tool calls over several rounds.
+
+How it works:
+1. `app/llm/models.py` holds the catalog: id, label, key kind, LiteLLM model, OpenRouter provider, `free` and `data_note`. It imports nothing from LiteLLM.
+2. The runtime setting `ai_model` (one row, `app_setting`) holds the Admin's choice. `PATCH /settings` refuses a model that is unknown or has no key (`422 settings.ai_model_unavailable`). `app.core` cannot import `app.llm`, so `app.main` puts the check and the list on `app.state`.
+3. The assistant reads the setting for every answer and passes it to `LLM.stream(..., model=...)`. The client turns it into a route:
+
+```python
+# app/llm/client.py
+def route(self, model_id: str | None) -> Route:
+    option = models.find(model_id or models.DEFAULT_MODEL)
+    if option is None:
+        raise LLMUnavailableError("UnknownModel")
+    if option.key == "gemini":
+        ...  # gemini/gemini-3.5-flash with GEMINI_API_KEY, no OpenRouter routing or api_base
+    provider = option.provider or settings.llm_provider
+    return Route(model=option.litellm_model or settings.llm_model, api_key=key,
+                 api_base=settings.llm_api_base or None,
+                 extra_body={"provider": {"order": [provider], "allow_fallbacks": False}})
+```
+
+4. The Settings screen lists the models; options without a key are disabled, and choosing one marked `may_keep_prompts` shows a warning. The chat shows "Model: …" under the question box. The assistant's `settings.update` action accepts `ai_model` too, and proposes only available models.
+
+Deviations and notes:
+- `/settings/ai-models` lives in `core/runtime_settings.py` next to the other settings routes; its data comes from `app.state.ai_models`.
+- Changing the model takes effect at once in the process that saved it, and within the 30-second settings cache elsewhere.
+- The evaluation script takes `--model` and chooses it through the Admin setting, as in production.
+- Open item: the 28-case live evaluation for `nemotron-3-ultra-free` and `gemini-3.5-flash` (ADR 0031, decision 6) must pass before either is used in production. On 2026-11-22 both providers refused further requests on the free daily quota.
+- Data protection: the free OpenRouter endpoint and Gemini's free tier may keep prompts. The UI, the admin manual and the operations guide say so; the DPO's approval is needed before using them with real customer data.

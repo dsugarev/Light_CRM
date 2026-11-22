@@ -51,6 +51,7 @@ OpenRouter credits are available since 2026-11-18: the key in `.env` is funded a
 | 19 | Questions in Bulgarian and English about the team's own pipeline get correct answers with links | FR-AI-02, 06 | | |
 | 20 | On an opportunity, "Draft a follow-up email" gives a usable draft; "Save as note" stores the edited text | FR-AI-03, 04 | | |
 | 21 | The live evaluation (`docs/assistant-eval.md`) passes with the production model | FR-AI-02 | ✅ 20/20 on 2026-11-18 (funded account, Cerebras) | Rerun after any prompt, tool or model change |
+| 21a | An Admin switches the AI model in **Settings**; the next answer of another user names the new model under the question box; options without a key are greyed out and the "may keep prompts" warning appears (R1.1) | FR-AI-10 | | Check the provider terms (and DPO approval) before choosing a free or Gemini option with real data |
 
 ## Administration, privacy and operations
 

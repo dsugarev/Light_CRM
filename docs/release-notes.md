@@ -1,6 +1,6 @@
 # Release notes
 
-## v1.1.0: Assistant actions with confirmation (proposed; Phase 9, R1.1)
+## v1.1.0: Assistant actions with confirmation, and a choice of AI model (proposed; Phases 9 and 10, R1.1)
 
 ### For users
 - **The assistant can do things for you.** Ask it to create a task, log a call, move or close a deal, create a lead, organization or contact, reassign a record, and more.
@@ -9,9 +9,16 @@
   - Admins can also manage users, settings, lists and stages this way.
 - **Kept on the screens:** password links, API keys, GDPR tools and imports.
 - **Better answers:** the assistant finds contacts, a colleague's records, win/loss and conversion figures and an organization's full history (PR #28). An answer built on a tool call the model only imagined is never shown.
+- **The model in use is shown** under the question box (Phase 10).
 
 ### For administrators
-- One additive migration (`0012_assistant_actions`).
+- **Choose the AI model for everyone** in **Settings → AI assistant** (Phase 10, FR-AI-10, ADR 0031):
+  - gpt-oss-120b through OpenRouter and Cerebras (default, as before);
+  - NVIDIA Nemotron 3 Ultra, free, through OpenRouter;
+  - Gemini 3.5 Flash through Google, with the new `GEMINI_API_KEY` in `.env`.
+
+  A model without its key is greyed out. The free and Gemini options are marked "the provider may keep or use prompts": check with the DPO before using them with real data (operations guide 8.1).
+- Two additive migrations (`0012_assistant_actions`, `0013_ai_model_setting`).
 - The assistant uses about 12,000 tokens per answer; consider raising `AI_DAILY_TOKEN_BUDGET` (default 200,000, roughly 16 answers per user per day).
 
 ## v1.0.1: Release 1 completion (tagged 2026-11-22 on `main` 56cfa38; PRs #24, #25 and #26)
