@@ -41,6 +41,7 @@ function stored(message: ChatMessage): ShownMessage {
     errorCode: message.error_code,
     tools: [],
     refs: message.record_refs,
+    actions: message.actions ?? [],
   }
 }
 
@@ -56,6 +57,8 @@ function applyEvent(answer: ShownMessage, event: StreamEvent): ShownMessage {
       return { ...answer, content: answer.content + event.data.text }
     case 'record_ref':
       return { ...answer, refs: [...answer.refs, event.data] }
+    case 'action_proposed':
+      return { ...answer, actions: [...answer.actions, event.data] }
     case 'message_end':
       return { ...answer, status: event.data.status }
     case 'error':
@@ -108,6 +111,7 @@ export function AssistantPanel({ remaining, onClose }: { remaining: number; onCl
         errorCode: null,
         tools: [],
         refs: [],
+        actions: [],
       },
     }
     setDraft('')
@@ -161,6 +165,7 @@ export function AssistantPanel({ remaining, onClose }: { remaining: number; onCl
           errorCode: null,
           tools: [],
           refs: [],
+          actions: [],
         },
       },
       { key: live.answer.id ?? 'live-answer', message: live.answer },

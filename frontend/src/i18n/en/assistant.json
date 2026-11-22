@@ -44,7 +44,8 @@
     "pipeline_summary": "Summing up the pipeline…",
     "forecast_summary": "Calculating the forecast…",
     "my_tasks": "Reading your tasks…",
-    "other": "Looking up CRM data…"
+    "other": "Looking up CRM data…",
+    "propose": "Preparing the action…"
   },
   "budget_one": "{{count}} token left today",
   "budget_other": "{{count}} tokens left today",
@@ -54,5 +55,21 @@
   "delete": "Delete",
   "deleteTitle": "Delete this conversation?",
   "deleteDescription": "The conversation and its messages are deleted permanently.",
-  "noConversations": "No conversations yet."
+  "noConversations": "No conversations yet.",
+  "action": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "hint": "Nothing changes until you confirm.",
+    "destructiveHint": "This changes or removes data. Check it, then confirm.",
+    "expires": "Valid until {{time}}",
+    "open": "Open {{label}}",
+    "status": {
+      "proposed": "Waiting for your confirmation.",
+      "confirmed": "Done.",
+      "cancelled": "Cancelled.",
+      "expired": "Expired. Ask again if you still want it.",
+      "failed": "Not done."
+    },
+    "list": "Proposed actions"
+  }
 }

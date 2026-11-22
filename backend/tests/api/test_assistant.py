@@ -317,9 +317,11 @@ async def test_FR_AI_02_answer_streams_with_tool_progress_and_record_links(
     # Progress events never carry arguments or results to the browser.
     assert "48000" not in json.dumps([d for e, d in stream if e == "tool_call"])
 
-    # The model was offered exactly the eight read-only tools, and saw the tool result.
+    # The model was offered the reading tools and, for a Sales Rep, the proposal tools
+    # (never the Admin one; FR-AI-09), and saw the tool result.
     offered = [t["function"]["name"] for t in llm.calls[0][1] or []]
-    assert offered == list(tools.TOOLS)
+    assert offered == list(tools.tools_for(RoleCode.SALES_REP))
+    assert "propose_admin_action" not in offered
     [result] = tool_results(llm.calls[1][0])
     assert result["total"] == 1
     [item] = result["items"]
@@ -1085,3 +1087,41 @@ async def test_FR_AI_02_tool_echo_before_a_final_answer_is_dropped(
     chat = await conversation(client)
     stream = events(await ask(client, chat["id"], "Last call?"))
     assert text_of(stream) == "No call is logged."
+
+
+async def test_FR_AI_02_AC3_an_imagined_tool_call_is_never_shown_and_is_asked_again(
+    test_app: TestApp, llm: ScriptedLLM
+) -> None:
+    client, _ = await test_app.signed_in()
+    leaked = (
+        '{"query":""} to=functions.search_opportunities {"items":[{"name":"Acme Rocket",'
+        '"amount":50000}]}The Acme Rocket deal is for €50,000.'
+    )
+    llm.then(
+        [TextDelta(leaked), Completed((), Usage(5, 5))],
+        call("search_opportunities", query="Acme Rocket"),
+        answer("The CRM has no Acme Rocket deal."),
+    )
+    chat = await conversation(client)
+    stream = events(await ask(client, chat["id"], "What is the amount of the Acme Rocket deal?"))
+    assert text_of(stream) == "The CRM has no Acme Rocket deal."
+    assert "50,000" not in json.dumps(stream, ensure_ascii=False)
+    # The second call carried the instruction to use real function calls.
+    assert any(
+        m["role"] == "system" and "function-calling" in m["content"] for m in llm.calls[1][0]
+    )
+
+
+async def test_FR_AI_02_AC3_a_repeated_imagined_tool_call_ends_in_an_error(
+    test_app: TestApp, llm: ScriptedLLM
+) -> None:
+    client, _ = await test_app.signed_in()
+    leaked = '{"q":1} to=functions.pipeline_summary {"total": 1} It is 1 EUR.'
+    llm.then(
+        [TextDelta(leaked), Completed((), Usage(5, 5))],
+        [TextDelta(leaked), Completed((), Usage(5, 5))],
+    )
+    chat = await conversation(client)
+    stream = events(await ask(client, chat["id"], "Pipeline?"))
+    assert text_of(stream) == ""
+    assert ("error", {"code": "assistant.provider_unavailable"}) in stream

@@ -222,7 +222,14 @@ If your Admin has switched it on, select **Assistant** in the top bar. Ask in En
 ![The assistant answering with the open pipeline by stage.](images/common/assistant-answer.png)
 *Figure 12. An answer from the assistant. (Example from a test system; your figures will differ.)*
 
-The assistant **only reads**, with your permissions, and never changes anything. Records in an answer are links. **Save as note** saves a checked draft on a record. Check the figures before you present them. There is a daily limit per person.
+The assistant can also **prepare changes** for you to confirm. For example:
+- *Give the SD-WAN lead to Ivan*;
+- *Reopen the lost Cloud PBX deal in Negotiation*;
+- *Restore the archived Sunrise Foods contact*.
+
+Each change appears as a card, and **nothing changes until you press Confirm**. It uses your manager rights, and every confirmed change is audited as yours "via assistant". The Sales Rep manual (section 10.1) shows a card.
+
+Records in an answer are links. **Save as note** saves a checked draft on a record. Check the figures before you present them. There is a daily limit per person.
 
 ---
 

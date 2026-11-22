@@ -1,6 +1,6 @@
 # ADR 0006: AI assistant is read-only in R1
 
-Status: Accepted · Date: 2026-11-17 · Phase 0
+Status: Superseded in part by ADR 0030 (2026-11-22: the assistant proposes actions, the user confirms them) · Date: 2026-11-17 · Phase 0
 
 ## Context
 The assistant sends CRM content to an external LLM provider and processes untrusted text (notes, imports) that may contain prompt injection. Data flow approval is pending (requirements open question 1).

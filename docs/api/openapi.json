@@ -1,6 +1,179 @@
 {
   "components": {
     "schemas": {
+      "ActionConfirmed": {
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ActionOut"
+          },
+          "set_password": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OneTimeLink"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only when a user was created; shown once, never stored"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "ActionConfirmed",
+        "type": "object"
+      },
+      "ActionDetail": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ActionDetail",
+        "type": "object"
+      },
+      "ActionLink": {
+        "properties": {
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "entity_type",
+          "entity_id",
+          "label",
+          "url"
+        ],
+        "title": "ActionLink",
+        "type": "object"
+      },
+      "ActionOut": {
+        "description": "FR-AI-09 (API spec 17.1): a proposed action, shown as a card.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "destructive": {
+            "title": "Destructive",
+            "type": "boolean"
+          },
+          "details": {
+            "items": {
+              "$ref": "#/components/schemas/ActionDetail"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActionLink"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "confirmed",
+              "cancelled",
+              "expired",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActionLink"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "title",
+          "details",
+          "target",
+          "destructive",
+          "status",
+          "error_code",
+          "result",
+          "expires_at",
+          "created_at"
+        ],
+        "title": "ActionOut",
+        "type": "object"
+      },
       "ActivityCreate": {
         "additionalProperties": false,
         "properties": {
@@ -4069,6 +4242,14 @@
       },
       "MessageOut": {
         "properties": {
+          "actions": {
+            "description": "Proposed actions (R1.1)",
+            "items": {
+              "$ref": "#/components/schemas/ActionOut"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
           "completion_tokens": {
             "title": "Completion Tokens",
             "type": "integer"
@@ -4239,6 +4420,30 @@
           "version"
         ],
         "title": "MoveRequest",
+        "type": "object"
+      },
+      "OneTimeLink": {
+        "properties": {
+          "emailed": {
+            "default": false,
+            "title": "Emailed",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "title": "OneTimeLink",
         "type": "object"
       },
       "OpportunityCreate": {
@@ -9724,6 +9929,87 @@
           "activities"
         ],
         "x-access-level": "Owner+ or assignee"
+      }
+    },
+    "/api/v1/assistant/actions/{action_id}/cancel": {
+      "post": {
+        "operationId": "cancel_action_api_v1_assistant_actions__action_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard a proposed action (FR-AI-09)",
+        "tags": [
+          "assistant"
+        ],
+        "x-access-level": "Signed-in (own only)"
+      }
+    },
+    "/api/v1/assistant/actions/{action_id}/confirm": {
+      "post": {
+        "operationId": "confirm_action_api_v1_assistant_actions__action_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionConfirmed"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute a proposed action exactly as shown (FR-AI-09)",
+        "tags": [
+          "assistant"
+        ],
+        "x-access-level": "Signed-in (own only)"
       }
     },
     "/api/v1/assistant/conversations": {

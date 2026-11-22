@@ -196,6 +196,7 @@ Error codes (stable, used by the frontend for translation; add new codes here wh
 | `assistant.disabled` | 503 | `AI_ENABLED` is false |
 | `assistant.budget_exceeded` | 429 | Daily token budget used up |
 | `assistant.provider_unavailable` | 503 | LLM provider error or timeout (in the stream, as an `error` event) |
+| `assistant.action_not_pending` | 409 | The proposed action was already confirmed or cancelled, or it expired (R1.1, section 17) |
 | `auth.api_key_invalid` | 401 | API key missing, unknown, revoked or expired |
 | `auth.client_inactive` | 401 | Integration client deactivated |
 | `auth.ip_not_allowed` | 403 | Caller IP outside the client's allowlist |
@@ -832,6 +833,8 @@ All assistant endpoints return `503 assistant.disabled` when `AI_ENABLED` is fal
 | DELETE | `/api/v1/assistant/conversations/{conversation_id}` | Delete permanently with its messages | Signed-in (own only) | FR-AI-01 |
 | POST | `/api/v1/assistant/conversations/{conversation_id}/messages` | Send a message; the response is a Server-Sent Events stream (below). Body `{ "content": "...", "context": {...optional} }`, max 4,000 characters | Signed-in (own only) | FR-AI-01, 02, 06 |
 | POST | `/api/v1/assistant/conversations/{conversation_id}/messages/{message_id}/stop` | Stop a running generation | Signed-in (own only) | FR-AI-01 |
+| POST | `/api/v1/assistant/actions/{action_id}/confirm` | Execute a proposed action exactly as shown (R1.1) | Signed-in (own only) | FR-AI-09 |
+| POST | `/api/v1/assistant/actions/{action_id}/cancel` | Discard a proposed action (R1.1) | Signed-in (own only) | FR-AI-09 |
 | POST | `/api/v1/assistant/messages/{message_id}/save-as-note` | Save an assistant draft as a note activity on a record. Body `{ "entity_type", "entity_id", "content" }` (content may be edited by the user). Normal activity permissions apply | Contributor | FR-AI-04 |
 
 Another user's conversation returns `404`, not `403`.
@@ -840,7 +843,7 @@ Another user's conversation returns `404`, not `403`.
 
 - `status` → `{ "enabled", "daily_token_budget", "used_today", "remaining_budget" }`. The budget is per user per day; the day starts at midnight Europe/Sofia.
 - Conversation → `{ "id", "title", "context": { "entity_type", "entity_id" } | null, "created_at", "updated_at" }`. `context.entity_type` is `lead`, `opportunity` or `organization`; a missing record is `422` with field `context.entity_id` and code `<type>.not_found`. Without a title, the first question (up to 80 characters) becomes the title. The list is paginated with the common envelope (`page`, `page_size`; `sort` is `updated_at`, default `-updated_at`).
-- Conversation detail adds `messages`: `{ "id", "role": "user" | "assistant", "content", "status": "streaming" | "complete" | "stopped" | "failed", "error_code", "tools_used": ["search_opportunities", ...], "record_refs": [{ "entity_type", "entity_id", "label" }], "prompt_tokens", "completion_tokens", "created_at" }`. Tool arguments and results are never returned; tool results are not stored at all (ADR 0026).
+- Conversation detail adds `messages`: `{ "id", "role": "user" | "assistant", "content", "status": "streaming" | "complete" | "stopped" | "failed", "error_code", "tools_used": ["search_opportunities", ...], "record_refs": [{ "entity_type", "entity_id", "label" }], "actions": [<action>] (R1.1, below), "prompt_tokens", "completion_tokens", "created_at" }`. Tool arguments and results are never returned; tool results are not stored at all (ADR 0026).
 - `PATCH` body `{ "title" }` (1–200 characters); no `version`: a conversation has a single owner.
 - `stop` → `204`. It flags a running answer; the stream ends at its next check (within about a second) with `message_end` and `"status": "stopped"`, keeping the text written so far. Stopping an answer that already ended changes nothing.
 - `save-as-note` → `201` with the created activity (section 11). The note's subject is the draft's first line without Markdown markers, its body the content. `entity_type` is `lead`, `opportunity`, `organization` or `contact`; the record checks of `POST /activities` apply (`422` with field `<type>_id` and code `<type>.not_found` or `<type>.archived`). Only the caller's own assistant messages can be saved (`404` otherwise). This is the only way a draft reaches the CRM, and it is an explicit user action (FR-AI-05).
@@ -856,6 +859,7 @@ Stream format (`Content-Type: text/event-stream`):
 | `tool_call` | `{ "tool": "search_opportunities", "status": "running" \| "done" }` | Progress indicator; no arguments or results are sent to the browser |
 | `delta` | `{ "text": "..." }` | Next piece of the answer (Markdown) |
 | `record_ref` | `{ "entity_type", "entity_id", "label" }` | A record cited in the answer, for linking |
+| `action_proposed` | `<action>` (R1.1, below) | A proposed action for the user to confirm or cancel; shown as a card |
 | `message_end` | `{ "prompt_tokens", "completion_tokens", "remaining_budget", "status": "complete" \| "stopped" }` | Answer complete and stored |
 | `error` | `{ "code" }` | `assistant.provider_unavailable`, or `server.internal_error` for an unexpected failure; the stream then closes. (`assistant.budget_exceeded` and `rate_limit.exceeded` are returned before the stream starts, above.) |
 
@@ -880,6 +884,57 @@ The internal tools the model may call (`search_leads`, `search_opportunities`, `
 `owner_name` matches people by name (active or deactivated users; only IDs are used, no email addresses reach the model); an unknown name gives the model `owner_not_found`. Text the model writes before a tool call that looks like JSON (an echo of its call or a made-up result) is not shown or stored.
 
 A tool call with invalid arguments, an unknown tool name or a missing record gives the model a short error (`invalid_arguments`, `unknown_tool`, the error code), never data. The model may use at most 5 rounds of tools per answer; then it must answer without tools.
+
+### 17.1 Actions with confirmation (R1.1, Phase 9; FR-AI-09, ADR 0030)
+
+The model never changes data. Its *proposal* tools validate an action and store it; the browser shows it as a card; only the user's confirmation executes it, through the same service function as the REST endpoint of that action, with the user's permissions and the record `version` captured when proposing.
+
+**Action** (the `action_proposed` event data, `messages[].actions[]`, and the confirm response's `action`):
+`{ "id", "action": "activity.create", "title", "details": [{ "label", "value" }], "target": { "entity_type", "entity_id", "label", "url" } | null, "destructive": bool, "status": "proposed" | "confirmed" | "cancelled" | "expired" | "failed", "error_code": null | "<code>", "result": { "entity_type", "entity_id", "label", "url" } | null, "expires_at", "created_at" }`.
+
+`title` and `details` are written in the language of the user's question. A proposal expires 30 minutes after it was made; at most 5 are made per answer.
+
+- `confirm`. Body: `{}`.
+  - Success: `200 { "action": <action with status confirmed and result> }`. Creating a user also returns `"set_password": { "url", "expires_at" }` once. It is not stored and never reaches the model (ADR 0030).
+  - Errors from the service come back as they would from the REST endpoint, and the action becomes `failed` with that `error_code`: `403`, `409 conflict.version_mismatch` (the record changed after the proposal), and `422` (the record became invalid, for example archived).
+  - `409 assistant.action_not_pending`: the action was already decided, or it expired.
+  - `404`: another user's action.
+- `cancel` → `204`; an action that is no longer pending → `409 assistant.action_not_pending`.
+- Audit: the executed change is audited as usual, by the confirming user, with `details.via = "assistant"`; proposals themselves are not audited (they change nothing).
+
+**Actions** (who may confirm them is the access level of the corresponding endpoint):
+
+| Action | Endpoint it runs | Destructive |
+|---|---|---|
+| `organization.create`, `.update`, `.archive`, `.restore` | section 7 | archive |
+| `contact.create`, `.update`, `.archive`, `.restore` | section 8 | archive |
+| `lead.create`, `.update` (incl. qualification), `.archive`, `.restore`, `.assign`, `.mark_contacted`, `.qualify`, `.disqualify`, `.reopen`, `.convert` | section 9 | archive, disqualify |
+| `opportunity.create`, `.update`, `.archive`, `.restore`, `.assign`, `.move`, `.close_won`, `.close_lost`, `.reopen` | section 10 | archive, close_lost |
+| `activity.create`, `.update`, `.complete`, `.reopen`, `.archive` | section 11 | archive |
+| `profile.update` (own name and language) | `PATCH /me` | — |
+| `user.create`, `.update`, `.deactivate`, `.activate`, `.unlock`, `.revoke_sessions` (Admins) | section 5 | deactivate, revoke_sessions |
+| `settings.update` (Admins) | section 6 | — |
+| `reference.add`, `.update`, `.delete`; `stage.add`, `.update`, `.delete` (Admins) | sections 6 and 10 | delete |
+
+Not available through the assistant (ADR 0030):
+- password reset links, API keys, webhook secrets and integration clients;
+- GDPR export and anonymization;
+- imports;
+- the user's own password, two-factor sign-in and sessions;
+- reordering lists and stages;
+- IDs in other systems.
+
+**Proposal tools** (internal, not HTTP). Each returns `{ "proposed": true, "action_id", "summary" }` or an error the model can read: `permission.denied`, `owner_not_found`, `not_found`, `invalid_arguments`, `too_many_proposals`, or `not_allowed_for_role`.
+- `propose_create_activity`;
+- `propose_create_lead`, `propose_create_opportunity`, `propose_create_organization`, `propose_create_contact`;
+- `propose_update` (entity, ID, changes);
+- `propose_archive_or_restore`;
+- `propose_lead_step`, `propose_opportunity_step`;
+- `propose_assign`, `propose_task_step`;
+- `propose_profile_update`;
+- `propose_admin_action` (Admins only).
+
+Write tools are offered to the model only for roles that can use them.
 
 ## 18. Rate limits
 

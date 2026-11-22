@@ -31,3 +31,4 @@ One file per decision: `NNNN-title.md` with context, decision and consequences. 
 - [0027 GDPR export and anonymization across modules; optional TOTP two-factor sign-in](0027-gdpr-tools-and-two-factor-sign-in.md)
 - [0028 Owner answers to the requirements' open questions, and the options kept open](0028-owner-answers-to-open-questions.md)
 - [0029 Exports follow the role matrix](0029-exports-follow-the-role-matrix.md)
+- [0030 The assistant proposes actions; the user confirms them](0030-assistant-actions-with-confirmation.md)

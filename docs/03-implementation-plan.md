@@ -124,11 +124,27 @@ Requirements: FR-ADM-04, FR-AUTH-07 (if time allows), all NFRs.
 - Operations guide (install, upgrade, backup, restore, create admin, configuration reference) and a short user guide in English and Bulgarian.
 - User acceptance checklist handed to the owner; version tagged `v1.0.0`.
 
+## Phase 9 — Assistant actions with confirmation (R1.1)
+
+Requirements: FR-AI-09 (supersedes FR-AI-05); ADR 0030. Owner approval 2026-11-22: all main user actions, with the recommended exclusions.
+
+| # | Task |
+|---|---|
+| 9.1 | ADR 0030; FR-AI-09; CLAUDE.md rule; API spec 17.1 (actions, endpoints, event, error code) |
+| 9.2 | Additive migration: `assistant_action` (proposal, target, version, request, status, result, expiry) |
+| 9.3 | Action registry (`assistant/actions.py`): argument schemas, permission pre-checks, the service call, bilingual card text; proposal tools offered by role |
+| 9.4 | Confirm and cancel endpoints; conflicts and expiry; audit `details.via = "assistant"`; authorization matrix |
+| 9.5 | Frontend: confirmation card (Confirm / Cancel, destructive style, result link, one-time link for a new user), en and bg, accessible |
+| 9.6 | Tests per action (permission, payload, conflict), injection, expiry, Viewer; live evaluation cases |
+| 9.7 | Manuals, user guides, ASVS, accessibility, Plan.md, Test_strategy.md, release notes |
+
+Exit: "Create a task due tomorrow: Call Mr Z" produces a card; Confirm creates the task, which appears in My tasks and in the audit log with `via: assistant`; full gate and live evaluation pass.
+
 ## After R1 — roadmap (do not build yet)
 
 | Release | Adds | Attaches to |
 |---|---|---|
-| R1.1 | Assistant-proposed actions with user confirmation; SSO via OpenID Connect; email notifications; write scopes for integrations once flows are agreed; OAuth 2.0 client credentials if required | `assistant`, `identity`, `integration` |
+| R1.1 | Assistant-proposed actions with user confirmation (Phase 9, above); SSO via OpenID Connect; email notifications; write scopes for integrations once flows are agreed; OAuth 2.0 client credentials if required | `assistant`, `identity`, `integration` |
 | R2 | Product catalog, product offering qualification, solution configuration, site surveys | new modules → `opportunity`, `organization` |
 | R3 | Quotes, proposals, agreements and contracts | new modules → `opportunity`, `organization`, R2 catalog |
 | R4 | Channel and partner management, sales portal, advanced reporting | new modules → `party`, `sales` |

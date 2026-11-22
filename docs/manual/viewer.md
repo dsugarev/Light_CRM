@@ -159,7 +159,7 @@ If your Admin has switched it on, select **Assistant** in the top bar. Ask in En
 ![The assistant answering with a table of open pipeline by stage.](images/common/assistant-answer.png)
 *Figure 12. An answer from the assistant. (Example from a test system; your figures will differ.)*
 
-- The assistant **only reads** CRM data, and only what you are allowed to see.
+- The assistant reads CRM data, only what you are allowed to see. It can't change records for you (Viewers can't change records). It can prepare one change: your own **name or language**, which you confirm on a card.
 - Records mentioned in an answer are links. **Copy** copies the answer.
 - Check the figures before you rely on them. The assistant says so when the CRM doesn't hold the answer.
 - There is a **daily limit** per person, shown under the question box.

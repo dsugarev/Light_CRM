@@ -2669,3 +2669,37 @@ async def _owners(ctx, owner, owner_name=None):
 
 **Also found:** on the local production-like stack the backend image is built by the `migrate` service. `docker compose build backend` builds nothing, so earlier backend changes on 2026-11-22 (the export rule) reached the local stack only with this deployment. The staging stack (`up --build`) always had them.
 
+## Phase 9 — Assistant actions with confirmation (R1.1, 2026-11-22)
+
+The owner asked for the assistant to perform all main user actions, with the recommended exclusions. Decision: ADR 0030; requirement FR-AI-09 (supersedes FR-AI-05); API spec 17.1.
+
+| # | Task | Result |
+|---|---|---|
+| 9.1 | ADR, requirements, CLAUDE.md, API spec | Done |
+| 9.2 | Migration `0012`: `assistant_action` | Done (additive; models match migrations) |
+| 9.3 | Action registry and proposal tools | Done. 46 actions, 13 proposal tools offered by role |
+| 9.4 | Confirm and cancel endpoints | Done. Exact request and version, expiry, `via: assistant` audit, conflict handling |
+| 9.5 | Confirmation card | Done (en, bg, destructive style, result link, one-time link for a new user) |
+| 9.6 | Tests and live evaluation | Done. Backend 20 action tests plus guard tests; frontend 3; live evaluation 28/28 |
+| 9.7 | Documentation | Done (manuals, user guides, deck and presenter notes, architecture, operations, ASVS, accessibility, release notes) |
+
+How it works:
+1. A proposal tool calls a builder in `assistant/actions.py`. The builder resolves names (people, stages, list values) and checks role and ownership.
+2. It loads the target record for its label and `version`, and validates the exact service request.
+3. It stores an `assistant_action` and the stream sends `action_proposed`.
+4. `POST /assistant/actions/{id}/confirm` runs the matching executor, which calls the same service function as the REST route, with the user's `Principal`. The event bus wrapper adds `via: assistant` to the audit entries.
+
+```python
+# assistant/actions.py: the executor of "opportunity.move"
+async def _opp_move(x: Executor, p: Principal, a: Any) -> Outcome:
+    o = await sales.opportunities.move(x.sales(), p, a.target_id, MoveRequest.model_validate(a.request["body"]))
+    return Outcome("opportunity", o.id, o.name)
+```
+
+Found while building:
+- **Activities must be linked to a record (FR-ACT-01).** The owner's example ("Create a task due tomorrow: Call Mr Z") therefore makes the assistant ask which record, or use the record in view.
+- **Reference lists.** Their create, update and delete logic lived in route handlers; it moved to reusable functions in `core/reference.py`.
+- **IDs in other systems** stay out: the `integration` module is the assistant's sibling layer.
+- **The model sometimes writes a tool call and an imagined result as text.** Such a round is discarded and retried, and a second leak gives an error.
+- **Token use.** The proposal tools raise an answer to about 12,000 tokens, so the default daily budget (200,000) allows about 16 answers per user. Raising it is the owner's call.
+

@@ -56,6 +56,13 @@ Primary buttons darken on hover rather than fading, so their text keeps contrast
 - **Clickable rows:** they add mouse convenience only. The link in the row stays the single keyboard and screen-reader target, so there are no extra tab stops.
 - **KPI cards:** each card is one link named by its label and stretched over the card. Keyboard focus rings the whole card.
 
+**Assistant action cards (R1.1).**
+- Each card is a region named by its title ("Create task").
+- Its details are a description list, and the buttons are labelled **Confirm** and **Cancel**.
+- The outcome is announced as status text ("Done.", "Not done."), and a refusal comes as an alert.
+- Destructive cards are red, and also say "This changes or removes data" in text, so colour is not the only signal.
+- Covered by `assistant.test.tsx`. The screen-reader walkthrough script should include confirming a card.
+
 ## Keyboard walkthroughs (`frontend/e2e/keyboard.spec.ts`)
 
 Automated so they stay true: only Tab, Enter, Escape and typing, no clicks.

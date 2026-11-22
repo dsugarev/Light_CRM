@@ -1,5 +1,19 @@
 # Release notes
 
+## v1.1.0: Assistant actions with confirmation (proposed; Phase 9, R1.1)
+
+### For users
+- **The assistant can do things for you.** Ask it to create a task, log a call, move or close a deal, create a lead, organization or contact, reassign a record, and more.
+  - It shows a **card** with exactly what will happen; nothing changes until you press **Confirm**.
+  - It works with your permissions, and confirmed changes are audited as yours "via assistant".
+  - Admins can also manage users, settings, lists and stages this way.
+- **Kept on the screens:** password links, API keys, GDPR tools and imports.
+- **Better answers:** the assistant finds contacts, a colleague's records, win/loss and conversion figures and an organization's full history (PR #28). An answer built on a tool call the model only imagined is never shown.
+
+### For administrators
+- One additive migration (`0012_assistant_actions`).
+- The assistant uses about 12,000 tokens per answer; consider raising `AI_DAILY_TOKEN_BUDGET` (default 200,000, roughly 16 answers per user per day).
+
 ## v1.0.1: Release 1 completion (tagged 2026-11-22 on `main` 56cfa38; PRs #24, #25 and #26)
 
 Interface improvements after v1.0.0, the remaining Release 1 items that could be done without other teams, and manuals for new users. No database migration. The API change is limited to the export endpoints, which integrations can't call. Upgrade as in the operations guide, section 4.
