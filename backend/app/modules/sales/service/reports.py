@@ -87,6 +87,26 @@ async def pipeline_by_stage(session: AsyncSession, owner_ids: Sequence[UUID]) ->
     )
 
 
+async def open_pipeline_by_owner(
+    session: AsyncSession, owner_ids: Sequence[UUID], limit: int = 25
+) -> list[dict[str, Any]]:
+    """Open pipeline per owner, largest first (for "who has the most pipeline")."""
+    statement = repository.opportunities_statement(
+        search=None, include_archived=False, owner_ids=owner_ids, stage_types=("open",)
+    )
+    rows = (await repository.owner_totals(session, statement))[:limit]
+    names = await identity.user_names(session, {owner_id for owner_id, *_ in rows})
+    return [
+        {
+            "owner": names.get(owner_id, ""),
+            "count": count,
+            "total_amount": str(_money(total)),
+            "weighted_amount": str(_money(weighted)),
+        }
+        for owner_id, count, total, weighted in rows
+    ]
+
+
 async def forecast(
     session: AsyncSession, owner_ids: Sequence[UUID], today: date, months: int
 ) -> ForecastReport:

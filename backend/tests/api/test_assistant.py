@@ -23,7 +23,7 @@ from app.modules.assistant import service as assistant_service
 from app.modules.assistant import tools
 from app.modules.assistant.models import AssistantUsage, ChatMessage
 from app.modules.sales.models import Opportunity
-from tests.api.test_opportunities import create_opp, create_org
+from tests.api.test_opportunities import act, create_opp, create_org, loss_reason
 from tests.helpers import TestApp
 
 Step = Sequence[StreamItem] | Exception | Callable[[], AsyncIterator[StreamItem]]
@@ -542,6 +542,9 @@ def test_FR_AI_05_only_read_only_tools_exist() -> None:
         "pipeline_summary",
         "forecast_summary",
         "my_tasks",
+        "search_contacts",
+        "win_loss_summary",
+        "lead_conversion_summary",
     }
     for schema in tools.schemas():
         assert schema["function"]["parameters"]["additionalProperties"] is False
@@ -886,3 +889,199 @@ def test_FR_AI_06_reply_language_detection() -> None:
     assert reply_language("Who owns Колокация Варна?") == "en"
     assert reply_language("Покажи Fibre backup line") == "bg"
     assert reply_language("Какви лийдове има от Балкан Логистик?") == "bg"
+
+
+# --- Usefulness: contacts, colleagues, win/loss, conversion (2026-11-22) -------------------------
+
+
+async def test_FR_AI_02_contacts_are_found_and_an_organization_lists_its_people(
+    test_app: TestApp, llm: ScriptedLLM
+) -> None:
+    client, _ = await test_app.signed_in()
+    org = await create_org(client, "Слънце Храни ООД")
+    contact = await client.post(
+        "/api/v1/contacts",
+        json={
+            "first_name": "Петър",
+            "last_name": "Николов",
+            "job_title": "IT Director",
+            "email": "petar@example.test",
+            "organization_id": org["id"],
+        },
+    )
+    assert contact.status_code == 201, contact.text
+    await create_opp(client, org, name="Fibre HQ", primary_contact_id=contact.json()["id"])
+    llm.then(
+        call("search_contacts", query="Николов"),
+        call("get_record", call_id="c2", entity_type="organization", id=org["id"]),
+        call("search_opportunities", call_id="c3", query="Fibre"),
+        answer("Petar."),
+    )
+    chat = await conversation(client)
+    await ask(client, chat["id"], "Who is our contact at Слънце Храни?")
+    found, record, opps = tool_results(llm.calls[3][0])
+    assert [c["full_name"] for c in found["items"]] == ["Петър Николов"]
+    assert found["items"][0]["job_title"] == "IT Director"
+    assert [c["full_name"] for c in record["contacts"]] == ["Петър Николов"]
+    assert [o["name"] for o in record["opportunities"]] == ["Fibre HQ"]
+    assert "latest_activities" in record
+    assert opps["items"][0]["primary_contact"]["name"] == "Петър Николов"
+    assert "example.test" not in json.dumps([found, record, opps], ensure_ascii=False)
+
+
+async def test_FR_AI_02_a_colleagues_records_by_name(test_app: TestApp, llm: ScriptedLLM) -> None:
+    manager, _ = await test_app.signed_in(RoleCode.SALES_MANAGER)
+    elena = await test_app.create_user(RoleCode.SALES_REP, full_name="Елена Петрова")
+    elena_client = await test_app.session_client(elena)
+    await create_opp(
+        elena_client, await create_org(elena_client, "Елена ЕООД"), name="Нейна сделка"
+    )
+    await create_opp(manager, await create_org(manager, "Друга АД"), name="Чужда сделка")
+    llm.then(
+        call("search_opportunities", owner_name="Петрова", stage_type="open"),
+        call("pipeline_summary", call_id="c2", owner_name="Елена"),
+        call("search_leads", call_id="c3", owner_name="Никой Такъв"),
+        answer("Done."),
+    )
+    chat = await conversation(manager)
+    await ask(manager, chat["id"], "What are Elena Petrova's open opportunities?")
+    opps, pipeline, unknown = tool_results(llm.calls[3][0])
+    assert [o["name"] for o in opps["items"]] == ["Нейна сделка"]
+    assert opps["items"][0]["owner"] == "Елена Петрова"
+    assert pipeline["count"] == 1
+    assert unknown["error"] == "owner_not_found"
+
+
+async def test_FR_AI_02_win_loss_and_conversion_reports(
+    test_app: TestApp, llm: ScriptedLLM
+) -> None:
+    client, _ = await test_app.signed_in()
+    reason = await loss_reason(client)
+    for name, outcome in (("Спечелена", "won"), ("Загубена 1", "lost"), ("Загубена 2", "lost")):
+        opp = await create_opp(client, await create_org(client, f"{name} ООД"), name=name)
+        body = {"outcome": outcome} | ({"loss_reason_id": reason} if outcome == "lost" else {})
+        closed = await act(client, opp, "close", **body)
+        assert closed.status_code == 200, closed.text
+    llm.then(
+        call("win_loss_summary", group_by="loss_reason"),
+        call("lead_conversion_summary", call_id="c2"),
+        answer("Done."),
+    )
+    chat = await conversation(client)
+    await ask(client, chat["id"], "What is our win rate and why do we lose?")
+    win_loss, conversion = tool_results(llm.calls[2][0])
+    totals = win_loss["totals"]
+    assert (totals["won_count"], totals["lost_count"]) == (1, 2)
+    assert win_loss["from_date"].endswith("-01-01")
+    assert any(g["lost_count"] == 2 for g in win_loss["groups"])
+    assert "conversion_rate" in conversion["totals"]
+
+
+async def test_FR_AI_02_deals_closed_in_a_period_by_their_actual_close_date(
+    test_app: TestApp, llm: ScriptedLLM
+) -> None:
+    client, _ = await test_app.signed_in()
+    today = test_app.clock.now().date()
+    later = (today + timedelta(days=200)).isoformat()
+    opp = await create_opp(
+        client,
+        await create_org(client, "Спечелена ЕАД"),
+        name="Спечелена",
+        expected_close_date=later,
+    )
+    assert (await act(client, opp, "close", outcome="won")).status_code == 200
+    year_start = today.replace(month=1, day=1).isoformat()
+    llm.then(
+        call("search_opportunities", stage_type="won", closed_from=year_start, sort="-amount"),
+        call("search_opportunities", call_id="c2", stage_type="won", close_to=year_start),
+        answer("One."),
+    )
+    chat = await conversation(client)
+    await ask(client, chat["id"], "Which deals did we win this year?")
+    by_actual, by_expected = tool_results(llm.calls[2][0])
+    assert [o["name"] for o in by_actual["items"]] == ["Спечелена"]
+    assert by_actual["items"][0]["actual_close_date"] == today.isoformat()
+    assert by_expected["items"] == []
+
+
+async def test_FR_AI_02_tool_calls_written_as_text_are_not_shown(
+    test_app: TestApp, llm: ScriptedLLM
+) -> None:
+    client, _ = await test_app.signed_in()
+    leaked = '{"type":"search","query":"Sunrise"}{"items": [], "total": 0}'
+    llm.then(
+        [
+            TextDelta(leaked),
+            Completed((ToolCall("c1", "search_organizations", "{}"),), Usage(5, 5)),
+        ],
+        answer("The last call was about fibre."),
+    )
+    chat = await conversation(client)
+    stream = events(await ask(client, chat["id"], "What did we discuss?"))
+    assert text_of(stream) == "The last call was about fibre."
+    saved = (await client.get(f"/api/v1/assistant/conversations/{chat['id']}")).json()
+    assert saved["messages"][-1]["content"] == "The last call was about fibre."
+
+
+async def test_FR_AI_02_an_answer_that_starts_like_json_is_still_shown(
+    test_app: TestApp, llm: ScriptedLLM
+) -> None:
+    client, _ = await test_app.signed_in()
+    llm.then(answer('{"example": 1} is how the export looks.'))
+    chat = await conversation(client)
+    stream = events(await ask(client, chat["id"], "Show an example"))
+    assert text_of(stream) == '{"example": 1} is how the export looks.'
+
+
+async def test_FR_AI_02_open_pipeline_ranked_by_owner(test_app: TestApp, llm: ScriptedLLM) -> None:
+    manager, _ = await test_app.signed_in(RoleCode.SALES_MANAGER)
+    rep = await test_app.create_user(RoleCode.SALES_REP, full_name="Иван Голям")
+    rep_client = await test_app.session_client(rep)
+    await create_opp(rep_client, await create_org(rep_client, "Голяма АД"), amount="90000.00")
+    await create_opp(manager, await create_org(manager, "Малка АД"), amount="1000.00")
+    llm.then(call("pipeline_summary", group_by="owner"), answer("Иван."))
+    chat = await conversation(manager)
+    await ask(manager, chat["id"], "Which Sales Rep has the most open pipeline?")
+    [ranking] = tool_results(llm.calls[1][0])
+    assert ranking["owners"][0]["owner"] == "Иван Голям"
+    assert ranking["owners"][0]["total_amount"] == "90000.00"
+
+
+async def test_FR_AI_02_an_organizations_history_includes_its_deals(
+    test_app: TestApp, llm: ScriptedLLM
+) -> None:
+    client, _ = await test_app.signed_in()
+    org = await create_org(client, "История ООД")
+    opp = await create_opp(client, org, name="Оптика")
+    logged = await client.post(
+        "/api/v1/activities",
+        json={
+            "type": "call",
+            "subject": "Discovery call",
+            "body": "1 Gbit/s at HQ",
+            "opportunity_id": opp["id"],
+        },
+    )
+    assert logged.status_code == 201, logged.text
+    llm.then(
+        call("list_activities", organization_id=org["id"], types=["call"]),
+        call("list_activities", call_id="c2", organization_id=org["id"]),
+        answer("About 1 Gbit/s."),
+    )
+    chat = await conversation(client)
+    await ask(client, chat["id"], "What did we discuss in the last call with История?")
+    calls_only, everything = tool_results(llm.calls[2][0])
+    assert [a["subject"] for a in calls_only["items"]] == ["Discovery call"]
+    assert calls_only["items"][0]["opportunity"]["name"] == "Оптика"
+    assert any(item.get("event") == "created" for item in everything["items"])
+
+
+async def test_FR_AI_02_tool_echo_before_a_final_answer_is_dropped(
+    test_app: TestApp, llm: ScriptedLLM
+) -> None:
+    client, _ = await test_app.signed_in()
+    echo = '{"query":"Sunrise","types":["call"]}{"items": [], "total": 0, "shown": 0}'
+    llm.then([TextDelta(echo), TextDelta("No call is logged."), Completed((), Usage(5, 5))])
+    chat = await conversation(client)
+    stream = events(await ask(client, chat["id"], "Last call?"))
+    assert text_of(stream) == "No call is logged."

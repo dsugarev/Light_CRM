@@ -169,6 +169,8 @@ def opportunities_statement(
     amount_from: Decimal | None = None,
     amount_to: Decimal | None = None,
     stale: tuple[bool, datetime, date] | None = None,
+    closed_from: date | None = None,
+    closed_to: date | None = None,
 ) -> Select[Opportunity]:
     statement = select(Opportunity).join(Opportunity.stage)
     if not include_archived:
@@ -189,6 +191,10 @@ def opportunities_statement(
         statement = statement.where(Opportunity.expected_close_date >= close_from)
     if close_to is not None:
         statement = statement.where(Opportunity.expected_close_date <= close_to)
+    if closed_from is not None:
+        statement = statement.where(Opportunity.actual_close_date >= closed_from)
+    if closed_to is not None:
+        statement = statement.where(Opportunity.actual_close_date <= closed_to)
     if amount_from is not None:
         statement = statement.where(Opportunity.amount >= amount_from)
     if amount_to is not None:
@@ -212,6 +218,21 @@ async def column_totals(
         ).group_by(sub.c.stage_id)
     )
     return {stage_id: (count, Decimal(total), Decimal(w)) for stage_id, count, total, w in rows}
+
+
+async def owner_totals(
+    session: AsyncSession, statement: Select[Opportunity]
+) -> list[tuple[UUID, int, Decimal, Decimal]]:
+    """Per owner: count, total amount and weighted amount, largest total first."""
+    sub = statement.order_by(None).subquery()
+    total = func.coalesce(func.sum(sub.c.amount), 0)
+    weighted = func.coalesce(func.sum(sub.c.amount * sub.c.probability / 100), 0)
+    rows = await session.execute(
+        select(sub.c.owner_id, func.count(), total, weighted)
+        .group_by(sub.c.owner_id)
+        .order_by(total.desc())
+    )
+    return [(owner_id, count, Decimal(t), Decimal(w)) for owner_id, count, t, w in rows]
 
 
 async def stage_history(

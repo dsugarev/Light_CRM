@@ -859,20 +859,25 @@ Stream format (`Content-Type: text/event-stream`):
 | `message_end` | `{ "prompt_tokens", "completion_tokens", "remaining_budget", "status": "complete" \| "stopped" }` | Answer complete and stored |
 | `error` | `{ "code" }` | `assistant.provider_unavailable`, or `server.internal_error` for an unexpected failure; the stream then closes. (`assistant.budget_exceeded` and `rate_limit.exceeded` are returned before the stream starts, above.) |
 
-The internal tools the model may call (`search_leads`, `search_opportunities`, `search_organizations`, `get_record`, `list_activities`, `pipeline_summary`, `forecast_summary`, `my_tasks`) are **not** HTTP endpoints. They call the same service functions as the endpoints above with the caller's permissions (architecture section 8.3).
+The internal tools the model may call (`search_leads`, `search_opportunities`, `search_organizations`, `search_contacts`, `get_record`, `list_activities`, `pipeline_summary`, `forecast_summary`, `win_loss_summary`, `lead_conversion_summary`, `my_tasks`) are **not** HTTP endpoints. They call the same service functions as the endpoints above with the caller's permissions (architecture section 8.3).
 
 **Tools (as built).** Each has a strict JSON schema (unknown arguments refused), returns at most 25 rows, leaves out archived records, and gives every record its `type`, `id` and in-app `url` (for example `/opportunities/<id>`) so answers can link to it. Contact email addresses and phone numbers are never included.
 
 | Tool | Arguments | Returns |
 |---|---|---|
-| `search_leads` | `query`, `status[]`, `owner` (`me` \| `anyone`), `limit` | Leads: title, company, contact name, status, source, estimated value, owner, qualification score |
-| `search_opportunities` | `query`, `stage_type` (`open` \| `won` \| `lost`), `owner`, `organization_id`, `close_from`, `close_to`, `is_stale`, `sort`, `limit` | Opportunities: name, organization, owner, stage, amount, probability, weighted amount, expected close date, next step, staleness |
-| `search_organizations` | `query`, `owner`, `limit` | Organizations: name, industry, size, city, country, owner |
-| `get_record` | `entity_type` (`lead` \| `opportunity` \| `organization` \| `contact`), `id` | One record with its detail fields (descriptions, BANT notes, counts, links) |
-| `list_activities` | `lead_id`, `opportunity_id`, `organization_id`, `contact_id`, `types[]`, `limit` | Activities, newest first: type, subject, body (shortened), dates, owner, linked records |
-| `pipeline_summary` | `owner` | Open pipeline per stage: count, total and weighted value (section 13) |
-| `forecast_summary` | `owner`, `months` (1–12) | Weighted forecast by expected close month (section 13) |
+| `search_leads` | `query`, `status[]`, `owner` (`me` \| `anyone`), `owner_name`, `limit` | Leads: title, company, contact name, status, source, estimated value, owner, qualification score |
+| `search_opportunities` | `query`, `stage_type` (`open` \| `won` \| `lost`), `owner`, `owner_name`, `organization_id`, `close_from`, `close_to` (expected close), `closed_from`, `closed_to` (actual close), `is_stale`, `sort`, `limit` | Opportunities: name, organization, primary contact, owner, stage, amount, probability, weighted amount, expected and actual close date, loss reason, next step, staleness |
+| `search_organizations` | `query`, `owner`, `owner_name`, `limit` | Organizations: name, industry, size, city, country, owner |
+| `search_contacts` | `query`, `organization_id`, `owner`, `owner_name`, `limit` | Contacts: name, job title, organization, owner, notes (no email or phone) |
+| `get_record` | `entity_type` (`lead` \| `opportunity` \| `organization` \| `contact`), `id` | One record with its detail fields (descriptions, BANT notes, counts, links); an organization also lists up to 10 contacts, its 10 latest opportunities and its 5 latest activities |
+| `list_activities` | `lead_id`, `opportunity_id`, `organization_id`, `contact_id`, `types[]`, `limit` | Activities, newest first: type, subject, body (shortened), dates, owner, linked records. With `organization_id` alone: the organization's timeline, including its contacts, leads and opportunities, and milestones (created, stage changed, won …) |
+| `pipeline_summary` | `owner`, `owner_name`, `group_by` (`stage` \| `owner`) | Open pipeline per stage (section 13), or per owner, largest first |
+| `forecast_summary` | `owner`, `owner_name`, `months` (1–12) | Weighted forecast by expected close month (section 13) |
+| `win_loss_summary` | `owner`, `owner_name`, `period_from`, `period_to`, `group_by` (`loss_reason` \| `owner` \| `month`) | Won and lost counts and amounts and win rate in the period (default this year; section 13) |
+| `lead_conversion_summary` | `owner`, `owner_name`, `period_from`, `period_to`, `group_by` (`source` \| `owner`) | Leads created, qualified, converted, disqualified and the conversion rate (section 13) |
 | `my_tasks` | `include_done`, `limit` | The caller's own tasks, overdue first |
+
+`owner_name` matches people by name (active or deactivated users; only IDs are used, no email addresses reach the model); an unknown name gives the model `owner_not_found`. Text the model writes before a tool call that looks like JSON (an echo of its call or a made-up result) is not shown or stored.
 
 A tool call with invalid arguments, an unknown tool name or a missing record gives the model a short error (`invalid_arguments`, `unknown_tool`, the error code), never data. The model may use at most 5 rounds of tools per answer; then it must answer without tools.
 

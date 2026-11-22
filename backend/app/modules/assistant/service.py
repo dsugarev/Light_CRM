@@ -523,11 +523,21 @@ async def _answer(
         offer_tools = result.rounds < MAX_TOOL_ROUNDS
         calls: tuple[ToolCall, ...] = ()
         round_text = ""
+        # Some models write their tool call (or a made-up tool result) as text before
+        # calling the tool. Text that starts like JSON is held back and dropped if the round
+        # ends in tool calls; prose streams straight away.
+        held: str | None = None
         result.open_round_chars = len(json.dumps(prompt, ensure_ascii=False, default=str))
         async for item in llm.stream(prompt, schemas if offer_tools else None):
             if isinstance(item, TextDelta):
+                started = bool(round_text.strip())  # visible text before this delta
                 round_text += item.text
                 result.open_round_text = round_text
+                if offer_tools and (held is not None or not started):
+                    held = (held or "") + item.text
+                    if not held.strip() or held.lstrip()[0] in "{[":
+                        continue
+                    item, held = TextDelta(held), None
                 result.text += item.text
                 yield _sse("delta", {"text": item.text})
                 if time.monotonic() - checked_at >= STOP_CHECK_SECONDS:
@@ -540,6 +550,13 @@ async def _answer(
                 result.completion_tokens += item.usage.completion_tokens
                 result.open_round_chars, result.open_round_text = None, ""
                 calls = item.tool_calls
+        if held is not None and not (calls and offer_tools):
+            # A final answer that happens to start like JSON is still the answer; only
+            # leading objects that look like tool arguments or results are dropped.
+            held = _drop_tool_echo(held)
+            if held:
+                result.text += held
+                yield _sse("delta", {"text": held})
         if not calls or not offer_tools:
             return
         if await repository.stop_requested(session, message_id):
@@ -572,6 +589,29 @@ async def _answer(
                 }
             )
             yield _sse("tool_call", {"tool": call.name, "status": "done"})
+
+
+_ECHO_KEYS = frozenset({"items", "total", "shown", "error", "hint"}) | {
+    key
+    for schema in tools.schemas()
+    for key in schema["function"]["parameters"].get("properties", {})
+}
+
+
+def _drop_tool_echo(text: str) -> str:
+    """Remove JSON objects at the start of an answer whose keys are all tool argument or
+    result keys: the model sometimes writes its calls and their results out as text."""
+    decoder = json.JSONDecoder()
+    rest = text.lstrip()
+    while rest.startswith("{"):
+        try:
+            value, end = decoder.raw_decode(rest)
+        except ValueError:
+            break
+        if not isinstance(value, dict) or not value or not set(value) <= _ECHO_KEYS:
+            break
+        rest = rest[end:].lstrip()
+    return rest if rest != text.lstrip() else text
 
 
 def _arguments(raw: str) -> Any:

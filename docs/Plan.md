@@ -2632,3 +2632,40 @@ def export_owner_ids(principal: Principal, requested: tuple[UUID, ...]) -> tuple
     return (principal.user_id,)
 ```
 
+## AI assistant usefulness (2026-11-22)
+
+After the assistant was switched on, a business user found that most questions ended in "the CRM does not contain …".
+
+**Probe.** 18 typical questions against the live model on the local stack. 10 to 13 were answered well. The failures had concrete causes:
+- no contact tool;
+- no win/loss or conversion figures, so it counted from capped searches ("win rate 100%" instead of 99.15%);
+- the owner filter only knew `me`;
+- an organization's history missed activities logged on its deals;
+- won deals were searched by expected close date;
+- the model sometimes wrote its tool calls and made-up results as text, which reached the answer.
+
+**Changes** (all read-only, FR-AI-05; the tools call the same services with the user's permissions):
+- **New tools:** `search_contacts`, `win_loss_summary`, `lead_conversion_summary`.
+- **`owner_name`** on the search and summary tools, resolved by the new `identity.people_named` (names to IDs; no email addresses).
+- **`pipeline_summary`** gains `group_by: owner`, through the new `sales.reports.open_pipeline_by_owner` and `repository.owner_totals`.
+- **`search_opportunities`** gains `closed_from` / `closed_to` (actual close date; an internal filter, not a REST parameter), and its results include the primary contact, the actual close date and the loss reason.
+- **`get_record`** for an organization lists its contacts, latest opportunities and latest activities.
+- **`list_activities`** with an organization uses the organization timeline (contacts, leads, opportunities, milestones).
+- **Leak guard:** pre-tool text that starts like JSON is held back and dropped when tool calls follow; leading objects made only of tool argument or result keys are stripped from a final answer.
+- **Prompt:** look further before saying "not in the CRM" and say what was checked; the tool to use for each kind of question; "notes" are mostly activities; "the open pipeline" without a name means the overall figure.
+
+```python
+# assistant/tools.py
+async def _owners(ctx, owner, owner_name=None):
+    if owner_name:
+        people = await identity.people_named(ctx.session, owner_name)
+        if not people:
+            raise OwnerNotFoundError          # -> {"error": "owner_not_found"} to the model
+        return tuple(user_id for user_id, _ in people)
+    return (ctx.principal.user_id,) if owner == "me" else ()
+```
+
+**Results.** The live evaluation passes 24/24, with 4 new cases (`docs/assistant-eval.md`, run 4). The local probe now answers every question it got wrong before.
+
+**Also found:** on the local production-like stack the backend image is built by the `migrate` service. `docker compose build backend` builds nothing, so earlier backend changes on 2026-11-22 (the export rule) reached the local stack only with this deployment. The staging stack (`up --build`) always had them.
+

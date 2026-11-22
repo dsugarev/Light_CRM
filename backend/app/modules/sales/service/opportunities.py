@@ -95,6 +95,9 @@ class OpportunityFilters:
     amount_to: Decimal | None = None
     is_stale: bool | None = None
     external: ExternalQuery | None = None
+    # Actual close date of won/lost deals (used by the assistant; not a REST filter).
+    closed_from: date | None = None
+    closed_to: date | None = None
 
 
 # --- Helpers ------------------------------------------------------------------------------
@@ -382,6 +385,8 @@ async def _statement(ctx: Context, query: ListQuery | None, filters: Opportunity
         amount_from=filters.amount_from,
         amount_to=filters.amount_to,
         stale=stale,
+        closed_from=filters.closed_from,
+        closed_to=filters.closed_to,
     )
     return apply_external(
         statement, ctx.external_filter, "opportunity", Opportunity.id, filters.external
