@@ -38,8 +38,17 @@ export async function signIn(
   await page.getByRole('button', { name: labels.submit }).click()
 }
 
+/**
+ * Sign-in hashes the password with Argon2, which is deliberately slow. With many specs
+ * signing in at once on a local machine it can take longer than the default 5 s, so the
+ * home heading gets 15 s. The assertion itself is unchanged: the user must reach home.
+ */
+const SIGN_IN_TIMEOUT_MS = 15_000
+
 export async function expectSignedIn(page: Page, heading: RegExp) {
-  await expect(page.getByRole('heading', { name: heading })).toBeVisible()
+  await expect(page.getByRole('heading', { name: heading })).toBeVisible({
+    timeout: SIGN_IN_TIMEOUT_MS,
+  })
 }
 
 /**
