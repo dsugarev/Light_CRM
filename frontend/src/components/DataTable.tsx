@@ -117,7 +117,7 @@ export function DataTable<T>({
                   {column.sortKey ? (
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1 font-medium hover:underline"
+                      className="inline-flex items-center gap-1 font-semibold hover:text-foreground hover:underline"
                       onClick={() => {
                         const key = column.sortKey ?? ''
                         onSort(isActive && !descending ? `-${key}` : key)

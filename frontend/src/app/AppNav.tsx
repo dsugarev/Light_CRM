@@ -4,9 +4,13 @@ import { NavLink } from 'react-router'
 
 import { useCan } from '@/lib/permissions'
 
+// Loop 3: the active page is a peach tint with a terracotta bar on its leading edge;
+// hovering warms the row. The bar is a box shadow, so the text does not move.
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `block rounded-md px-3 py-1.5 text-sm transition-colors duration-150 pointer-coarse:py-2.5 ${
-    isActive ? 'bg-secondary font-medium text-secondary-foreground' : 'hover:bg-muted'
+    isActive
+      ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-[inset_3px_0_0_var(--sidebar-primary)]'
+      : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
   }`
 
 interface Item {
