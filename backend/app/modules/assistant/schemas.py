@@ -100,6 +100,7 @@ class ActionOut(BaseModel):
 class OneTimeLink(BaseModel):
     url: str
     expires_at: datetime
+    emailed: bool = False
 
 
 class ActionConfirmed(BaseModel):

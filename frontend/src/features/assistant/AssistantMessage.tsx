@@ -13,7 +13,13 @@ import { useNotify } from '@/lib/notify'
 
 import { Markdown } from './Markdown'
 import type { RecordRef } from './stream'
-import { recordPath, useAssistantMutations, type RecordContext } from './useAssistant'
+import { ActionCard } from './ActionCard'
+import {
+  recordPath,
+  useAssistantMutations,
+  type ProposedAction,
+  type RecordContext,
+} from './useAssistant'
 
 export interface ShownMessage {
   id: string | null // null while the answer is still arriving
@@ -23,6 +29,7 @@ export interface ShownMessage {
   errorCode: string | null
   tools: { tool: string; status: 'running' | 'done' }[]
   refs: RecordRef[]
+  actions: ProposedAction[]
 }
 
 const TOOL_KEYS = [
@@ -38,10 +45,12 @@ const TOOL_KEYS = [
 
 function useToolLabel() {
   const { t } = useTranslation('assistant')
-  return (tool: string) =>
-    (TOOL_KEYS as readonly string[]).includes(tool)
+  return (tool: string) => {
+    if (tool.startsWith('propose_')) return t('tools.propose')
+    return (TOOL_KEYS as readonly string[]).includes(tool)
       ? t(`tools.${tool as (typeof TOOL_KEYS)[number]}`)
       : t('tools.other')
+  }
 }
 
 export function AssistantMessage({
@@ -85,6 +94,15 @@ export function AssistantMessage({
         </p>
       ) : null}
       {message.content ? <Markdown text={message.content} /> : null}
+      {message.actions.length > 0 ? (
+        <ul className="space-y-2" aria-label={t('action.list')}>
+          {message.actions.map((action) => (
+            <li key={action.id}>
+              <ActionCard action={action} />
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {message.status === 'stopped' ? (
         <p className="text-xs text-muted-foreground">{t('stopped')}</p>
       ) : null}

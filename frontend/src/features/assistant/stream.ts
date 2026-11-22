@@ -15,6 +15,7 @@ export type StreamEvent =
   | { event: 'tool_call'; data: { tool: string; status: 'running' | 'done' } }
   | { event: 'delta'; data: { text: string } }
   | { event: 'record_ref'; data: RecordRef }
+  | { event: 'action_proposed'; data: Schemas['ActionOut'] }
   | {
       event: 'message_end'
       data: {

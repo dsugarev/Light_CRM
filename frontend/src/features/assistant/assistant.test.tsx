@@ -536,3 +536,147 @@ describe('FR-AI-04 save as note right after an answer', () => {
     expect(within(panel).getByRole('form', { name: 'Save as note' })).toBeInTheDocument()
   })
 })
+
+// --- FR-AI-09 actions with confirmation (ADR 0030) ------------------------------------------
+
+const ACTION: Schemas['ActionOut'] = {
+  id: '01930000-0000-7000-8000-00000000ac01',
+  action: 'activity.create',
+  title: 'Create task',
+  details: [
+    { label: 'Subject', value: 'Call Mr Z' },
+    { label: 'Due', value: '23 Nov 2026, 09:00' },
+    { label: 'Linked to', value: 'Sunrise Foods OOD' },
+  ],
+  target: null,
+  destructive: false,
+  status: 'proposed',
+  error_code: null,
+  result: null,
+  expires_at: '2099-01-01T00:00:00Z',
+  created_at: '2026-11-22T09:00:00Z',
+}
+
+function actionStream(action: Schemas['ActionOut']) {
+  const held = heldStream(
+    [
+      START,
+      ['tool_call', { tool: 'propose_create_activity', status: 'running' }],
+      ['tool_call', { tool: 'propose_create_activity', status: 'done' }],
+      ['action_proposed', action],
+      ['delta', { text: 'I prepared the task; please confirm it.' }],
+    ],
+    [END],
+  )
+  server.use(
+    http.post(`*/api/v1/assistant/conversations/${CONVERSATION.id}/messages`, () =>
+      held.response(),
+    ),
+  )
+  return held
+}
+
+describe('FR-AI-09 actions with confirmation', () => {
+  it('shows a proposed task as a card and creates it only on Confirm', async () => {
+    assistantOn()
+    conversationApi()
+    const held = actionStream(ACTION)
+    let confirmed = 0
+    server.use(
+      http.post(`*/api/v1/assistant/actions/${ACTION.id}/confirm`, () => {
+        confirmed += 1
+        return HttpResponse.json({
+          action: {
+            ...ACTION,
+            status: 'confirmed',
+            result: {
+              entity_type: 'activity',
+              entity_id: '01930000-0000-7000-8000-00000000ac02',
+              label: 'Call Mr Z',
+              url: '/tasks',
+            },
+          },
+          set_password: null,
+        })
+      }),
+    )
+    await renderApp('/search')
+    const panel = await openAssistant()
+    await ask(panel, 'Create a task due tomorrow: Call Mr Z')
+    const card = await within(panel).findByRole('region', { name: 'Create task' })
+    expect(within(card).getByText('Call Mr Z')).toBeInTheDocument()
+    expect(within(card).getByText('Nothing changes until you confirm.')).toBeInTheDocument()
+    expect(confirmed).toBe(0)
+    await userEvent.click(within(card).getByRole('button', { name: 'Confirm' }))
+    expect(await within(card).findByText('Done.')).toBeInTheDocument()
+    expect(within(card).getByRole('link', { name: 'Open Call Mr Z' })).toHaveAttribute(
+      'href',
+      '/tasks',
+    )
+    expect(confirmed).toBe(1)
+    expect(within(card).queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument()
+    held.release()
+  })
+
+  it('cancels a card, and shows a refused confirmation as an error', async () => {
+    assistantOn()
+    conversationApi()
+    const held = actionStream({ ...ACTION, destructive: true, title: 'Archive opportunity' })
+    server.use(
+      http.post(`*/api/v1/assistant/actions/${ACTION.id}/confirm`, () =>
+        problem(409, 'conflict.version_mismatch'),
+      ),
+      http.post(
+        `*/api/v1/assistant/actions/${ACTION.id}/cancel`,
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    )
+    await renderApp('/search')
+    const panel = await openAssistant()
+    await ask(panel, 'Archive it')
+    const card = await within(panel).findByRole('region', { name: 'Archive opportunity' })
+    expect(card).toHaveAttribute('data-status', 'proposed')
+    expect(
+      within(card).getByText('This changes or removes data. Check it, then confirm.'),
+    ).toBeInTheDocument()
+    await userEvent.click(within(card).getByRole('button', { name: 'Confirm' }))
+    expect(await within(card).findByRole('alert')).toBeInTheDocument()
+    expect(within(card).getByText('Not done.')).toBeInTheDocument()
+    held.release()
+  })
+
+  it('shows a new user’s one-time link once after confirming', async () => {
+    assistantOn()
+    conversationApi()
+    const create: Schemas['ActionOut'] = { ...ACTION, action: 'user.create', title: 'Create user' }
+    const held = actionStream(create)
+    server.use(
+      http.post(`*/api/v1/assistant/actions/${ACTION.id}/confirm`, () =>
+        HttpResponse.json({
+          action: {
+            ...create,
+            status: 'confirmed',
+            result: {
+              entity_type: 'user',
+              entity_id: '01930000-0000-7000-8000-00000000ac03',
+              label: 'Nova Kolega',
+              url: '/admin/users/01930000-0000-7000-8000-00000000ac03',
+            },
+          },
+          set_password: {
+            url: 'https://crm.example/set-password#token=abc',
+            expires_at: '2026-11-25T09:00:00Z',
+            emailed: false,
+          },
+        }),
+      ),
+    )
+    await renderApp('/search')
+    const panel = await openAssistant()
+    await ask(panel, 'Create a user')
+    const card = await within(panel).findByRole('region', { name: 'Create user' })
+    await userEvent.click(within(card).getByRole('button', { name: 'Confirm' }))
+    expect(await within(card).findByTestId('password-link')).toBeInTheDocument()
+    held.release()
+  })
+})

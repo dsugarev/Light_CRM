@@ -3519,6 +3519,11 @@ export interface components {
         /** OneTimeLink */
         OneTimeLink: {
             /**
+             * Emailed
+             * @default false
+             */
+            emailed: boolean;
+            /**
              * Expires At
              * Format: date-time
              */

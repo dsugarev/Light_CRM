@@ -7,6 +7,7 @@ import { useNotify } from '@/lib/notify'
 export type RecordContext = Schemas['RecordContext']
 export type Conversation = Schemas['ConversationOut']
 export type ChatMessage = Schemas['MessageOut']
+export type ProposedAction = Schemas['ActionOut']
 
 export const ASSISTANT_KEY = ['assistant'] as const
 
@@ -74,6 +75,27 @@ export function useAssistantMutations() {
         call(
           api.DELETE('/api/v1/assistant/conversations/{conversation_id}', {
             params: { path: { conversation_id: id } },
+          }),
+        ),
+      onSuccess: refresh,
+      onError,
+    }),
+    // FR-AI-09: a proposed action runs only when its user confirms it (ADR 0030).
+    confirmAction: useMutation({
+      mutationFn: (actionId: string) =>
+        call(
+          api.POST('/api/v1/assistant/actions/{action_id}/confirm', {
+            params: { path: { action_id: actionId } },
+          }),
+        ),
+      // The change may touch any list or record: refresh everything shown.
+      onSettled: () => queryClient.invalidateQueries(),
+    }),
+    cancelAction: useMutation({
+      mutationFn: (actionId: string) =>
+        call(
+          api.POST('/api/v1/assistant/actions/{action_id}/cancel', {
+            params: { path: { action_id: actionId } },
           }),
         ),
       onSuccess: refresh,
