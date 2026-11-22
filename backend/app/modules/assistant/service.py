@@ -63,6 +63,11 @@ logger = logging.getLogger(__name__)
 
 SOFIA = ZoneInfo("Europe/Sofia")
 MAX_TOOL_ROUNDS = 5
+TOOL_TEXT_MARKER = "to=functions."
+TOOL_TEXT_RETRY = (
+    "Your last reply wrote a tool call as text instead of calling the tool. Call tools only "
+    "through the function-calling interface, then answer only from their real results."
+)
 STOP_CHECK_SECONDS = 0.5
 CONVERSATION_SORT = {"updated_at": ChatConversation.updated_at}
 _TITLE_CHARS = 80
@@ -586,6 +591,7 @@ async def _answer(
     """The tool loop. Fills `result` as it goes; yields `delta` and `tool_call` events."""
     schemas = tools.schemas(tctx.principal.role)
     checked_at = time.monotonic()
+    retried_leak = False
     while True:
         offer_tools = result.rounds < MAX_TOOL_ROUNDS
         calls: tuple[ToolCall, ...] = ()
@@ -594,12 +600,19 @@ async def _answer(
         # calling the tool. Text that starts like JSON is held back and dropped if the round
         # ends in tool calls; prose streams straight away.
         held: str | None = None
+        # A tool call written out as text ("… to=functions.search_opportunities {…}") is
+        # often followed by a made-up result: such a round is never shown (see below).
+        leaked = False
         result.open_round_chars = len(json.dumps(prompt, ensure_ascii=False, default=str))
         async for item in llm.stream(prompt, schemas if offer_tools else None):
             if isinstance(item, TextDelta):
                 started = bool(round_text.strip())  # visible text before this delta
                 round_text += item.text
                 result.open_round_text = round_text
+                if TOOL_TEXT_MARKER in round_text:
+                    leaked = True
+                if leaked:
+                    continue
                 if offer_tools and (held is not None or not started):
                     held = (held or "") + item.text
                     if not held.strip() or held.lstrip()[0] in "{[":
@@ -617,6 +630,19 @@ async def _answer(
                 result.completion_tokens += item.usage.completion_tokens
                 result.open_round_chars, result.open_round_text = None, ""
                 calls = item.tool_calls
+        if leaked and not calls:
+            # Never show an answer built on a tool call the model only imagined: ask once
+            # more for real function calls, then give up with a clear error.
+            if retried_leak:
+                result.status, result.error_code = (
+                    "failed",
+                    ErrorCode.ASSISTANT_PROVIDER_UNAVAILABLE,
+                )
+                yield _sse("error", {"code": result.error_code})
+                return
+            retried_leak = True
+            prompt.append({"role": "system", "content": TOOL_TEXT_RETRY})
+            continue
         if held is not None and not (calls and offer_tools):
             # A final answer that happens to start like JSON is still the answer; only
             # leading objects that look like tool arguments or results are dropped.
