@@ -22,12 +22,13 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.core import ratelimit
+from app.core import ratelimit, runtime_settings
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode, FieldError
 from app.core.events import DomainEvent, EventBus
 from app.core.listing import ListQuery, Page, fetch_page
 from app.core.principal import Principal, RoleCode
+from app.llm import models
 from app.llm.types import LLM, Completed, LLMUnavailableError, TextDelta, ToolCall
 from app.modules.activity import service as activity
 from app.modules.activity.schemas import ActivityCreate, ActivityOut
@@ -67,6 +68,12 @@ TOOL_TEXT_MARKER = "to=functions."
 TOOL_TEXT_RETRY = (
     "Your last reply wrote a tool call as text instead of calling the tool. Call tools only "
     "through the function-calling interface, then answer only from their real results."
+)
+# Sent before the last call, which offers no tools: some models (Gemini) otherwise end a
+# long, fruitless search with an empty answer instead of saying nothing was found.
+FINAL_ROUND_NOTE = (
+    "You have used all tool calls for this question. Answer now, only from the tool results "
+    "above. If they do not contain what the user asked for, say that you could not find it."
 )
 STOP_CHECK_SECONDS = 0.5
 CONVERSATION_SORT = {"updated_at": ChatConversation.updated_at}
@@ -134,11 +141,14 @@ async def _used_today(ctx: Context, user_id: UUID) -> int:
 async def status(ctx: Context, principal: Principal) -> AssistantStatus:
     budget = ctx.settings.ai_daily_token_budget
     used = await _used_today(ctx, principal.user_id)
+    model = (await runtime_settings.load(ctx.session)).ai_model
     return AssistantStatus(
         enabled=ctx.settings.ai_enabled and ctx.llm is not None,
         daily_token_budget=budget,
         used_today=used,
         remaining_budget=max(0, budget - used),
+        model=model,
+        model_label=models.label_of(model),
     )
 
 
@@ -550,7 +560,10 @@ async def stream_answer(
                     {"entity_type": turn.context.entity_type, "id": str(turn.context.entity_id)},
                 )
                 prompt[-1:-1] = _context_messages(turn.context, record)
-            async for event in _answer(llm, session, turn.message_id, prompt, tctx, result):
+            # FR-AI-10: the model an Admin chose, read per answer so a change applies to
+            # everyone's next question.
+            model = (await runtime_settings.load(session)).ai_model
+            async for event in _answer(llm, session, turn.message_id, prompt, tctx, result, model):
                 yield event
             refs = _cited(result.text, tctx.seen)
             for ref in refs:
@@ -587,6 +600,7 @@ async def _answer(
     prompt: list[dict[str, Any]],
     tctx: tools.ToolContext,
     result: _Turn,
+    model: str | None = None,
 ) -> AsyncIterator[str]:
     """The tool loop. Fills `result` as it goes; yields `delta` and `tool_call` events."""
     schemas = tools.schemas(tctx.principal.role)
@@ -594,6 +608,8 @@ async def _answer(
     retried_leak = False
     while True:
         offer_tools = result.rounds < MAX_TOOL_ROUNDS
+        if not offer_tools and prompt[-1].get("content") != FINAL_ROUND_NOTE:
+            prompt.append({"role": "system", "content": FINAL_ROUND_NOTE})
         calls: tuple[ToolCall, ...] = ()
         round_text = ""
         # Some models write their tool call (or a made-up tool result) as text before
@@ -604,7 +620,7 @@ async def _answer(
         # often followed by a made-up result: such a round is never shown (see below).
         leaked = False
         result.open_round_chars = len(json.dumps(prompt, ensure_ascii=False, default=str))
-        async for item in llm.stream(prompt, schemas if offer_tools else None):
+        async for item in llm.stream(prompt, schemas if offer_tools else None, model=model):
             if isinstance(item, TextDelta):
                 started = bool(round_text.strip())  # visible text before this delta
                 round_text += item.text

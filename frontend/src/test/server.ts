@@ -25,8 +25,12 @@ export const handlers = [
       daily_token_budget: 200000,
       used_today: 0,
       remaining_budget: 200000,
+      model: 'gpt-oss-120b',
+      model_label: 'gpt-oss-120b (OpenRouter, Cerebras)',
     }),
   ),
+  // FR-AI-10: the models an Admin can choose; none unless a test lists them.
+  http.get('*/api/v1/settings/ai-models', () => HttpResponse.json([])),
 ]
 
 export const server = setupServer(...handlers)

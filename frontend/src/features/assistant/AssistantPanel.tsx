@@ -71,7 +71,15 @@ function sameRecord(a: RecordContext | null, b: RecordContext | null): boolean {
 }
 
 /** The chat drawer (FR-AI-01..04): conversation, history, record context, drafts. */
-export function AssistantPanel({ remaining, onClose }: { remaining: number; onClose: () => void }) {
+export function AssistantPanel({
+  remaining,
+  model,
+  onClose,
+}: {
+  remaining: number
+  model?: string
+  onClose: () => void
+}) {
   const { t } = useTranslation('assistant')
   const queryClient = useQueryClient()
   const inView = useRecordInView()
@@ -246,6 +254,9 @@ export function AssistantPanel({ remaining, onClose }: { remaining: number; onCl
               void send()
             }}
           >
+            {model ? (
+              <p className="text-xs text-muted-foreground">{t('model', { name: model })}</p>
+            ) : null}
             {offered ? (
               <label className="flex items-center gap-2 text-xs">
                 <input

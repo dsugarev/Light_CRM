@@ -35,14 +35,20 @@ class ScriptedLLM:
     def __init__(self) -> None:
         self.steps: list[Step] = []
         self.calls: list[tuple[list[dict[str, Any]], list[dict[str, Any]] | None]] = []
+        self.models: list[str | None] = []
 
     def then(self, *steps: Step) -> ScriptedLLM:
         self.steps.extend(steps)
         return self
 
     async def stream(
-        self, messages: Sequence[Mapping[str, Any]], tools: Sequence[Mapping[str, Any]] | None
+        self,
+        messages: Sequence[Mapping[str, Any]],
+        tools: Sequence[Mapping[str, Any]] | None,
+        *,
+        model: str | None = None,
     ) -> AsyncIterator[StreamItem]:
+        self.models.append(model)
         sent: list[dict[str, Any]] = json.loads(
             json.dumps([dict(m) for m in messages], default=str)
         )
@@ -173,6 +179,8 @@ async def test_FR_AI_08_status_reports_the_daily_budget(
         "daily_token_budget": 200_000,
         "used_today": 0,
         "remaining_budget": 200_000,
+        "model": "gpt-oss-120b",
+        "model_label": "gpt-oss-120b (OpenRouter, Cerebras)",
     }
 
 
@@ -487,6 +495,9 @@ async def test_tool_loop_stops_after_five_rounds(test_app: TestApp, llm: Scripte
     assert len(llm.calls) == 6
     assert all(tools_offered is not None for _, tools_offered in llm.calls[:5])
     assert llm.calls[5][1] is None  # the sixth call must answer: no tools offered
+    # ... and is told so, or some models (Gemini) give an empty answer after a long search.
+    assert llm.calls[5][0][-1] == {"role": "system", "content": assistant_service.FINAL_ROUND_NOTE}
+    assert all(assistant_service.FINAL_ROUND_NOTE not in str(sent) for sent, _ in llm.calls[:5])
     assert text_of(stream) == "Enough."
     async with test_app.sessions() as session:
         [usage] = (await session.execute(select(AssistantUsage))).scalars()

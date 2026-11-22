@@ -33,7 +33,11 @@ class DemoLLM:
         self._delay = delay_seconds
 
     async def stream(
-        self, messages: Sequence[Message], tools: Sequence[Tool] | None
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[Tool] | None,
+        *,
+        model: str | None = None,
     ) -> AsyncIterator[StreamItem]:
         question = _last_user_text(messages)
         if "#fail" in question:

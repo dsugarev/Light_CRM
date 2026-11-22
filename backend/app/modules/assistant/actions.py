@@ -36,6 +36,7 @@ from app.core.policy import MANAGER_ROLES, can_edit_owned
 from app.core.principal import Principal, RoleCode
 from app.core.reference import ReferenceItemCreate, ReferenceItemUpdate, ReferenceList
 from app.core.runtime_settings import RuntimeSettingsUpdate
+from app.llm import models
 from app.modules.activity import service as activity
 from app.modules.activity.schemas import ActivityCreate, ActivityUpdate
 from app.modules.identity import service as identity
@@ -798,10 +799,16 @@ async def propose_admin(r: Reader, action: str, params: Mapping[str, Any]) -> Pr
             "session_absolute_timeout_minutes",
             "stale_opportunity_days",
             "mfa_required_for_admins",
+            "ai_model",
         )
         body = _validate(RuntimeSettingsUpdate, {k: p.get(k) for k in keys})
         if not body:
             raise ActionError("invalid_arguments", fields=list(keys))
+        if "ai_model" in body and models.unavailable_reason(body["ai_model"], r.settings):
+            raise ActionError(
+                "ai_model_unavailable",
+                options=[o.id for o in models.CATALOG if models.available(o, r.settings)],
+            )
         details = [(k.replace("_", " ").capitalize(), str(v)) for k, v in body.items()]
         return Proposal(action, details, {"body": body})
     if action.startswith("reference."):
@@ -1172,6 +1179,7 @@ async def _settings_update(x: Executor, p: Principal, a: Any) -> Outcome:
         RuntimeSettingsUpdate.model_validate(a.request["body"]),
         events=x.events,
         now=x.now,
+        ai_model_check=lambda model_id: models.unavailable_reason(model_id, x.settings),
     )
     return Outcome()
 

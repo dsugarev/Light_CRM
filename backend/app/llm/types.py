@@ -49,7 +49,14 @@ class LLMUnavailableError(Exception):
 
 class LLM(Protocol):
     def stream(
-        self, messages: Sequence[Message], tools: Sequence[Tool] | None
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[Tool] | None,
+        *,
+        model: str | None = None,
     ) -> AsyncIterator[StreamItem]:
-        """One model call, streamed: `TextDelta`s, then exactly one `Completed`."""
+        """One model call, streamed: `TextDelta`s, then exactly one `Completed`.
+
+        `model` is a catalog id from app.llm.models (the Admin's choice); None means the
+        default model."""
         ...

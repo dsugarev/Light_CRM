@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     # LLM data flow (requirements section 8, question 1).
     ai_enabled: bool = False
     openrouter_api_key: SecretStr | None = None
+    # Google AI Studio key for the Gemini option an Admin can choose (ADR 0031).
+    gemini_api_key: SecretStr | None = None
     llm_model: str = "openrouter/openai/gpt-oss-120b"
     llm_provider: str = "cerebras"
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
@@ -124,8 +126,13 @@ class Settings(BaseSettings):
     def _assistant_needs_a_model(self) -> Self:
         if self.llm_fake and self.is_production:
             raise ValueError("LLM_FAKE is for development and tests; refusing it in production")
-        if self.ai_enabled and not self.llm_fake and not self.openrouter_api_key:
-            raise ValueError("AI_ENABLED needs OPENROUTER_API_KEY")
+        if (
+            self.ai_enabled
+            and not self.llm_fake
+            and not self.openrouter_api_key
+            and not self.gemini_api_key
+        ):
+            raise ValueError("AI_ENABLED needs OPENROUTER_API_KEY or GEMINI_API_KEY")
         return self
 
     @model_validator(mode="after")

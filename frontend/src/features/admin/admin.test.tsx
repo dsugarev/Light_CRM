@@ -212,6 +212,8 @@ describe('FR-AUTH-04 settings', () => {
           session_idle_timeout_minutes: 480,
           session_absolute_timeout_minutes: 10080,
           stale_opportunity_days: 14,
+          mfa_required_for_admins: false,
+          ai_model: 'gpt-oss-120b',
         }),
       ),
     )
@@ -229,6 +231,8 @@ describe('FR-AUTH-04 settings', () => {
       session_idle_timeout_minutes: 480,
       session_absolute_timeout_minutes: 10080,
       stale_opportunity_days: 14,
+      mfa_required_for_admins: false,
+      ai_model: 'gpt-oss-120b',
     }
     server.use(
       http.get('*/api/v1/settings', () => HttpResponse.json(current)),
@@ -250,6 +254,51 @@ describe('FR-AUTH-04 settings', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => {
       expect(body).toMatchObject({ stale_opportunity_days: 21 })
+    })
+  })
+
+  it('FR-AI-10 chooses the AI model for everyone and flags providers that may keep prompts', async () => {
+    let body: Record<string, unknown> = {}
+    const current = {
+      session_idle_timeout_minutes: 480,
+      session_absolute_timeout_minutes: 10080,
+      stale_opportunity_days: 14,
+      mfa_required_for_admins: false,
+      ai_model: 'gpt-oss-120b',
+    }
+    const model = (id: string, label: string, available: boolean, note: string | null) => ({
+      id,
+      label,
+      provider: 'openrouter',
+      available,
+      free: note !== null,
+      data_note: note,
+    })
+    server.use(
+      http.get('*/api/v1/settings', () => HttpResponse.json(current)),
+      http.get('*/api/v1/settings/ai-models', () =>
+        HttpResponse.json([
+          model('gpt-oss-120b', 'gpt-oss-120b (OpenRouter, Cerebras)', true, null),
+          model('nemotron-3-ultra-free', 'Nemotron (free)', true, 'may_keep_prompts'),
+          model('gemini-3.5-flash', 'Gemini 3.5 Flash (Google)', false, 'may_keep_prompts'),
+        ]),
+      ),
+      http.patch('*/api/v1/settings', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({ ...current, ...body })
+      }),
+    )
+    await renderApp('/admin/settings')
+    const select = await screen.findByLabelText(/AI model for all users/)
+    expect(screen.queryByRole('note')).toBeNull()
+    expect(
+      screen.getByRole('option', { name: 'Gemini 3.5 Flash (Google) (API key not configured)' }),
+    ).toBeDisabled()
+    await userEvent.selectOptions(select, 'nemotron-3-ultra-free')
+    expect(screen.getByRole('note')).toHaveTextContent('The provider may keep or use prompts')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(body).toMatchObject({ ai_model: 'nemotron-3-ultra-free' })
     })
   })
 })

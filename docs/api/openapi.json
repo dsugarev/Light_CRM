@@ -598,6 +598,52 @@
         "title": "ActivityUpdate",
         "type": "object"
       },
+      "AiModelOption": {
+        "description": "One model an Admin can choose (GET /settings/ai-models, FR-AI-10).",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "data_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Note"
+          },
+          "free": {
+            "title": "Free",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "provider",
+          "available",
+          "free",
+          "data_note"
+        ],
+        "title": "AiModelOption",
+        "type": "object"
+      },
       "AnonymizeRequest": {
         "additionalProperties": false,
         "description": "FR-ADM-04: the word must be typed, so the irreversible step cannot happen by accident.",
@@ -852,6 +898,14 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "model_label": {
+            "title": "Model Label",
+            "type": "string"
+          },
           "remaining_budget": {
             "title": "Remaining Budget",
             "type": "integer"
@@ -865,7 +919,9 @@
           "enabled",
           "daily_token_budget",
           "used_today",
-          "remaining_budget"
+          "remaining_budget",
+          "model",
+          "model_label"
         ],
         "title": "AssistantStatus",
         "type": "object"
@@ -6537,6 +6593,11 @@
       },
       "RuntimeSettings": {
         "properties": {
+          "ai_model": {
+            "default": "gpt-oss-120b",
+            "title": "Ai Model",
+            "type": "string"
+          },
           "mfa_required_for_admins": {
             "default": false,
             "title": "Mfa Required For Admins",
@@ -6572,6 +6633,19 @@
       "RuntimeSettingsUpdate": {
         "additionalProperties": false,
         "properties": {
+          "ai_model": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Model"
+          },
           "mfa_required_for_admins": {
             "anyOf": [
               {
@@ -19251,6 +19325,32 @@
           }
         },
         "summary": "Update settings; audited",
+        "tags": [
+          "settings"
+        ],
+        "x-access-level": "Admin"
+      }
+    },
+    "/api/v1/settings/ai-models": {
+      "get": {
+        "operationId": "get_ai_models_api_v1_settings_ai_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AiModelOption"
+                  },
+                  "title": "Response Get Ai Models Api V1 Settings Ai Models Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The AI models an Admin can choose, with availability and data notes",
         "tags": [
           "settings"
         ],

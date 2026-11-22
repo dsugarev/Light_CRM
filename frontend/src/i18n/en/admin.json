@@ -248,7 +248,12 @@
     "staleDaysHint": "Default 14; 1 to 365.",
     "security": "Security",
     "mfaRequired": "Require two-factor sign-in for Admins",
-    "mfaRequiredHint": "Admins without it must set it up at their next request and cannot turn it off."
+    "mfaRequiredHint": "Admins without it must set it up at their next request and cannot turn it off.",
+    "assistant": "AI assistant",
+    "aiModel": "AI model for all users",
+    "aiModelHint": "Applies to everyone's next question. Only models whose API key is configured can be chosen.",
+    "aiModelNoKey": "{{label}} (API key not configured)",
+    "aiModelDataNote": "The provider may keep or use prompts, which contain CRM data. Check the provider's terms and the data protection officer's approval before using it with real customer data."
   },
   "reference": {
     "title": "Lists",

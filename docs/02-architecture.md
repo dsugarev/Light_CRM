@@ -13,7 +13,7 @@ Conclusion / ERP / Billing ─HTTPS (Bearer API key)─┐
                          Reverse proxy (Caddy)
                            ├── /        -> frontend (static SPA)
                            └── /api/*   -> backend  (FastAPI) ──> PostgreSQL <── worker
-                                              └──HTTPS──> OpenRouter -> Cerebras (LLM)
+                                              └──HTTPS──> OpenRouter -> Cerebras | NVIDIA, or Google (LLM, Admin's choice)
 worker ──HTTPS (signed webhooks)──> Conclusion / ERP / Billing endpoints
 ```
 
@@ -40,7 +40,7 @@ Use the current stable (LTS where one exists) version of each item at implementa
 | ORM and migrations | SQLAlchemy 2.x (async) + Alembic | Explicit, reviewable, additive migrations |
 | Database | PostgreSQL | Relational integrity, JSONB for audit payloads, full-text search with Cyrillic support |
 | Password hashing | argon2-cffi (Argon2id) | Current recommended algorithm |
-| LLM client | LiteLLM → OpenRouter → Cerebras | Mandated; see section 8 |
+| LLM client | LiteLLM → OpenRouter → Cerebras (default); OpenRouter → NVIDIA or Google AI Studio as Admin choices | Mandated; see section 8, ADR 0031 |
 | Excel handling | openpyxl | Import and export of XLSX |
 | Background worker | Same backend image, `python -m app.worker`; PostgreSQL outbox polled with `SKIP LOCKED` | Webhook delivery and housekeeping without a broker |
 | Outbound HTTP | httpx (async) | Webhook delivery with strict timeouts, no redirects |
@@ -228,7 +228,17 @@ The full endpoint catalog, access levels, error codes, payload examples and stre
 
 ### 8.1 LLM access — mandatory rule
 
-**When writing code that calls an LLM, use your Cerebras skill to use LiteLLM via OpenRouter to the `openrouter/openai/gpt-oss-120b` model with Cerebras as the inference provider.** The skill is the authority on the exact call; the sketch below shows the intended shape, and where the two differ, follow the skill.
+**All LLM calls go through LiteLLM in `backend/app/llm/client.py`. The default model is `openrouter/openai/gpt-oss-120b` via OpenRouter with Cerebras as the only provider; when writing code for it, use your Cerebras skill.** The skill is the authority on the exact call; the sketch below shows the intended shape, and where the two differ, follow the skill.
+
+**Model choice (Phase 10, FR-AI-10, ADR 0031).** An Admin chooses the model for all users from the catalog in `app/llm/models.py`:
+
+| Catalog id | LiteLLM model | Route | Key | Data note |
+|---|---|---|---|---|
+| `gpt-oss-120b` (default) | `LLM_MODEL` (`openrouter/openai/gpt-oss-120b`) | OpenRouter, provider `LLM_PROVIDER` (`cerebras`) only | `OPENROUTER_API_KEY` | — |
+| `nemotron-3-ultra-free` | `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free` | OpenRouter, provider `nvidia` only | `OPENROUTER_API_KEY` | may keep prompts |
+| `gemini-3.5-flash` | `gemini/gemini-3.5-flash` | Google AI Studio (LiteLLM's `gemini/` provider) | `GEMINI_API_KEY` | may keep prompts |
+
+The choice is the runtime setting `ai_model`. The assistant reads it for every answer and passes it to `LLM.stream(..., model=...)`; the client builds the route (model string, key, OpenRouter provider routing, and `LLM_API_BASE` for OpenRouter routes only). A model without its key cannot be chosen (`422`) and, if its key is removed later, fails the answer with `assistant.provider_unavailable`. `app.core` cannot import `app.llm`, so `app.main` gives the settings endpoints the catalog and the availability check through `app.state`.
 
 ```python
 # backend/app/llm/client.py — the only module allowed to import litellm
@@ -245,7 +255,7 @@ async def chat(messages, tools=None, stream=True):
     )
 ```
 
-Configuration comes from environment variables: `OPENROUTER_API_KEY`, `LLM_MODEL`, `LLM_PROVIDER`, `LLM_TIMEOUT_SECONDS`, `AI_ENABLED`, `AI_DAILY_TOKEN_BUDGET`, plus `AI_HISTORY_TOKENS`, `RATE_LIMIT_ASSISTANT_PER_10_MINUTES`, `LLM_API_BASE` (an OpenAI-compatible endpoint instead of OpenRouter's; the end-to-end stack points it at the scripted server `app.llm.fake_server`) and `LLM_FAKE` (an in-process scripted model for development, refused in production). Nothing else in the codebase imports `litellm`; an import-linter rule enforces this, which also makes the model swappable and the tests mockable.
+Configuration comes from environment variables: `OPENROUTER_API_KEY`, `GEMINI_API_KEY` (Phase 10), `LLM_MODEL`, `LLM_PROVIDER`, `LLM_TIMEOUT_SECONDS`, `AI_ENABLED`, `AI_DAILY_TOKEN_BUDGET`, plus `AI_HISTORY_TOKENS`, `RATE_LIMIT_ASSISTANT_PER_10_MINUTES`, `LLM_API_BASE` (an OpenAI-compatible endpoint instead of OpenRouter's; the end-to-end stack points it at the scripted server `app.llm.fake_server`) and `LLM_FAKE` (an in-process scripted model for development, refused in production). Nothing else in the codebase imports `litellm`; an import-linter rule enforces this, which also makes the model swappable and the tests mockable.
 
 As built (Phase 7a, ADR 0026): the rest of the backend depends only on the `LLM` protocol in `app/llm/types.py`; `app/llm/factory.py` loads the LiteLLM client only when `AI_ENABLED` is on. The client sets `LITELLM_MODE=PRODUCTION` before importing LiteLLM, which otherwise loads the nearest `.env` file into the environment, and `LITELLM_LOCAL_MODEL_COST_MAP=True`, which otherwise downloads a price list.
 

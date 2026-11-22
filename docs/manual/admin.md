@@ -156,11 +156,13 @@ If an Admin loses their two-factor device and has no recovery codes, IT can turn
 
 ## 4. Settings
 
-**User story:** *As an Admin, I want to set how long sessions last and when a deal counts as neglected, to fit company policy.*
+**User stories:**
+- *As an Admin, I want to set how long sessions last and when a deal counts as neglected, to fit company policy.*
+- *As an Admin, I want to choose which AI model the assistant uses for everyone, so we can balance cost, quality and data protection.*
 
 Select **Settings**, change the values, and select **Save**.
 
-![Settings: sessions (inactivity and maximum length), opportunities (days before "needs attention"), security (require two-factor for Admins).](images/admin/settings.png)
+![Settings: sessions (inactivity and maximum length), opportunities (days before "needs attention"), security (require two-factor for Admins), AI assistant (the model for all users).](images/admin/settings.png)
 *Figure 8. Settings.*
 
 | Setting | Default | Range | Effect |
@@ -169,6 +171,9 @@ Select **Settings**, change the values, and select **Save**.
 | **Maximum session length (minutes)** | 10080 (7 days) | 60–43200 | Users must sign in again after this long, active or not. |
 | **Days without activity before an opportunity needs attention** | 14 | 1–365 | When the **Needs attention** badge appears on deals. |
 | **Require two-factor sign-in for Admins** | Off | — | Admins without two-factor must set it up at their next request, and can't turn it off. |
+| **AI model for all users** (shown when the assistant is installed) | gpt-oss-120b (OpenRouter, Cerebras) | Models whose API key is configured | The assistant uses this model for everyone's next question. Options without a key are greyed out. |
+
+Two options, **NVIDIA Nemotron 3 Ultra (free)** and **Gemini 3.5 Flash**, show a warning: *the provider may keep or use prompts*. Questions and the CRM data the assistant looks up go to that provider, so check with your data protection officer before choosing one for real customer data. The operations guide (section 8.1) explains the keys and the differences.
 
 Every change is recorded in the audit log.
 
@@ -324,6 +329,7 @@ Points to share with users:
 - An instruction hidden in CRM text (for example in an imported note) can at most produce a card that the user sees and can refuse.
 - It answers in English or Bulgarian, links the records it mentions, and can draft emails and call summaries. **Save as note** saves a checked draft on a record.
 - It can be wrong. Figures must be checked before use.
+- The **model** in use is shown under the question box; Admins choose it in **Settings** (section 4).
 - Each user has a **daily limit**, shown under the question box. Since the assistant can prepare actions, an answer uses about 12,000 tokens (about 7,000 before), so the default 200,000 tokens a day allow roughly 16 answers. Raise `AI_DAILY_TOKEN_BUDGET` if people run out. If the AI provider is unavailable, the chat shows an error and the rest of the CRM keeps working.
 
 ---

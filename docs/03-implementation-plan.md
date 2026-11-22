@@ -140,6 +140,21 @@ Requirements: FR-AI-09 (supersedes FR-AI-05); ADR 0030. Owner approval 2026-11-2
 
 Exit: "Create a task due tomorrow: Call Mr Z" produces a card; Confirm creates the task, which appears in My tasks and in the audit log with `via: assistant`; full gate and live evaluation pass.
 
+## Phase 10 — The Admin chooses the AI model (R1.1)
+
+Requirements: FR-AI-10; ADR 0031. Owner approval 2026-11-22 (three models; data notes shown).
+
+| # | Task |
+|---|---|
+| 10.1 | ADR 0031; FR-AI-10; CLAUDE.md LLM rule; API spec (setting, `GET /settings/ai-models`, status fields) |
+| 10.2 | Model catalog; client routing per request (OpenRouter with provider, OpenRouter free, Gemini direct); `GEMINI_API_KEY` |
+| 10.3 | Setting `ai_model` (additive migration), validation, models endpoint, status shows the model |
+| 10.4 | Admin Settings: AI model choice with availability and data notes; model shown in the assistant; en and bg |
+| 10.5 | Tests; live evaluation of each catalog model |
+| 10.6 | Admin manual, operations guide, privacy notes, Plan.md, Test_strategy.md, release notes |
+
+Exit: an Admin switches the model in Settings; the next answer of any user comes from that model and shows its name; every catalog model has a recorded evaluation.
+
 ## After R1 — roadmap (do not build yet)
 
 | Release | Adds | Attaches to |
