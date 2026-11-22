@@ -79,3 +79,28 @@ Automated tools find about a third of accessibility problems. Before go-live, so
 - check visible focus on every control in the dark theme.
 
 Record the results here.
+
+### Results (2026-11-22)
+
+**Zoom 200% and 1024 px window: automated check done.** A Playwright script opened 20 pages, signed in as an Admin in English and again in Bulgarian, at a 1024 × 768 window and at 640 × 400 CSS pixels (200% zoom of a 1280 × 800 window):
+- the dashboard, the lists, a record page of each kind, the board, tasks, the report, the profile, search and the admin pages;
+- each page checked for sideways scrolling of the page and for axe WCAG 2.2 A/AA violations.
+
+The first run found two problems, both in Bulgarian at 200% zoom, and both are fixed:
+- the win/loss table scrolled sideways but could not be reached by keyboard (axe `scrollable-region-focusable`). A table wider than its container now makes the container focusable, so arrow keys scroll it; a table that fits adds no tab stop (`ui/table.tsx`, `tableFocus.test.tsx`);
+- the organization page was 2 px wider than the screen, because its right column (a grid item) had no `min-w-0`.
+
+The rerun found 0 problems on 20 pages × 2 sizes in both languages. The script is kept with the session notes; the Bulgarian 768 px layout check (`layout.spec.ts`) and axe (`accessibility.spec.ts`) keep running in CI.
+
+**Dark theme:** not applicable to Release 1. Dark mode is not switched on (backlog C-02).
+
+**Screen reader: still open.** It needs a person with NVDA or VoiceOver. Suggested script (about one hour):
+1. sign in;
+2. open a lead and qualify it;
+3. convert it;
+4. move the opportunity on the board by keyboard (Space, arrow keys, Space) and listen for the announcements;
+5. close it as lost with a reason;
+6. ask the assistant a question and listen to the streamed answer;
+7. check that toasts are read.
+
+Do this once in English and once in Bulgarian, and record the findings here.

@@ -42,7 +42,7 @@
 
 An Admin creates your account and gives you a **one-time link**. The link expires, so use it soon.
 
-1. Open the link and type a new password twice. The rules: **at least 12 characters**, at most 128, and not a commonly used password.
+1. Open the link and type a new password twice. The rules: **at least 12 characters**, at most 128, and not a commonly used password. A strength bar rates the password from weak to strong.
 2. Select **Save password**.
 3. Sign in on the Light CRM address with your work **Email** and **Password**.
 
@@ -208,7 +208,7 @@ Every imported record is tagged with the import batch. If an import went wrong, 
   ![The win/loss report.](images/manager/win-loss.png)
   *Figure 11. The win/loss report.*
 
-- **Export:** on any list, set the filters, then select **Export XLSX** or **Export CSV**. The file contains exactly the filtered rows. Exports are recorded in the audit log; handle the files according to company policy.
+- **Export:** on any list, set the filters, then select **Export XLSX** or **Export CSV**. The file contains exactly the filtered rows, for the whole team. (Sales Reps' exports contain only their own records, and Viewers can't export, so they may ask you for files.) Exports are recorded in the audit log; handle the files according to company policy.
 
 ---
 

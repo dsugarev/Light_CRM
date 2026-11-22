@@ -2602,8 +2602,33 @@ const USERS = {
 } as const
 ```
 
-Found while writing (raised with the owner, not changed):
+Found while writing, raised with the owner (resolved in "Release 1 completion" below):
 - the requirements say Viewers can't export and Sales Reps export only their own data, but `data.export` is not enforced and the export endpoints are open to every signed-in user (API spec 14). The manuals describe the current behaviour;
-- the import page shows **Roll back import** to Sales Managers, although the endpoint is Admin-only (403);
 - the board shows its drag help text to Viewers, who can't drag.
+
+Correction: an earlier note said Sales Managers see **Roll back import**. They don't: `RollbackCard` already renders only for Admins (`me.role === 'admin'`).
+
+## Release 1 completion (2026-11-22)
+
+The owner asked to finish every Release 1 item that the team can finish alone. They also decided that exports follow the requirements' role matrix.
+
+| Item | Result |
+|---|---|
+| Export rule (FR-REP-02 with requirements section 4) | Done. `policy.export_owner_ids` is applied in every export service: Viewers get `403 permission.denied`; a Sales Rep's owner filter is replaced by themselves (the audit entry's `filters` shows `owner_ids`); Managers and Admins are unchanged. The export routes moved from Signed-in to "Contributor (rules in service)" (API spec 14 and the endpoint tables updated first; the authorization matrix follows the spec). Frontend: `ExportMenu` is hidden without `data.export` and shows "Your records only" to Sales Reps |
+| Board help for Viewers | Done. Viewers get a reading help instead of drag instructions |
+| ASVS 2.1.8 strength meter | Done. `passwordStrength` (length first, then character variety; no new dependency) and a 4-step bar with a text label in `PasswordChecklist` |
+| ASVS 2.1.12 show password | Already built (UX-06); the checklist was stale and is corrected |
+| Accessibility: zoom 200% and 1024 px | Done by script: 20 pages × 2 sizes × 2 languages. Two defects were found and fixed: a scrolling table not reachable by keyboard, and a 2 px overflow on the organization page. The screen-reader walkthrough still needs a person |
+| Open question 7, off-server backup copy, production restore drill, privacy notice (8.3.3) | Open; they need the integrating teams, IT and the DPO |
+
+```python
+# app/core/policy.py
+def export_owner_ids(principal: Principal, requested: tuple[UUID, ...]) -> tuple[UUID, ...]:
+    granted = permissions_for(principal.role)
+    if Permission.DATA_EXPORT not in granted:
+        raise AppError(ErrorCode.PERMISSION_DENIED, HTTPStatus.FORBIDDEN)
+    if Permission.RECORDS_EDIT_ANY in granted:
+        return requested
+    return (principal.user_id,)
+```
 

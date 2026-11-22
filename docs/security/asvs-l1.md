@@ -5,9 +5,9 @@ NFR-04 sets OWASP ASVS Level 1 as the security baseline. This is the review done
 **Status:** ✅ met · ⚠️ partly met or accepted deviation (reason given) · ❌ open (owner decision needed) · — not applicable.
 
 **Summary:** 118 rows reviewed (a few rows group related IDs):
-- 105 met (2.2.3 and 2.5.5 since the owner's SMTP answer, with SMTP configured);
+- 107 met (2.2.3 and 2.5.5 since the owner's SMTP answer, with SMTP configured; 2.1.8 and 2.1.12 since 2026-11-22);
 - 5 partly met or accepted deviations: 2.1.7, 3.4.4, 3.7.1, 8.3.1, 12.4.2;
-- 3 open, all low risk, listed at the end for a decision: 2.1.8, 2.1.12, 8.3.3;
+- 1 open, low risk, listed at the end for a decision: 8.3.3 (privacy notice text from the DPO);
 - 5 not applicable.
 
 Found and fixed during this review:
@@ -26,11 +26,11 @@ Found and fixed during this review:
 | 2.1.5 | Users can change their password | ✅ | `POST /auth/password/change` |
 | 2.1.6 | Change needs the current password | ✅ | `password.current_incorrect`; test |
 | 2.1.7 | Checked against breached passwords | ⚠️ | Bundled common-password list, case-insensitive. A live breach-corpus lookup (e.g. Have I Been Pwned) would send data outside the on-premises network; offline corpus can be added on request |
-| 2.1.8 | Password strength meter | ❌ | Not built; the rules are shown on the form |
+| 2.1.8 | Password strength meter | ✅ | Strength bar (weak to strong) with the rule checklist on set, reset and change password (2026-11-22) |
 | 2.1.9 | No composition rules | ✅ | Length and common-list only |
 | 2.1.10 | No periodic rotation | ✅ | None |
 | 2.1.11 | Paste and password managers allowed | ✅ | Standard inputs, `autocomplete` set |
-| 2.1.12 | User can show the typed password | ❌ | Not built |
+| 2.1.12 | User can show the typed password | ✅ | Show/hide button on every password field (`PasswordInput`, UX-06) |
 | 2.2.1 | Anti-automation against credential stuffing | ✅ | 10 sign-ins per minute per IP; lockout after 5 failures (passwords and two-factor codes); tests |
 | 2.2.2 | No weak authenticators (SMS, email codes) | ✅ | TOTP only |
 | 2.2.3 | Notify after changes to credentials | ✅ | When SMTP is configured (optional, owner decision): an email after a password change or reset and after two-factor changes (`identity/emails.py`; `test_security_notices.py`). Audit entries always |
@@ -68,7 +68,7 @@ Found and fixed during this review:
 |---|---|---|---|
 | 4.1.1 | Enforced server-side | ✅ | `core/policy.py`; route × role matrix and integration scope matrix for every route |
 | 4.1.2 | Attributes cannot be manipulated by users | ✅ | Roles and ownership read from the database per request |
-| 4.1.3 | Least privilege | ✅ | Roles per requirements; integrations deny-by-default with scopes |
+| 4.1.3 | Least privilege | ✅ | Roles per requirements; integrations deny-by-default with scopes; exports follow the role matrix since 2026-11-22 (Viewers none, Sales Reps own records only) |
 | 4.1.5 | Fails securely | ✅ | Unknown level or missing scope refuses (`test_policy.py`) |
 | 4.2.1 | No insecure direct object references | ✅ | Ownership checks on changes (Owner+); own-only conversations return 404; visibility per assumption A1 (everyone sees all records, owner decision pending as question 6) |
 | 4.2.2 | CSRF protection | ✅ | Custom header + Origin check, `SameSite=Strict`; `test_security_headers.py` |
@@ -202,7 +202,7 @@ Found and fixed during this review:
 
 | ID | Item | Recommendation |
 |---|---|---|
-| 2.1.8, 2.1.12 | Strength meter, show-password toggle | Small UI additions; build before go-live if wanted |
+| 2.1.8, 2.1.12 | Strength meter, show-password toggle | Done: show/hide password on every password field (UX-06, UI polish, 2026-11-18); strength meter with the password checklist (2026-11-22, `PasswordChecklist`, `passwordPolicy.ts`, tests `passwordStrength.test.tsx`) |
 | 2.2.3, 2.5.5 | Email notice after password or two-factor changes | Done: sent when SMTP is configured (owner answer to open question 4) |
 | 8.3.3 | Privacy notice | DPO / owner to provide; link it from the sign-in page |
 
