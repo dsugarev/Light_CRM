@@ -9482,7 +9482,7 @@
         "tags": [
           "activities"
         ],
-        "x-access-level": "Signed-in"
+        "x-access-level": "Contributor (rules in service)"
       }
     },
     "/api/v1/activities/{activity_id}": {
@@ -11509,7 +11509,7 @@
         "tags": [
           "contacts"
         ],
-        "x-access-level": "Signed-in"
+        "x-access-level": "Contributor (rules in service)"
       }
     },
     "/api/v1/contacts/{contact_id}": {
@@ -13749,7 +13749,7 @@
         "tags": [
           "leads"
         ],
-        "x-access-level": "Signed-in"
+        "x-access-level": "Contributor (rules in service)"
       }
     },
     "/api/v1/leads/{lead_id}": {
@@ -15568,7 +15568,7 @@
         "tags": [
           "opportunities"
         ],
-        "x-access-level": "Signed-in"
+        "x-access-level": "Contributor (rules in service)"
       }
     },
     "/api/v1/opportunities/{opp_id}": {
@@ -16836,7 +16836,7 @@
         "tags": [
           "organizations"
         ],
-        "x-access-level": "Signed-in"
+        "x-access-level": "Contributor (rules in service)"
       }
     },
     "/api/v1/organizations/{org_id}": {
@@ -18809,7 +18809,7 @@
         "tags": [
           "reports"
         ],
-        "x-access-level": "Signed-in"
+        "x-access-level": "Contributor (rules in service)"
       }
     },
     "/api/v1/roles": {

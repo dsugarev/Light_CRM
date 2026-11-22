@@ -5,7 +5,7 @@ applies the owner scope and period, composes the dashboard and exports reports.
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -24,6 +24,7 @@ from app.core.export import (
     select_columns,
 )
 from app.core.export import Locale as ExportLocale
+from app.core.policy import export_owner_ids
 from app.core.principal import Principal
 from app.modules.activity import service as activity
 from app.modules.identity import service as identity
@@ -202,6 +203,7 @@ async def export_report(
     options: ExportOptions,
 ) -> ExportFile:
     """A report above as XLSX or CSV, with a total row where it applies."""
+    scope = replace(scope, owner_ids=export_owner_ids(principal, scope.owner_ids))
     columns = select_columns(REPORT_COLUMNS[report], options.columns)
     locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
     rows = await _report_rows(ctx, report, scope, params, locale)

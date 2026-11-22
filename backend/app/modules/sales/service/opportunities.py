@@ -7,7 +7,7 @@ default unless the user overrode it.
 """
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from http import HTTPStatus
@@ -30,7 +30,7 @@ from app.core.export import (
 from app.core.export import Locale as ExportLocale
 from app.core.external import ExternalQuery, apply_external
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
-from app.core.policy import can_edit_owned, check_owner, record_owner
+from app.core.policy import can_edit_owned, check_owner, export_owner_ids, record_owner
 from app.core.principal import Principal
 from app.core.reference import ReferenceList, is_active_item
 from app.core.search import SearchHit, SearchProvider
@@ -615,6 +615,7 @@ async def export_opportunities(
     options: ExportOptions,
 ) -> ExportFile:
     """FR-REP-02: the filtered opportunity list as XLSX or CSV."""
+    filters = replace(filters, owner_ids=export_owner_ids(principal, filters.owner_ids))
     statement = await _statement(ctx, query, filters)
     locale = options.locale or await identity.user_locale(ctx.session, principal.user_id)
     file, rows = await build_export(

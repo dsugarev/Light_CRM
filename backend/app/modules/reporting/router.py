@@ -124,7 +124,8 @@ async def win_loss(ctx: Ctx, report_scope: Scope, group_by: WinLossGroup = None)
     summary="XLSX or CSV export of a report",
     response_class=Response,
     responses=EXPORT_RESPONSES,
-    **endpoint(AccessLevel.SIGNED_IN),
+    # Viewers may not export; a Sales Rep's export holds only their own records (service).
+    **endpoint(AccessLevel.CONTRIBUTOR_RULES_IN_SERVICE),
 )
 async def export_report(
     report: ReportName,

@@ -2,7 +2,8 @@
   "export": {
     "label": "Export",
     "xlsx": "Export XLSX",
-    "csv": "Export CSV"
+    "csv": "Export CSV",
+    "ownOnly": "Your records only"
   },
   "filters": {
     "owner": "Owner",

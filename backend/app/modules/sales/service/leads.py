@@ -6,7 +6,7 @@ concurrency, architecture 4.1); a stale version returns 409 with the current lea
 """
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any
@@ -28,7 +28,7 @@ from app.core.export import (
 from app.core.export import Locale as ExportLocale
 from app.core.external import ExternalQuery, apply_external
 from app.core.listing import ListQuery, Page, SyncPage, encode_cursor, fetch_page, fetch_sync
-from app.core.policy import check_owner, record_owner
+from app.core.policy import check_owner, export_owner_ids, record_owner
 from app.core.principal import Principal
 from app.core.reference import ReferenceList, is_active_item
 from app.core.search import SearchHit, SearchProvider
@@ -729,6 +729,7 @@ async def export_leads(
     options: ExportOptions,
 ) -> ExportFile:
     """FR-REP-02: the filtered lead list as XLSX or CSV."""
+    filters = replace(filters, owner_ids=export_owner_ids(principal, filters.owner_ids))
     statement = repository.leads_statement(
         search=search_terms(query.q) if query.q else None,
         include_archived=query.include_archived,

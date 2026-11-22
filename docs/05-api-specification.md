@@ -430,7 +430,7 @@ Rules (as built, Phase 4a):
 | GET | `/api/v1/organizations/{org_id}/leads` | Leads linked to this organization | Signed-in | FR-PARTY-03 |
 | GET | `/api/v1/organizations/{org_id}/opportunities` | Opportunities of this organization | Signed-in | FR-PARTY-03 |
 | GET | `/api/v1/organizations/{org_id}/timeline` | Merged timeline for the organization and its contacts, leads and opportunities | Signed-in | FR-ACT-03 |
-| GET | `/api/v1/organizations/export` | Export the filtered list (section 14) | Signed-in | FR-REP-02 |
+| GET | `/api/v1/organizations/export` | Export the filtered list (section 14) | Contributor (rules in service) | FR-REP-02 |
 
 Organization resource (response; `GET /{id}` adds `counts`):
 
@@ -469,7 +469,7 @@ Rules (as built):
 | GET | `/api/v1/contacts/{contact_id}/timeline` | Activities and events for the contact | Signed-in | FR-ACT-03 |
 | GET | `/api/v1/contacts/{contact_id}/personal-data` | GDPR export of all personal data held about the contact (JSON download); audited | Admin | FR-ADM-04 |
 | POST | `/api/v1/contacts/{contact_id}/anonymize` | Irreversibly anonymize; body must contain `"confirm": "ANONYMIZE"`; audited | Admin | FR-ADM-04 |
-| GET | `/api/v1/contacts/export` | Export the filtered list | Signed-in | FR-REP-02 |
+| GET | `/api/v1/contacts/export` | Export the filtered list | Contributor (rules in service) | FR-REP-02 |
 
 Ownership of a contact follows its organization; a contact without an organization is owned by its creator.
 
@@ -505,7 +505,7 @@ Rules (as built): `first_name` and `last_name` required (≤ 100); `email` store
 | GET | `/api/v1/leads/{lead_id}/conversion-preview` | Suggested organization and contact matches (duplicate check) to show before converting | Owner+ | FR-LEAD-04 |
 | POST | `/api/v1/leads/{lead_id}/convert` | Convert in one transaction (see below) | Owner+ | FR-LEAD-04 |
 | GET | `/api/v1/leads/{lead_id}/timeline` | Activities and system events for the lead | Signed-in | FR-ACT-03 |
-| GET | `/api/v1/leads/export` | Export the filtered list | Signed-in | FR-REP-02 |
+| GET | `/api/v1/leads/export` | Export the filtered list | Contributor (rules in service) | FR-REP-02 |
 
 Allowed status transitions (anything else returns `409 lead.invalid_transition`):
 
@@ -613,7 +613,7 @@ Conversion rules (as built, Phase 4b; FR-LEAD-04):
 | GET | `/api/v1/opportunities/{opp_id}/stage-history` | Stage changes with user, time, from and to | Signed-in | FR-OPP-02 AC2 |
 | GET | `/api/v1/opportunities/{opp_id}/timeline` | Activities, stage changes and events, including those from the source lead | Signed-in | FR-ACT-03, FR-LEAD-04 AC3 |
 | GET | `/api/v1/opportunities/board` | Kanban data: one column per active open stage with `count`, `total_amount`, `weighted_amount` and cards. Filters: `pipeline_id`, `owner_id`, `expected_close_date_from/to`. Up to 500 cards; `truncated: true` if more | Signed-in | FR-OPP-03 |
-| GET | `/api/v1/opportunities/export` | Export the filtered list | Signed-in | FR-REP-02 |
+| GET | `/api/v1/opportunities/export` | Export the filtered list | Contributor (rules in service) | FR-REP-02 |
 
 Board response shape:
 
@@ -677,7 +677,7 @@ Rules (as built, Phase 4a):
 | DELETE | `/api/v1/activities/{activity_id}` | Archive | Owner+ | FR-ACT-01 |
 | POST | `/api/v1/activities/{activity_id}/complete` | Mark a task done | Owner+ or assignee | FR-ACT-02 |
 | POST | `/api/v1/activities/{activity_id}/reopen` | Mark a task not done | Owner+ or assignee | FR-ACT-02 |
-| GET | `/api/v1/activities/export` | Export the filtered list (section 14) | Signed-in | FR-REP-02 |
+| GET | `/api/v1/activities/export` | Export the filtered list (section 14) | Contributor (rules in service) | FR-REP-02 |
 
 Timeline items (returned by every `/timeline` endpoint) share one shape so the UI renders them uniformly:
 
@@ -724,7 +724,7 @@ All report endpoints accept `owner_id` (`me`, a user ID, or omitted for all) and
 | GET | `/api/v1/reports/forecast` | Weighted forecast by expected close month. `months` (default 6, max 12) | Signed-in | FR-REP-01 AC1 |
 | GET | `/api/v1/reports/lead-conversion` | Leads created, qualified, converted, disqualified and conversion rate in the period; group by `source` or `owner` | Signed-in | FR-REP-01 |
 | GET | `/api/v1/reports/win-loss` | Won and lost counts and amounts, win rate; group by `loss_reason`, `owner` or `month` | Signed-in | FR-REP-01, FR-REP-03 |
-| GET | `/api/v1/reports/{report}/export` | XLSX or CSV export of any report above | Signed-in | FR-REP-02 |
+| GET | `/api/v1/reports/{report}/export` | XLSX or CSV export of any report above | Contributor (rules in service) | FR-REP-02 |
 
 Forecast definition (tested against independently computed values): for each month, the sum of `amount × probability / 100` over open, non-archived opportunities whose `expected_close_date` falls in that month.
 
@@ -752,7 +752,8 @@ Responses are file downloads with `Content-Disposition: attachment`. Exports are
 
 Rules (as built, Phase 5a):
 
-- Endpoints: `/organizations/export`, `/contacts/export`, `/leads/export`, `/opportunities/export`, `/activities/export` (Signed-in) and `/audit-log/export` (Admin), each with the list's filters, `q`, `include_archived` and `sort`; paging parameters are ignored. Not available to integration clients.
+- Endpoints: `/organizations/export`, `/contacts/export`, `/leads/export`, `/opportunities/export`, `/activities/export` and `/reports/{report}/export` (Contributor, rules in service) and `/audit-log/export` (Admin), each with the list's filters, `q`, `include_archived` and `sort`; paging parameters are ignored. Not available to integration clients.
+- Who exports what (requirements section 4, owner decision 2026-11-22): Viewers may not export (`403 permission.denied`); a **Sales Rep's** export holds only the records they own: the `owner_id` filter is replaced by the caller, and the audit entry's `filters` shows it as `owner_ids`; Sales Managers and Admins export what they filtered. Until 2026-11-22 every signed-in user could export every list (the `data.export` permission was not enforced).
 - File name `<list>-<YYYY-MM-DD>.<format>` (Sofia date). XLSX has one sheet with a header row; numbers, amounts and dates stay typed (timestamps in Europe/Sofia local time); CSV is UTF-8 with BOM, comma-separated, CRLF line ends, timestamps as `YYYY-MM-DD HH:MM:SS` Sofia time.
 - `columns` takes column keys in the wanted order; an unknown key returns `400`, field `columns` / `export.unknown_column`. Column keys: organizations `name, registration_number, vat_number, industry, size_band, website, address_line, postal_code, city, country, owner, created_at, archived_at, id`; contacts `first_name, last_name, job_title, email, phone, organization, owner, created_at, archived_at, id`; leads `title, company_name, contact_name, email, phone, source, status, score, fits_target_profile, estimated_value, organization, owner, created_at, converted_at, archived_at, id`; opportunities `name, organization, primary_contact, stage, amount, probability, weighted_amount, expected_close_date, actual_close_date, owner, next_step, loss_reason, competitor, is_stale, source_lead, created_at, archived_at, id`; activities `type, subject, occurred_at, due_at, is_done, owner, assignee, lead, opportunity, organization, contact, body, id`; audit log `occurred_at, actor, actor_type, action, entity_type, entity_id, ip, id`.
 - `locale` (default: the user's language) sets the headers, reference names (stage, source, industry, loss reason), statuses, activity types and Yes/No values.
