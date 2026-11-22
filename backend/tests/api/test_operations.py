@@ -2,7 +2,7 @@
 
 import io
 from collections.abc import Iterator
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import func, select
@@ -85,7 +85,11 @@ async def test_housekeeping_removes_expired_sessions(test_app: TestApp) -> None:
                     token_hash=f"{n:064d}",
                     created_at=START - timedelta(days=10),
                     last_seen_at=START - timedelta(days=10),
-                    expires_at=START - timedelta(days=3) if n else START + timedelta(days=3),
+                    # The worker uses the system clock, so the live session is measured
+                    # from now, not from the fixed test clock (which falls into the past).
+                    expires_at=START - timedelta(days=3)
+                    if n
+                    else datetime.now(UTC) + timedelta(days=3),
                 )
                 for n in range(2)
             ]
@@ -94,7 +98,7 @@ async def test_housekeeping_removes_expired_sessions(test_app: TestApp) -> None:
     await worker.purge_expired(test_app.app.state.engine)
     async with test_app.sessions() as session:
         remaining = (await session.execute(select(func.count()).select_from(UserSession))).scalar()
-    # The worker uses the system clock: the session expiring 3 days after START stays.
+    # The expired session is removed; the one still valid by the system clock stays.
     assert remaining == 1
 
 
