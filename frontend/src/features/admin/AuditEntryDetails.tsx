@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { Schemas } from '@/api/client'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
+import { detailListClass } from '@/components/detailList'
 
 import { AuditDiff, AuditJson } from './AuditDiff'
 import { useAuditLabels } from './auditLabels'
@@ -15,7 +16,7 @@ export function AuditEntryDetails({ entry: e }: { entry: Schemas['AuditEntry'] }
   const details = e.details as unknown
   return (
     <div className="flex flex-col gap-6">
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
+      <dl className={detailListClass('compact')}>
         <dt className="text-muted-foreground">{t('audit.columns.time')}</dt>
         <dd>{formatDateTime(e.occurred_at, locale)}</dd>
         <dt className="text-muted-foreground">{t('audit.columns.actor')}</dt>

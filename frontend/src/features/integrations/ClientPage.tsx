@@ -70,7 +70,7 @@ export function ClientPage() {
         actions={
           <span className="flex items-center gap-2">
             <Badge variant="outline">{referenceName(c.system, locale)}</Badge>
-            <Badge variant={c.is_active ? 'secondary' : 'outline'}>
+            <Badge variant={c.is_active ? 'success' : 'outline'}>
               {c.is_active ? t('status.active') : t('status.inactive')}
             </Badge>
           </span>

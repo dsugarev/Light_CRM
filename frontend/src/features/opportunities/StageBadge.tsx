@@ -5,7 +5,8 @@ import { useLocale } from '@/lib/useLocale'
 
 import { stageName, type StageSummary } from './opportunityValues'
 
-const VARIANT = { open: 'secondary', won: 'default', lost: 'destructive' } as const
+// Loop 2: open stages blue, won green, lost red.
+const VARIANT = { open: 'info', won: 'success', lost: 'destructive' } as const
 
 export function StageBadge({ stage }: { stage: StageSummary }) {
   const locale = useLocale()
@@ -16,7 +17,7 @@ export function StageBadge({ stage }: { stage: StageSummary }) {
 export function StaleBadge() {
   const { t } = useTranslation('opportunities')
   return (
-    <Badge variant="outline" title={t('stale.hint')}>
+    <Badge variant="warning" title={t('stale.hint')}>
       {t('stale.label')}
     </Badge>
   )

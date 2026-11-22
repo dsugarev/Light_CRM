@@ -150,7 +150,7 @@ function ReferenceListEditor({ list: LIST }: { list: ReferenceListName }) {
                 <TableCell className="whitespace-normal">{item.name_en}</TableCell>
                 <TableCell className="whitespace-normal">{item.name_bg}</TableCell>
                 <TableCell>
-                  <Badge variant={item.is_active ? 'secondary' : 'outline'}>
+                  <Badge variant={item.is_active ? 'success' : 'outline'}>
                     {item.is_active ? t('reference.active') : t('reference.inactive')}
                   </Badge>
                 </TableCell>

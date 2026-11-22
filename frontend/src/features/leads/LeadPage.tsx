@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router'
 
 import { api, call } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { EmailLink, PhoneLink } from '@/components/ContactLinks'
 import { ErrorState } from '@/components/ErrorState'
 import { FormField } from '@/components/FormField'
 import { Loading } from '@/components/Loading'
@@ -25,6 +26,8 @@ import { referenceName, useReferenceList } from '@/features/reference/useReferen
 import { formatDate, formatMoney } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useLocale } from '@/lib/useLocale'
+import { useTrackRecent } from '@/features/recent/useRecentRecords'
+import { detailListClass } from '@/components/detailList'
 
 import { LeadStatusBadge } from './LeadStatusBadge'
 import { BANT_ITEMS, BANT_STATUSES, type Lead } from './leadValues'
@@ -44,6 +47,7 @@ export function LeadPage() {
     queryKey: ['leads', leadId],
     queryFn: () => call(api.GET('/api/v1/leads/{lead_id}', path)),
   })
+  useTrackRecent('lead', leadId, lead.data?.title, lead.error)
   if (lead.isError)
     return (
       <ErrorState
@@ -58,15 +62,8 @@ export function LeadPage() {
   const rows: [string, React.ReactNode][] = [
     [t('fields.companyName'), l.company_name],
     [t('fields.contactName'), l.contact_name],
-    [
-      t('fields.email'),
-      l.email ? (
-        <a className="hover:underline" href={`mailto:${l.email}`}>
-          {l.email}
-        </a>
-      ) : null,
-    ],
-    [t('fields.phone'), l.phone],
+    [t('fields.email'), l.email ? <EmailLink email={l.email} /> : null],
+    [t('fields.phone'), l.phone ? <PhoneLink phone={l.phone} /> : null],
     [t('fields.source'), l.source ? referenceName(l.source, locale) : null],
     [t('fields.estimatedValue'), l.estimated_value ? formatMoney(l.estimated_value, locale) : null],
     [
@@ -101,7 +98,7 @@ export function LeadPage() {
             <CardTitle>{t('detail.details')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+            <dl className={detailListClass()}>
               {rows.map(([label, value]) => (
                 <div key={label} className="contents">
                   <dt className="text-muted-foreground">{label}</dt>

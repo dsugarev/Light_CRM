@@ -14,7 +14,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
   const pages = Math.max(1, Math.ceil(total / pageSize))
   return (
     <nav
-      className="flex items-center justify-between gap-4 py-3 text-sm"
+      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 text-sm"
       aria-label={t('pagination.summary', {
         page: String(page),
         pages: String(pages),

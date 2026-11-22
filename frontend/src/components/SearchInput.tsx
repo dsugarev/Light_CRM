@@ -1,9 +1,9 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { Input } from '@/components/ui/input'
 
-/** Search box that reports its value after typing pauses (300 ms). Uncontrolled:
- * remount it with a new `key` to reset it from outside. */
+/** Search box that reports its value after typing pauses (300 ms). Uncontrolled while
+ * typing; when `value` changes from outside (for example "Clear filters"), the box follows. */
 export function SearchInput({
   value,
   onChange,
@@ -14,8 +14,16 @@ export function SearchInput({
   label: string
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (input.current && input.current.value.trim() !== value) {
+      clearTimeout(timer.current)
+      input.current.value = value
+    }
+  }, [value])
   return (
     <Input
+      ref={input}
       type="search"
       aria-label={label}
       placeholder={label}

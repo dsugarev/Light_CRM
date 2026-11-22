@@ -48,7 +48,7 @@ export function PasswordInput({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 shrink-0"
+          className="h-8 shrink-0 pointer-coarse:h-11"
           aria-pressed={visible}
           aria-controls={props.id}
           onClick={() => {

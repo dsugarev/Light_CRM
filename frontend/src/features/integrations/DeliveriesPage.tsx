@@ -36,8 +36,14 @@ const PAGE_SIZE = 25
 
 function StatusBadge({ status }: { status: DeliveryStatus }) {
   const { t } = useTranslation('integrations')
-  const variant =
-    status === 'failed' ? 'destructive' : status === 'succeeded' ? 'secondary' : 'outline'
+  const variant = (
+    {
+      failed: 'destructive',
+      succeeded: 'success',
+      retrying: 'warning',
+      pending: 'outline',
+    } as const
+  )[status]
   return <Badge variant={variant}>{t(`deliveries.status.${status}`)}</Badge>
 }
 

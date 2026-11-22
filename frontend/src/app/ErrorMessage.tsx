@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { Button } from '@/components/ui/button'
+import { usePageTitle } from '@/components/usePageTitle'
 
 /** A full-page message with a way home; UX-04 adds a retry and the request ID for support. */
 export function ErrorMessage({
@@ -14,6 +15,7 @@ export function ErrorMessage({
   onRetry?: (() => void) | undefined
 }) {
   const { t } = useTranslation()
+  usePageTitle(message)
   return (
     <section
       role="alert"

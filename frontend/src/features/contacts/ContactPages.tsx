@@ -4,6 +4,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 
 import { api, ApiError, asPage, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { EmailLink, PhoneLink } from '@/components/ContactLinks'
+import { ListEmptyState } from '@/components/ListEmptyState'
 import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { FormMessage } from '@/components/FormMessage'
@@ -26,6 +28,8 @@ import { RecordTimeline } from '@/features/activities/RecordTimeline'
 import { ExternalReferences } from '@/features/integrations/ExternalReferences'
 import { ExportMenu } from '@/features/reports/ExportMenu'
 import { useNotify } from '@/lib/notify'
+import { useTrackRecent } from '@/features/recent/useRecentRecords'
+import { detailListClass } from '@/components/detailList'
 
 import { ContactForm } from './ContactForm'
 import { contactDefaults, contactPayload, type ContactValues } from './contactValues'
@@ -90,7 +94,7 @@ export function ContactsPage() {
       header: t('contacts.columns.email'),
       // Long addresses wrap so the table fits at 768 px (UX-13).
       className: 'whitespace-normal [overflow-wrap:anywhere]',
-      cell: (c) => c.email ?? '',
+      cell: (c) => <EmailLink email={c.email} />,
     },
     {
       key: 'owner',
@@ -154,6 +158,7 @@ export function ContactsPage() {
       {contacts.data ? (
         <>
           <DataTable
+            busy={contacts.isPlaceholderData}
             caption={t('contacts.title')}
             columns={columns}
             rows={contacts.data.items}
@@ -162,6 +167,17 @@ export function ContactsPage() {
             onSort={(sort) => {
               list.update({ sort })
             }}
+            empty={
+              <ListEmptyState
+                filtered={list.filtered}
+                onClear={list.clear}
+                create={
+                  can('records.create')
+                    ? { to: '/contacts/new', label: t('contacts.new') }
+                    : undefined
+                }
+              />
+            }
           />
           <Pagination
             page={list.page}
@@ -308,6 +324,7 @@ export function ContactPage() {
     queryKey: ['contacts', contactId],
     queryFn: () => call(api.GET('/api/v1/contacts/{contact_id}', path)),
   })
+  useTrackRecent('contact', contactId, contact.data?.full_name, contact.error)
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['contacts'] })
   const archive = useMutation({
     mutationFn: () => call(api.DELETE('/api/v1/contacts/{contact_id}', path)),
@@ -340,22 +357,8 @@ export function ContactPage() {
   const actionError = [archive.error, restore.error].find((e) => e instanceof ApiError)
   const rows: [string, React.ReactNode][] = [
     [t('contact.fields.jobTitle'), c.job_title],
-    [
-      t('contact.fields.email'),
-      c.email ? (
-        <a href={`mailto:${c.email}`} className="hover:underline">
-          {c.email}
-        </a>
-      ) : null,
-    ],
-    [
-      t('contact.fields.phone'),
-      c.phone ? (
-        <a href={`tel:${c.phone}`} className="hover:underline">
-          {c.phone}
-        </a>
-      ) : null,
-    ],
+    [t('contact.fields.email'), c.email ? <EmailLink email={c.email} /> : null],
+    [t('contact.fields.phone'), c.phone ? <PhoneLink phone={c.phone} /> : null],
     [
       t('contact.fields.preferredLocale'),
       c.preferred_locale ? tc(`language.${c.preferred_locale}`) : null,
@@ -424,7 +427,7 @@ export function ContactPage() {
       <FormMessage error={actionError instanceof ApiError ? actionError.code : null} />
       <Card>
         <CardContent>
-          <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+          <dl className={detailListClass()}>
             {rows.map(([label, value]) => (
               <div key={label} className="contents">
                 <dt className="text-muted-foreground">{label}</dt>

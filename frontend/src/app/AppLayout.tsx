@@ -10,6 +10,7 @@ import { Sheet } from '@/components/ui/sheet'
 import { AssistantLauncher } from '@/features/assistant/AssistantLauncher'
 import { IdleWarning } from '@/features/auth/IdleWarning'
 import { broadcastSignOut } from '@/features/auth/sessionActivity'
+import { clearAllRecent } from '@/features/recent/recentRecords'
 import { ME_QUERY_KEY, useMe } from '@/features/auth/useMe'
 import { useWebhookHealth } from '@/features/integrations/useWebhookHealth'
 import { WebhookAlert } from '@/features/integrations/WebhookAlert'
@@ -31,7 +32,8 @@ export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const webhookHealth = useWebhookHealth(show.users)
   const webhookProblems = webhookHealth.failing + webhookHealth.suspended
-  const inAdminArea = useLocation().pathname.startsWith('/admin')
+  const { pathname } = useLocation()
+  const inAdminArea = pathname.startsWith('/admin')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const signOut = useMutation({
@@ -39,6 +41,7 @@ export function AppLayout() {
     onSettled: async () => {
       // FN-05: the other open tabs sign out too.
       broadcastSignOut()
+      clearAllRecent()
       queryClient.setQueryData(ME_QUERY_KEY, null)
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== ME_QUERY_KEY[0] })
       await navigate('/sign-in', { replace: true })
@@ -47,8 +50,8 @@ export function AppLayout() {
 
   useEffect(() => {
     document.documentElement.lang = i18n.resolvedLanguage ?? 'en'
-    document.title = t('app.name')
-  }, [i18n.resolvedLanguage, t])
+    // The tab title is set by each page (usePageTitle), in the page's language.
+  }, [i18n.resolvedLanguage])
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -121,7 +124,17 @@ export function AppLayout() {
         ) : null}
         <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 outline-none lg:px-6">
           {show.users && inAdminArea ? <WebhookAlert {...webhookHealth} /> : null}
-          <Outlet />
+          {/* Loop 2: each page rises 4 px over 200 ms when the address changes, so the
+              switch reads as navigation; search and filter changes keep the same page.
+              Movement only, no fade: text stays at full contrast throughout (an opacity
+              fade let axe catch muted text at 4.35:1 mid-animation). */}
+          <div
+            key={pathname}
+            data-testid="page-transition"
+            className="animate-in duration-200 slide-in-from-bottom-1"
+          >
+            <Outlet />
+          </div>
         </main>
       </div>
       {me ? (

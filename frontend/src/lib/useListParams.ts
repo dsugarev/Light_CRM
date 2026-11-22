@@ -36,5 +36,27 @@ export function useListParams<F extends string>(defaults: { sort: string; filter
     ...Object.fromEntries(Object.entries(filters).filter(([, v]) => (v as string[]).length > 0)),
   }
 
-  return { page, sort, q, archived, filters, update, apiQuery, key: params.toString() }
+  /** Whether search, a filter or "show archived" narrows the list (an empty list means less). */
+  const filtered =
+    q !== '' || archived || Object.values(filters).some((v) => (v as string[]).length > 0)
+
+  /** Remove search and filters, keeping the sort (empty-state "Clear filters"). */
+  const clear = () => {
+    const next = new URLSearchParams()
+    if (params.has('sort')) next.set('sort', sort)
+    setParams(next, { replace: true })
+  }
+
+  return {
+    page,
+    sort,
+    q,
+    archived,
+    filters,
+    filtered,
+    update,
+    clear,
+    apiQuery,
+    key: params.toString(),
+  }
 }

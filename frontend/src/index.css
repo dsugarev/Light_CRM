@@ -27,6 +27,8 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
   --color-overlay: var(--overlay);
   --color-qr-surface: var(--qr-surface);
   --color-accent-foreground: var(--accent-foreground);
@@ -72,7 +74,12 @@
   /* Red 700, not 600: 4.5:1 on white and on the light red tint of badges and buttons (NFR-10). */
   --destructive: oklch(0.505 0.213 27.518);
   --destructive-foreground: oklch(0.985 0 0);
-  --success: oklch(0.696 0.17 162.48);
+  /* Status colors (loop 2): green, amber and blue 800/700. Text in these colors keeps
+     5.3:1 or more on white and on the 10% tint of status badges (NFR-10, WCAG 1.4.3);
+     a status never relies on color alone, the badge always carries its label. */
+  --success: oklch(0.448 0.119 151.328);
+  --warning: oklch(0.473 0.137 46.201);
+  --info: oklch(0.488 0.243 264.376);
   --overlay: oklch(0 0 0);
   /* QR codes need a white quiet zone in both themes to scan. */
   --qr-surface: oklch(1 0 0);
@@ -114,7 +121,9 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
-  --success: oklch(0.696 0.17 162.48);
+  --success: oklch(0.792 0.209 151.711);
+  --warning: oklch(0.828 0.189 84.429);
+  --info: oklch(0.707 0.165 254.624);
   --overlay: oklch(0 0 0);
   --qr-surface: oklch(1 0 0);
   --border: oklch(1 0 0 / 10%);
@@ -133,6 +142,74 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* Loop 2: a soft shadow on the edge of a sideways-scrolling table shows that more columns
+   are off-screen. The covers scroll with the content and hide the shadow at either end. */
+@utility scroll-shadow-x {
+  background:
+    linear-gradient(to right, var(--card) 30%, transparent) left / 2.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--card) 30%, transparent) right / 2.5rem 100% no-repeat local,
+    radial-gradient(
+        farthest-side at 0 50%,
+        color-mix(in oklch, var(--foreground) 18%, transparent),
+        transparent
+      )
+      left / 0.875rem 100% no-repeat scroll,
+    radial-gradient(
+        farthest-side at 100% 50%,
+        color-mix(in oklch, var(--foreground) 18%, transparent),
+        transparent
+      )
+      right / 0.875rem 100% no-repeat scroll;
+}
+
+/* Loop 2: "updating" feedback for a list that keeps its old rows while the next page,
+   sort or filter loads. The track appears only after 200 ms, so fast answers do not
+   flicker; the bar slides across it. */
+@keyframes busy-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes busy-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+@utility busy-track {
+  animation: busy-appear 150ms ease-out 200ms both;
+}
+@utility busy-bar {
+  animation: busy-slide 1.1s ease-in-out infinite;
+}
+
+/* Loop 2: WCAG 2.3.3 / user preference. With "reduce motion" set in the operating system,
+   animations and transitions end at once (state changes stay visible, nothing moves),
+   and the busy bar becomes a still line. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+  .busy-bar {
+    animation: none !important;
+    transform: none;
+    width: 100%;
+    opacity: 0.6;
+  }
 }
 
 @layer base {

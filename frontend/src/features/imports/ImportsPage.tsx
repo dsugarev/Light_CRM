@@ -12,7 +12,6 @@ import { Loading } from '@/components/Loading'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageHeader } from '@/components/PageHeader'
 import { Pagination } from '@/components/Pagination'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -22,6 +21,8 @@ import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
 
 import { ENTITY_TYPES, uploadImport, type EntityType, type ImportBatch } from './upload'
+
+import { ImportStatusBadge } from './ImportStatusBadge'
 
 const PAGE_SIZE = 25
 const ACCEPT = '.xlsx,.csv'
@@ -56,7 +57,7 @@ export function ImportsPage() {
     {
       key: 'status',
       header: t('list.status'),
-      cell: (b) => <Badge variant="secondary">{t(`status.${b.status}`)}</Badge>,
+      cell: (b) => <ImportStatusBadge status={b.status} />,
     },
     { key: 'rows', header: t('list.rows'), cell: (b) => b.counts.rows, className: 'text-right' },
     {
@@ -80,6 +81,7 @@ export function ImportsPage() {
       {batches.data ? (
         <>
           <DataTable
+            busy={batches.isPlaceholderData}
             caption={t('list.title')}
             columns={columns}
             rows={batches.data.items}

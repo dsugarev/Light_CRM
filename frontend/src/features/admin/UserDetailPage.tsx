@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useMe } from '@/features/auth/useMe'
 import { formatDateTime } from '@/lib/format'
 import { useLocale } from '@/lib/useLocale'
+import { detailListClass } from '@/components/detailList'
 
 import { PasswordLinkPanel } from './PasswordLinkPanel'
 import { useLastAdmin } from './useLastAdmin'
@@ -125,7 +126,7 @@ export function UserDetailPage() {
           <CardTitle>{t('userDetail.actions')}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
+          <dl className={detailListClass('compact')}>
             <dt className="text-muted-foreground">{t('userDetail.created')}</dt>
             <dd>{formatDateTime(u.created_at, locale)}</dd>
             <dt className="text-muted-foreground">{t('userDetail.lastLogin')}</dt>

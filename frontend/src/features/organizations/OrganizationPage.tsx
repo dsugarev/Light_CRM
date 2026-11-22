@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router'
 
 import { api, ApiError, asPage, call, type Schemas } from '@/api/client'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { EmailLink, PhoneLink, WebsiteLink } from '@/components/ContactLinks'
 import { DataTable, type Column } from '@/components/DataTable'
 import { ErrorState } from '@/components/ErrorState'
 import { FormMessage } from '@/components/FormMessage'
@@ -25,6 +26,8 @@ import { formatDate, formatMoney, formatNumber } from '@/lib/format'
 import { useCan } from '@/lib/permissions'
 import { useLocale } from '@/lib/useLocale'
 import { useNotify } from '@/lib/notify'
+import { useTrackRecent } from '@/features/recent/useRecentRecords'
+import { detailListClass } from '@/components/detailList'
 
 type Contact = Schemas['ContactOut']
 
@@ -45,6 +48,7 @@ export function OrganizationPage() {
     queryKey: ['organizations', orgId],
     queryFn: () => call(api.GET('/api/v1/organizations/{org_id}', path)),
   })
+  useTrackRecent('organization', orgId, organization.data?.name, organization.error)
   const contacts = useQuery({
     queryKey: ['organizations', orgId, 'contacts'],
     queryFn: async () =>
@@ -87,7 +91,7 @@ export function OrganizationPage() {
   const actionError = [archive.error, restore.error].find((e) => e instanceof ApiError)
   const canAddContact = can('records.create') && !org.archived_at
 
-  const details: [string, string | null | undefined][] = [
+  const details: [string, React.ReactNode][] = [
     [t('organization.fields.registrationNumber'), org.registration_number],
     [t('organization.fields.vatNumber'), org.vat_number],
     [t('organization.fields.industry'), org.industry ? referenceName(org.industry, locale) : null],
@@ -95,7 +99,7 @@ export function OrganizationPage() {
       t('organization.fields.sizeBand'),
       org.size_band ? t(`organization.sizeBands.${org.size_band}`) : null,
     ],
-    [t('organization.fields.website'), org.website],
+    [t('organization.fields.website'), org.website ? <WebsiteLink website={org.website} /> : null],
     [
       t('organization.fields.addressLine'),
       [org.address_line, org.postal_code, org.city, org.country].filter(Boolean).join(', '),
@@ -113,8 +117,16 @@ export function OrganizationPage() {
       ),
     },
     { key: 'job', header: t('contacts.columns.jobTitle'), cell: (c) => c.job_title ?? '' },
-    { key: 'email', header: t('contacts.columns.email'), cell: (c) => c.email ?? '' },
-    { key: 'phone', header: t('contacts.columns.phone'), cell: (c) => c.phone ?? '' },
+    {
+      key: 'email',
+      header: t('contacts.columns.email'),
+      cell: (c) => <EmailLink email={c.email} />,
+    },
+    {
+      key: 'phone',
+      header: t('contacts.columns.phone'),
+      cell: (c) => <PhoneLink phone={c.phone} />,
+    },
   ]
 
   return (
@@ -200,7 +212,7 @@ export function OrganizationPage() {
             <CardTitle>{t('organization.detail.details')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+            <dl className={detailListClass()}>
               {details.map(([label, value]) => (
                 <div key={label} className="contents">
                   <dt className="text-muted-foreground">{label}</dt>

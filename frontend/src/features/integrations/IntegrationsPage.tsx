@@ -46,7 +46,7 @@ export function IntegrationsPage() {
       key: 'status',
       header: t('list.status'),
       cell: (c) => (
-        <Badge variant={c.is_active ? 'secondary' : 'outline'}>
+        <Badge variant={c.is_active ? 'success' : 'outline'}>
           {c.is_active ? t('status.active') : t('status.inactive')}
         </Badge>
       ),
