@@ -18,6 +18,7 @@
   - Gemini 3.5 Flash through Google, with the new `GEMINI_API_KEY` in `.env`.
 
   A model without its key is greyed out. The free and Gemini options are marked "the provider may keep or use prompts": check with the DPO before using them with real data (operations guide 8.1).
+- **Live evaluation** (28 questions, `docs/assistant-eval.md` run 6): Gemini 3.5 Flash 28/28, Nemotron 3 Ultra 28/28, gpt-oss-120b 27/28 (one case that passes on rerun). The free Nemotron model needs an OpenRouter account with at least 10 USD of credits bought, or OpenRouter allows only 50 free requests a day.
 - Two additive migrations (`0012_assistant_actions`, `0013_ai_model_setting`).
 - The assistant uses about 12,000 tokens per answer; consider raising `AI_DAILY_TOKEN_BUDGET` (default 200,000, roughly 16 answers per user per day).
 

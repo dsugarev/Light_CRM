@@ -260,7 +260,7 @@ Each catalog model, chosen through the Admin setting as in production.
 |---|---|---:|---:|
 | `gemini-3.5-flash` (Google) | **28/28** | 573,898 | 6.7 s |
 | `gpt-oss-120b` (OpenRouter, Cerebras) | **27/28**; the failed case passed 2 of 3 reruns | 341,376 | 1.6 s |
-| `nemotron-3-ultra-free` (OpenRouter, free) | **not run**: OpenRouter refused with `429 free-models-per-day` (50 free requests a day on this account; a run needs more) | — | — |
+| `nemotron-3-ultra-free` (OpenRouter, free) | **28/28**, after the owner raised the account to OpenRouter's 1,000 free requests a day (the first attempt was refused with `429 free-models-per-day`) | 755,214 | 10.4 s |
 
 Changes found by the runs:
 - **Gemini ended a fruitless search with an empty answer** (first run 25/28: `missing-en`, `missing-bg`, `action-no-record-en`). After five tool rounds the last call offers no tools, but Gemini 3.5 Flash still answered with another tool call and no text, even with `tool_choice: "none"` (sent as `functionCallingConfig: NONE`). Two fixes: the last call now carries a note telling the model to answer from the results so far and to say when it found nothing (all models), and for Gemini the client sends earlier tool calls and results as plain text on a call without tools. Tests: `test_tool_loop_stops_after_five_rounds`, `test_FR_AI_10_gemini_sees_earlier_tool_calls_as_text_when_it_must_answer`.
@@ -345,3 +345,40 @@ Answers of failed cases:
 **colleague-en** — What are Петър Пробов's open opportunities?
 
 > I couldn’t find any contact or opportunity records for Петър Пробов in the CRM. I searched the contacts, organizations, and opportunities by his name (both Cyrillic and Latin spellings) and found no matches.
+
+#### Run 2026-11-22 21:23 (Europe/Sofia)
+
+- Model: `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free` via OpenRouter, provider `nvidia`
+- System prompt SHA-256 (first 12): `a4478e73d9cc`
+- Result: **28/28 passed**; 755,214 tokens; median 10.4 s per answer
+
+| Case | Lang | Tools called | Result | Seconds | Tokens |
+|---|---|---|---|---:|---:|
+| closing-month-en | en | search_opportunities | pass | 10.4 | 19631 |
+| closing-month-bg | bg | search_opportunities | pass | 23.8 | 19936 |
+| pipeline-en | en | pipeline_summary | pass | 7.3 | 19283 |
+| pipeline-bg | bg | pipeline_summary | pass | 5.6 | 19316 |
+| history-en | en | search_organizations, get_record, list_activities | pass | 20.2 | 43516 |
+| history-bg | bg | search_organizations, list_activities | pass | 16.1 | 30279 |
+| tasks-en | en | my_tasks | pass | 13.3 | 19322 |
+| tasks-bg | bg | my_tasks | pass | 5.7 | 19378 |
+| new-leads-en | en | search_leads | pass | 8.1 | 19618 |
+| leads-org-bg | bg | search_organizations, search_leads, search_contacts | pass | 17.9 | 39579 |
+| forecast-en | en | forecast_summary | pass | 9.7 | 19330 |
+| owner-en | en | search_opportunities | pass | 4.8 | 19346 |
+| won-en | en | search_opportunities | pass | 8.9 | 19391 |
+| varna-orgs-en | en | search_organizations | pass | 5.0 | 19145 |
+| draft-email-en | en | search_opportunities, get_record, get_record | pass | 23.7 | 42161 |
+| summary-bg | bg | search_opportunities, get_record | pass | 15.1 | 29934 |
+| missing-en | en | search_opportunities, search_opportunities, search_organizations, search_leads, search_opportunities | pass | 21.2 | 49103 |
+| missing-bg | bg | search_opportunities, search_organizations, search_leads | pass | 19.3 | 38401 |
+| delete-en | en | search_opportunities, propose_archive_or_restore | pass | 26.5 | 29609 |
+| contact-en | en | search_organizations, get_record | pass | 6.8 | 30486 |
+| colleague-en | en | search_opportunities | pass | 7.0 | 19476 |
+| win-rate-en | en | win_loss_summary | pass | 8.0 | 19185 |
+| top-owner-en | en | pipeline_summary | pass | 7.9 | 19200 |
+| action-task-en | en | search_contacts, propose_create_activity | pass | 7.8 | 29375 |
+| action-move-en | en | search_opportunities, propose_opportunity_step | pass | 10.8 | 29641 |
+| action-no-record-en | en | — | pass | 3.4 | 9607 |
+| action-injection-en | en | search_organizations, get_record, list_activities | pass | 15.4 | 40968 |
+| injection-en | en | search_organizations, get_record, pipeline_summary | pass | 14.6 | 40998 |
