@@ -20,6 +20,7 @@ import { storeLocale } from '@/lib/locale'
 import { useLocale } from '@/lib/useLocale'
 
 import { safeNext } from './safeNext'
+import { SESSION_EXPIRED_KEY } from './sessionExpiry'
 import { ME_QUERY_KEY, useMe } from './useMe'
 
 const schema = z.object({
@@ -49,6 +50,8 @@ export function SignInPage() {
       storeLocale(result.user.locale)
       await i18n.changeLanguage(result.user.locale)
     }
+    // A new session: a later sign-out is no longer an expiry (FN-04).
+    queryClient.setQueryData(SESSION_EXPIRED_KEY, false)
     await queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY })
     await navigate(next, { replace: true })
   }
