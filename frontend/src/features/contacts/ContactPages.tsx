@@ -55,6 +55,7 @@ export function ContactsPage() {
     {
       key: 'name',
       header: t('contacts.columns.name'),
+      className: 'whitespace-normal [overflow-wrap:anywhere]',
       sortKey: 'last_name',
       cell: (c) => (
         <span className="flex items-center gap-2">
@@ -68,6 +69,7 @@ export function ContactsPage() {
     {
       key: 'organization',
       header: t('contacts.columns.organization'),
+      className: 'whitespace-normal [overflow-wrap:anywhere]',
       cell: (c) =>
         c.organization ? (
           <Link to={`/organizations/${c.organization.id}`} className="hover:underline">
@@ -77,9 +79,25 @@ export function ContactsPage() {
           ''
         ),
     },
-    { key: 'job', header: t('contacts.columns.jobTitle'), cell: (c) => c.job_title ?? '' },
-    { key: 'email', header: t('contacts.columns.email'), cell: (c) => c.email ?? '' },
-    { key: 'owner', header: t('contacts.columns.owner'), cell: (c) => c.owner.full_name },
+    {
+      key: 'job',
+      header: t('contacts.columns.jobTitle'),
+      className: 'hidden lg:table-cell',
+      cell: (c) => c.job_title ?? '',
+    },
+    {
+      key: 'email',
+      header: t('contacts.columns.email'),
+      // Long addresses wrap so the table fits at 768 px (UX-13).
+      className: 'whitespace-normal [overflow-wrap:anywhere]',
+      cell: (c) => c.email ?? '',
+    },
+    {
+      key: 'owner',
+      header: t('contacts.columns.owner'),
+      className: 'hidden lg:table-cell',
+      cell: (c) => c.owner.full_name,
+    },
   ]
   return (
     <section className="mx-auto max-w-6xl">
