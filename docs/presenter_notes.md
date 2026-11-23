@@ -8,9 +8,20 @@ Speaker notes for [`light-crm-introduction.pptx`](light-crm-introduction.pptx), 
 
 ## Before the session
 
-- **The demo environment.** Use the staging stack (`scripts/staging.sh up`, https://localhost:8443 on the demo machine) rather than the production system. Sign in as the demo Admin in advance.
-- **Demo accounts.** Create one account per role you will show (**Users → New user**), and give the demo Sales Rep a few opportunities (**New owner → Assign**) so that "Mine" views have data.
-- **The assistant.** It is off unless `AI_ENABLED=true` and an OpenRouter key are set in `.env.staging`. If it stays off, show slide 10 only and say it can be switched on later.
+- **The demo environment.** Use the local stack on the demo machine (`scripts/start-mac.sh`, https://localhost). It runs the current version, with the assistant switched on. On 2026-11-22 it was cleaned for the presentation: only the fictional sample data from the manuals is left, and a backup of the previous state is in `backups/`. The staging stack (https://localhost:8443) still runs an older version without assistant actions or model choice, so don't demo there unless it has been rebuilt. Never demo on the production system.
+- **Demo accounts.** The four manual users are ready, one per role, with sample data:
+  - **Elena Petrova** (Sales Rep) owns *Sunrise Foods OOD* with its contact *Petar Nikolov*, three deals (one won), two leads and two tasks;
+  - **Georgi Dimitrov** (Sales Manager);
+  - **Nadia Stoyanova** (Admin);
+  - **Ivan Kolev** (Viewer).
+
+  Their password is in `docs/users.md`, which exists only on the demo machine. Sign in once before the session, in separate browser profiles if you will switch roles.
+- **The assistant.** It is on, and it uses the free NVIDIA Nemotron 3 Ultra by default. Answers take about 10–30 seconds. For a quicker live demo, Nadia can choose **gpt-oss-120b** in **Settings** (1–2 seconds per answer) and switch back afterwards. The free model uses about 20,000 tokens per answer, so each person gets roughly 9 answers a day under the default limit. Good questions to show:
+  - *Which of my deals close this month?*
+  - *Summarize the history with Sunrise Foods*
+  - *Create a task due tomorrow to call Petar Nikolov about the fibre offer* (shows the confirmation card)
+  - as Nadia: *How many users are there?*
+- **If the network is down,** the assistant shows "not available right now". Show slide 10 instead; the rest of the CRM is unaffected.
 - **Screenshots.** The dashboard figures on slides 1 and 9 come from a test database (very large totals, a 99% win rate). Mention that the data is fictional if anyone asks.
 - **Handouts.** Point people to their role's manual: `docs/manual/` (Markdown) and `docs/manual/pdf/` (PDF).
 
@@ -134,15 +145,15 @@ To sum up: one shared place for every lead, deal and customer; the same way of q
 
 ## Live demo script (about 5 minutes)
 
-In the demo environment, signed in as the demo Sales Rep:
+In the demo environment, signed in as the demo Sales Rep (Elena Petrova):
 
-1. **Leads → New lead:** title *SD-WAN for 12 branches*, company *Riverside Hotels AD*. Create it.
+1. **Leads → New lead:** title *Fibre backup for 3 hotels*, company *Riverside Hotels AD*. Create it. (Riverside's *SD-WAN for 12 branches* is already in the sample data, so use a different title.)
 2. **Mark as contacted**, then set Budget, Authority, Need and Timeline to *Yes* or *Partial* with short notes. **Save qualification**, and point at the score. Then select **Qualify**.
 3. **Convert:** show the three pre-filled sections and select **Convert**. You land on the new opportunity.
 4. **Sales path:** click **Solution & Proposal**. Point at the toast and the stage history.
 5. **Timeline → Log activity:** a call with two lines, and a task due tomorrow. Open **My tasks**.
 6. **Board → Mine:** drag the card to **Negotiation**, then onto **Won**.
-7. Sign in as the demo Sales Manager (or switch the dashboard to **Everyone**): the deal is already in the figures.
+7. Sign in as the demo Sales Manager, Georgi (or switch the dashboard to **Everyone**): the deal is already in the figures.
 
 ## Questions to prepare for
 
@@ -152,7 +163,7 @@ In the demo environment, signed in as the demo Sales Rep:
 | Can I use it on a tablet? | Yes, it works down to tablet width, with larger touch targets. |
 | Who can see my deals? | Everyone in the team can see all records. Only you (the owner), the Sales Managers and the Admin can change yours. |
 | Can I export to Excel? | Sales Reps export their own records; Sales Managers and Admins export everything; Viewers do not export. |
-| Does the AI assistant change data or send it outside? | Only after you confirm its card, with your permissions. It uses an external AI provider approved by the owner (see the operations guide); it can be switched off. |
+| Does the AI assistant change data or send it outside? | It changes data only after you confirm its card, and only with your permissions. Your questions, and the CRM data it looks up, go to an external AI provider chosen by the Admin. The current default is a free model whose provider may keep prompts, which is fine for the fictional demo data. Before real customer data is used, the data protection officer approves the provider, or the Admin chooses the paid model (gpt-oss-120b), whose data flow is already approved. The Admin can also switch the assistant off. |
 | Is it in Bulgarian? | Every screen is in English and Bulgarian; choose under **My profile → Language**. |
 | What happens if I forget my password? | Use **Forgot your password?** on the sign-in page, or ask the Admin for a reset link. |
 | Is it connected to ERP and Billing? | Yes, through a secure interface. The connections go live once those teams finish their side. |

@@ -228,14 +228,14 @@ The full endpoint catalog, access levels, error codes, payload examples and stre
 
 ### 8.1 LLM access — mandatory rule
 
-**All LLM calls go through LiteLLM in `backend/app/llm/client.py`. The default model is `openrouter/openai/gpt-oss-120b` via OpenRouter with Cerebras as the only provider; when writing code for it, use your Cerebras skill.** The skill is the authority on the exact call; the sketch below shows the intended shape, and where the two differ, follow the skill.
+**All LLM calls go through LiteLLM in `backend/app/llm/client.py`. The default model is the free NVIDIA Nemotron 3 Ultra via OpenRouter (owner, 2026-11-22). For the `gpt-oss-120b` option, `openrouter/openai/gpt-oss-120b` via OpenRouter with Cerebras as the only provider, use your Cerebras skill when writing code.** The skill is the authority on the exact call; the sketch below shows the intended shape, and where the two differ, follow the skill.
 
 **Model choice (Phase 10, FR-AI-10, ADR 0031).** An Admin chooses the model for all users from the catalog in `app/llm/models.py`:
 
 | Catalog id | LiteLLM model | Route | Key | Data note |
 |---|---|---|---|---|
-| `gpt-oss-120b` (default) | `LLM_MODEL` (`openrouter/openai/gpt-oss-120b`) | OpenRouter, provider `LLM_PROVIDER` (`cerebras`) only | `OPENROUTER_API_KEY` | — |
-| `nemotron-3-ultra-free` | `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free` | OpenRouter, provider `nvidia` only | `OPENROUTER_API_KEY` | may keep prompts |
+| `gpt-oss-120b` | `LLM_MODEL` (`openrouter/openai/gpt-oss-120b`) | OpenRouter, provider `LLM_PROVIDER` (`cerebras`) only | `OPENROUTER_API_KEY` | — |
+| `nemotron-3-ultra-free` (default) | `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free` | OpenRouter, provider `nvidia` only | `OPENROUTER_API_KEY` | may keep prompts |
 | `gemini-3.5-flash` | `gemini/gemini-3.5-flash` | Google AI Studio (LiteLLM's `gemini/` provider) | `GEMINI_API_KEY` | may keep prompts |
 
 The choice is the runtime setting `ai_model`. The assistant reads it for every answer and passes it to `LLM.stream(..., model=...)`; the client builds the route (model string, key, OpenRouter provider routing, and `LLM_API_BASE` for OpenRouter routes only). A model without its key cannot be chosen (`422`) and, if its key is removed later, fails the answer with `assistant.provider_unavailable`. `app.core` cannot import `app.llm`, so `app.main` gives the settings endpoints the catalog and the availability check through `app.state`.

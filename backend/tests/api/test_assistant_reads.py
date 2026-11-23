@@ -82,8 +82,8 @@ async def test_FR_AI_02_an_admin_reads_the_settings_and_the_model_in_use(
 ) -> None:
     admin, _ = await test_app.signed_in(RoleCode.ADMIN)
     result = await read(admin, llm, "get_settings")
-    assert result["ai_model"] == "gpt-oss-120b"
-    assert result["ai_model_label"] == "gpt-oss-120b (OpenRouter, Cerebras)"
+    assert result["ai_model"] == "nemotron-3-ultra-free"
+    assert result["ai_model_label"] == "NVIDIA Nemotron 3 Ultra (OpenRouter, free)"
     assert result["stale_opportunity_days"] > 0
     assert "gpt-oss-120b (OpenRouter, Cerebras)" in result["ai_models_available"]
 

@@ -4205,7 +4205,7 @@ export interface components {
         RuntimeSettings: {
             /**
              * Ai Model
-             * @default gpt-oss-120b
+             * @default nemotron-3-ultra-free
              */
             ai_model: string;
             /**

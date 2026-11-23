@@ -224,7 +224,9 @@ test('assistant', async ({ page }) => {
   await shot(page, 'common/assistant')
   await page.getByRole('textbox').last().fill('What is the pipeline value by stage?')
   await page.keyboard.press('Enter')
-  await page.waitForTimeout(4000)
+  // Wait for the finished answer (its Copy button), not a fixed time.
+  await page.getByRole('button', { name: 'Copy' }).last().waitFor({ timeout: 60_000 })
+  await page.waitForTimeout(500)
   await shot(page, 'common/assistant-answer')
 })
 

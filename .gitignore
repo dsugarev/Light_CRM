@@ -38,3 +38,6 @@ Thumbs.db
 *.swp
 # TLS certificate and key from IT (CRM_CERTS_DIR)
 certs/
+
+# Local user list with passwords (never commit; see docs/users.md)
+docs/users.md

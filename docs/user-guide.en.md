@@ -38,7 +38,7 @@ If your Admin has switched it on, the **Assistant** button in the top bar opens 
 - Records it mentions are links. **Copy** copies an answer; **Save as note** saves a draft as a note on a record, after you have checked and edited it.
 - It can be wrong: check figures before you use them. It says so when the CRM does not hold the answer.
 - There is a daily limit per person, shown under the question box.
-- The AI model that answers is shown under the question box too. Your Admin chooses it for everyone in **Settings**.
+- The AI model that answers is shown under the question box too. Your Admin chooses it for everyone in **Settings**. The default is a free model (NVIDIA Nemotron 3 Ultra), which takes about 10–30 seconds per answer.
 
 ## For Sales Managers and Admins
 

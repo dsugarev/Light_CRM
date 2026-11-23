@@ -2784,3 +2784,40 @@ if ctx.principal.role is not RoleCode.ADMIN:
 - `get_settings` gives other roles `not_allowed_for_role`. `list_values` and the activity filters are open to every signed-in user, as the API is.
 - No email address, session, key or audit entry reaches the model.
 
+### Phase 10 follow-up: the free model by default; manuals (owner, 2026-11-22)
+
+| # | Task | Result |
+|---|---|---|
+| 10.11 | `nemotron-3-ultra-free` becomes the default: `models.DEFAULT_MODEL`, the settings default, migration `0014` (column default; installations still on `gpt-oss-120b` switch) | Done |
+| 10.12 | Manuals for all roles, user guides, operations guide, architecture, API spec, ADR 0031 amendment, release notes, CLAUDE.md | Done |
+
+```python
+# alembic/versions/0014_free_model_by_default.py
+op.alter_column("app_setting", "ai_model", server_default="nemotron-3-ultra-free")
+op.execute(sa.text("UPDATE app_setting SET ai_model = 'nemotron-3-ultra-free' "
+                   "WHERE ai_model = 'gpt-oss-120b'"))
+```
+
+- Switching rows that hold `gpt-oss-120b` is safe only because Release 1.1 is not yet released: that value came from `0013`, not from an Admin. The downgrade switches them back.
+- Data protection: the default free endpoint may keep prompts. The Settings screen shows the warning for it, and the admin manual and operations guide ask for the DPO's approval before real customer data is used (or a switch to gpt-oss-120b).
+- Manuals: the Admin manual has the new default and a table comparing the three models (speed, caps, data note). Every role's manual now covers the model name under the question box, the 10–30 s answers of the free model, and a troubleshooting row for "not available right now". The screenshots that show the model were retaken on the local stack: Settings and both assistant images. Other images that changed only because of local test data were left as they were.
+- **Text fix found in the screenshots:** the chat's intro still said "The assistant only reads CRM data; it never changes anything", which has been wrong since Phase 9. It now reads "… or ask it to prepare a change. Nothing changes until you confirm it." (en, bg).
+- **The screenshot script** waits for the finished answer (its **Copy** button) instead of a fixed 4 seconds.
+- **Local passwords (owner's request):** the four manual users have a new password. `docs/users.md` lists the local stack's users, roles and passwords, or one-time reset links. It is in `.gitignore` (no secrets in git, CLAUDE.md) and readable only by its owner.
+
+### Presentation readiness (2026-11-22)
+
+- **Local database cleaned for the business presentation.** A backup was taken first (`backups/before-demo-cleanup-20261122-2237.dump`). One transaction, with foreign keys checked, kept:
+  - the four manual users and their sample records: 1 organization, 1 contact, 2 leads, 3 opportunities, 3 activities;
+  - the lists and stages, which match a fresh installation;
+  - the settings, at their defaults;
+  - the 91 audit entries about the kept users and records.
+
+  It removed everything the automated tests had left: 16,778 organizations, 20,623 leads, about 2,000 test and service users, the integration clients, imports, chats and sessions. One assistant test task ("Call MR Z") went too. Smoke test: all four roles sign in, and the main lists and the dashboard load. The live assistant answered "How many users are there?" with 4, one per role.
+- **Presenter notes:**
+  - demo on the local stack (staging runs an older version);
+  - use the ready demo accounts;
+  - the assistant uses the free model by default, and Settings can switch to gpt-oss-120b for faster answers;
+  - the demo lead is renamed so it doesn't duplicate the sample lead;
+  - the Q&A answer on where assistant data goes now covers the free model and the DPO.
+

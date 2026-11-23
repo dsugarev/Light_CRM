@@ -18,8 +18,8 @@ The Gemini key lists `gemini-2.5-flash`, but Google refuses it to new users (`40
 
 ## Decision
 1. **A fixed catalog of three models** in `app/llm/models.py`:
-   - `gpt-oss-120b`: OpenRouter, Cerebras only. This is the default, and `LLM_MODEL`/`LLM_PROVIDER` still override it.
-   - `nemotron-3-ultra-free`: OpenRouter free endpoint, NVIDIA only.
+   - `gpt-oss-120b`: OpenRouter, Cerebras only. It was the default until 2026-11-22; `LLM_MODEL`/`LLM_PROVIDER` still override it.
+   - `nemotron-3-ultra-free`: OpenRouter free endpoint, NVIDIA only. **The default since 2026-11-22** (owner's decision; migration `0014`).
    - `gemini-3.5-flash`: Google AI Studio, through LiteLLM's `gemini/` provider. No new library. (Approved as "Gemini 2.5 Flash"; changed because Google no longer serves 2.5 Flash to new keys.)
 2. **One setting for everyone.** The runtime setting `ai_model` (Admin **Settings**; `PATCH /settings`) applies to the next question of every user, without a restart, and is audited as `settings.updated`. A model whose API key is not configured cannot be chosen (`422 settings.ai_model_unavailable`). `GET /settings/ai-models` lists the models with `available` and `data_note`.
 3. **All calls still go through `backend/app/llm/client.py`.** It picks the model, key and provider routing per request. LiteLLM is imported nowhere else.
@@ -31,3 +31,8 @@ The Gemini key lists `gemini-2.5-flash`, but Google refuses it to new users (`40
 - Adding a model is a catalog entry plus an evaluation run; no other code changes.
 - Free models have provider request caps and can be slower or less reliable at tool calling. The evaluation shows the difference.
 - The rule in CLAUDE.md that allowed only gpt-oss via Cerebras now names the catalog.
+
+## Amendment 2026-11-22: the free model is the default
+The owner chose the free NVIDIA Nemotron 3 Ultra as the default. It passed the live evaluation 28/28 (run 6) and 37/38 (run 7, one provider error). Migration `0014` makes it the column default and switches installations still on `gpt-oss-120b`. That value had come from migration `0013`, not from an Admin, because Release 1.1 was not yet released.
+
+The data note still applies: the free endpoint may keep or use prompts. The Settings screen shows the warning for the default, and the operations guide asks for the DPO's approval before the assistant is used with real customer data. An Admin can switch back to gpt-oss-120b at any time.
